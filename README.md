@@ -95,7 +95,7 @@ func stringToStatus(s string) status {
 }
 
 func (t status) IsValid() bool {
-	_, ok := typeStatusMap[t]
+	_, ok := strStatusMap[t]
     return ok
 }
 
