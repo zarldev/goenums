@@ -63,7 +63,8 @@ func stringTo{{.TypeName}}(s string) {{.TypeNameLower}} {
 }
 
 func (t {{ .TypeNameLower }}) IsValid() bool {
-    return t != unknown
+    _, ok := str{{.TypeName}}Map[t]
+    return ok
 }
 
 type {{ .TypeNameLower }}sContainer struct {

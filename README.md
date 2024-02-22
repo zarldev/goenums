@@ -95,7 +95,8 @@ func stringToStatus(s string) status {
 }
 
 func (t status) IsValid() bool {
-	return t != unknown
+	_, ok := typeStatusMap[t]
+    return ok
 }
 
 type statussContainer struct {
