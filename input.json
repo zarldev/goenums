@@ -1,0 +1,14 @@
+{
+  "enums": [
+     {
+      "package": "cmd",
+      "type": "operation",
+      "values": [
+        "Escalated",
+        "Archived",
+        "Deleted",
+        "Completed"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,98 @@
+package {{ .Package }}
+
+import "fmt"
+
+type {{ .TypeName }} struct {
+    {{ .TypeNameLower }}
+}
+
+type {{ .TypeNameLower }} int
+
+const (
+{{- range $index, $enum := .Enums }}
+    {{- if eq $index 0 }}
+    unknown {{ .TypeNameLower }} = iota
+    {{ $enum.VariableStrLower }}
+    {{- else }}
+    {{ $enum.VariableStrLower }} 
+    {{- end }}
+{{- end }}
+)
+
+var (
+    str{{.TypeName}}Map = map[{{ .TypeNameLower }}]string{
+{{- range $index, $enum := .Enums }}
+         {{ $enum.VariableStrLower }}: "{{ $enum.VariableStrUpper }}",
+{{- end }}
+    }
+
+    type{{.TypeName}}Map = map[string]{{ .TypeNameLower }}{
+{{- range $index, $enum := .Enums }}
+         "{{ $enum.VariableStrUpper }}": {{ $enum.VariableStrLower }},
+{{- end }}
+    }
+)
+
+func (t {{ .TypeNameLower }}) String() string {
+    return str{{.TypeName}}Map[t]
+}
+
+func Parse(a any) {{.TypeName}} {
+    switch v := a.(type) {
+    case {{.TypeName}}:
+        return v
+    case string:
+        return {{.TypeName}}{ stringTo{{.TypeName}}(v) }
+    case fmt.Stringer:
+        return {{.TypeName}}{stringTo{{.TypeName}}(v.String()) }
+    case int:
+		return {{.TypeName}}{ {{.TypeNameLower}}(v) } 
+	case int64:
+		return {{.TypeName}}{ {{.TypeNameLower}}(int(v)) } 
+	case int32:
+		return {{.TypeName}}{ {{.TypeNameLower}}(int(v)) } 
+	}
+    return {{.TypeName}}{ unknown }
+}
+
+func stringTo{{.TypeName}}(s string) {{.TypeNameLower}} {
+    if v, ok := type{{.TypeName}}Map[s]; ok {
+        return v
+    }
+    return unknown
+}
+
+func (t {{ .TypeNameLower }}) IsValid() bool {
+    return t != unknown
+}
+
+type {{ .TypeNameLower }}sContainer struct {
+    UNKNOWN {{ .TypeName }}
+   {{- range $index, $enum := .Enums }}
+    {{ $enum.VariableStrUpper }} {{ .TypeName }} 
+{{- end }}
+}
+
+var {{ .TypeNamePlural }} = {{ .TypeNameLower }}sContainer{
+    UNKNOWN:{{ .TypeName }} { unknown },
+{{- range $index, $enum := .Enums }}
+    {{ $enum.VariableStrUpper }}:  {{ .TypeName }} { {{ $enum.VariableStrLower }} },
+{{- end }}
+}
+
+func (c {{ .TypeNameLower }}sContainer) All() []{{ .TypeName }} {
+    return []{{ .TypeName }}{
+{{- range $index, $enum := .Enums }}
+        c.{{ $enum.VariableStrUpper }},
+{{- end }}
+    }
+}
+
+func (t {{ .TypeName }}) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + t.String() + `"`), nil
+}
+
+func (t *{{ .TypeName }}) UnmarshalJSON(b []byte) error {
+	*t = Parse(string(b))
+	return nil
+}
