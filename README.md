@@ -148,3 +148,9 @@ The enums can have additional functionality added by just adding another file in
 Also the fact that the enums are concrete types with no way to instantiate the nested struct means that you can't just pass the `int` representation of the enum into the `Status` struct.
 
 The above `Validation Status` can be found in the examples directory along with another file extending the behaviour of the `Status` enum and the `config.json` that was used to generate.
+
+## TODO
+* Move to the use of the //go:generate format
+* Make use of stringer cmd tool for string representation
+* Remove need for JSON configuration
+  
