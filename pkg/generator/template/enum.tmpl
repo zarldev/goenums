@@ -20,7 +20,7 @@ const (
 )
 
 var (
-    str{{.TypeName}}Map = map[{{ .TypeNameLower }}]string{
+    str{{.TypeName}}Array = [...]string{
 {{- range $index, $enum := .Enums }}
          {{ $enum.VariableStrLower }}: "{{ $enum.VariableStrUpper }}",
 {{- end }}
@@ -34,7 +34,7 @@ var (
 )
 
 func (t {{ .TypeNameLower }}) String() string {
-    return str{{.TypeName}}Map[t]
+    return str{{.TypeName}}Array[t]
 }
 
 func Parse(a any) {{.TypeName}} {
@@ -63,8 +63,7 @@ func stringTo{{.TypeName}}(s string) {{.TypeNameLower}} {
 }
 
 func (t {{ .TypeNameLower }}) IsValid() bool {
-    _, ok := str{{.TypeName}}Map[t]
-    return ok
+    return t >= {{.TypeNameLower}}(1) && t <= {{.TypeNameLower}}(len(str{{.TypeName}}Array))
 }
 
 type {{ .TypeNameLower }}sContainer struct {
