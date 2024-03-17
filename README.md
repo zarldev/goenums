@@ -2,10 +2,10 @@
 
 goenums is a tool to help you generate go type safe enums that are much more tightly typed than just `iota` defined enums.
 
-# Usage
-`goenums -h`
-`Usage: goenums <config file path> <output path>`
-### Example
+## Usage
+
+### Using config JSON file
+
 Defining the list of enums their type and package in a JSON list is the configuration format.  This allows generating many enums in one shot.
 input.json:
 ```json
@@ -25,7 +25,15 @@ input.json:
   ]
 }
 ```
-Running the following command `goenums ./input.json ./output` will generate `output/validation/status.go` which looks like:
+
+Running the following command 
+
+```shell
+goenums -cfg "./input.json" -output "./output"
+```
+
+will generate `output/validation/status.go` which looks like:
+
 
 ```golang
 package validation
@@ -135,6 +143,33 @@ func (t *Status) UnmarshalJSON(b []byte) error {
 	return nil
 }
 ```
+
+### Using argument
+
+```shell
+goenums -package "validation" -type "status" -values "Failed, Passed, Skipped, Scheduled, Running" -output "./output"
+```
+
+### Help
+
+```shell
+goenums -help
+```
+
+```shell
+Usage of goenums:
+  -cfg string
+        Config file path. E.g -cfg "./input.json"
+  -output string
+        Output path that will be generated. E.g -output "./output"
+  -package string
+        Package enum that will be generated. E.g -package "validation"
+  -type string
+        Enum type. E.g -type "status"
+  -values string
+        Enum values seperated by ",". E.g -values "Failed, Passed, Skipped, Scheduled, Running"
+```
+
 ## Features
 
 #### String representation
@@ -149,7 +184,5 @@ Also the fact that the enums are concrete types with no way to instantiate the n
 The above `Validation Status` can be found in the examples directory along with another file extending the behaviour of the `Status` enum and the `config.json` that was used to generate.
 
 ## TODO
-* Move to the use of the //go:generate format
 * Make use of stringer cmd tool for string representation
-* Remove need for JSON configuration
   
