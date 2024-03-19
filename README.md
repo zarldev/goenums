@@ -437,9 +437,9 @@ func _() {
 	_ = x[neptune-8]
 }
 
-const _planet_name = "unknownMercuryCVenusEarthMarsJupiterSaturnUranusNeptune"
+const _planet_name = "unknownMercuryVenusEarthMarsJupiterSaturnUranusNeptune"
 
-var _planet_index = [...]uint16{0, 7, 15, 20, 25, 29, 36, 42, 48, 55}
+var _planet_index = [...]uint16{0, 7, 14, 19, 24, 28, 35, 41, 47, 54}
 
 func (i planet) String() string {
 	if i < 0 || i >= planet(len(_planet_index)-1) {
@@ -447,6 +447,13 @@ func (i planet) String() string {
 	}
 	return _planet_name[_planet_index[i]:_planet_index[i+1]]
 }
+
+```
+
+With the above code generated we can use the `ExhaustivePlanets` to iterate over all Enums for example:
+
+```golang
+
 ```
 
 #### Safety

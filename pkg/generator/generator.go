@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"go/ast"
-	"go/format"
 	"go/parser"
 	"go/token"
 	"io"
@@ -299,18 +298,19 @@ func ParseAndGenerate(filename string) error {
 		log.Fatalf("Error creating file: %v", err)
 	}
 	defer f.Close()
-	setupPackage(f, enumRep)
-	setupImports(f)
-	setupWrapperType(f, enumRep)
-	setupAllMethod(f, enumRep)
-	setupParseMethod(f, enumRep)
-	setupExhaustiveMethod(f, enumRep)
-	setupIsValidMethod(f, enumRep)
-	setupJSONMarshalMethod(f, enumRep)
-	setupJSONUnmarshalMethod(f, enumRep)
-	setupCompileCheck(f, enumRep)
-	setupStringMethod(f, enumRep)
-	//formatFile(f)
+	w := io.StringWriter(f)
+	setupPackage(w, enumRep)
+	setupImports(w)
+	setupWrapperType(w, enumRep)
+	setupAllMethod(w, enumRep)
+	setupParseMethod(w, enumRep)
+	setupExhaustiveMethod(w, enumRep)
+	setupIsValidMethod(w, enumRep)
+	setupJSONMarshalMethod(w, enumRep)
+	setupJSONUnmarshalMethod(w, enumRep)
+	setupCompileCheck(w, enumRep)
+	setupStringMethod(w, enumRep)
+
 	return nil
 }
 func setupStringMethod(w io.StringWriter, rep EnumRepresentation) {
@@ -343,26 +343,6 @@ func generateIndexAndNameRun(rep EnumRepresentation) (string, string) {
 	}
 	fmt.Fprintf(b, "}\n")
 	return b.String(), nameConst
-}
-
-func formatFile(f *os.File) {
-	// format the file
-	src, err := io.ReadAll(f)
-	if err != nil {
-		log.Fatalf("Error reading file: %v", err)
-	}
-	formattedSrc, err := format.Source(src)
-	if err != nil {
-		fmt.Println("Error formatting source:", err)
-		return
-	}
-
-	// Write the formatted source back to the file
-	err = os.WriteFile("srced"+f.Name(), formattedSrc, 0644)
-	if err != nil {
-		fmt.Println("Error writing file:", err)
-		return
-	}
 }
 
 func setupCompileCheck(w io.StringWriter, rep EnumRepresentation) {
@@ -406,7 +386,6 @@ func setupIsValidMethod(w io.StringWriter, rep EnumRepresentation) {
 }
 
 func setupExhaustiveMethod(w io.StringWriter, rep EnumRepresentation) {
-	// open file writer for writing
 	w.WriteString("func Exhaustive" + rep.TypeInfo.Camel + "s(f func(" + rep.TypeInfo.Camel + ")) {\n")
 	w.WriteString("\tfor _, p := range " + rep.TypeInfo.PluralCamel + ".All() {\n")
 	w.WriteString("\t\tf(p)\n")
