@@ -2,52 +2,56 @@ package main
 
 import (
 	"fmt"
+	"go/format"
+	"io"
+	"log/slog"
 	"os"
 
-	"github.com/zarldev/goenums/pkg/config"
 	"github.com/zarldev/goenums/pkg/generator"
 )
 
 func main() {
-	config, err := ParseInput()
-	if err != nil {
+	var err error
+	if len(os.Args) != 2 {
+		printHelp()
 		return
 	}
-	g := generator.New(config)
-	err = g.Generate()
+	filename := os.Args[1]
+	err = generator.ParseAndGenerate(filename)
 	if err != nil {
-		fmt.Println("Error generating code", err)
+		slog.Error("Failed to generate enums: %v", err)
+		os.Exit(1)
+	}
+	file, err := os.Open(filename)
+	if err != nil {
+		slog.Error("Failed to open file: %v", err)
+		os.Exit(1)
+	}
+	defer func() {
+		if err != nil {
+			slog.Error("Failed to close file: %v", err)
+			os.Exit(1)
+		}
+	}()
+
+	b, err := io.ReadAll(file)
+	if err != nil {
+		slog.Error("Failed to read file: %v", err)
 		return
 	}
-}
-
-func ParseInput() (config.Config, error) {
-	err := validateInput()
+	src, err := format.Source(b)
 	if err != nil {
-		return config.Config{}, err
+		slog.Error("Failed to format source: %v", err)
+		return
 	}
-	cfgPath := os.Args[1]
-	cfg, err := config.ReadConfig(cfgPath)
+	err = os.WriteFile("_"+filename, src, 0644)
 	if err != nil {
-		return config.Config{}, err
+		slog.Error("Failed to write file: %v", err)
+		return
 	}
-	cfg.OutputPath = os.Args[2]
-	return cfg, err
-}
-
-func validateInput() error {
-	if len(os.Args) < 3 {
-		printHelp()
-		return fmt.Errorf("not enough arguments")
-	}
-	arg1 := os.Args[1]
-	if arg1 == "-h" || arg1 == "--h" || arg1 == "-help" || arg1 == "--help" {
-		printHelp()
-		return fmt.Errorf("help")
-	}
-	return nil
+	fmt.Println("Enums generated successfully!")
 }
 
 func printHelp() {
-	fmt.Println("Usage: goenums <config file path> <output path>")
+	fmt.Println("Usage: goenums <filename.go>")
 }
