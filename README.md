@@ -182,21 +182,21 @@ For example we have the file below called plants.go :
 ```golang
 package milkyway
 
-// Extra properties defined on the 
 type planet int // Gravity[float64],RadiusKm[float64],MassKg[float64],OrbitKm[float64],OrbitDays[float64],SurfacePressureBars[float64],Moons[int],Rings[bool]
 
 //go:generate goenums planets.go
 const (
 	unknown planet = iota // invalid
-	mercury               // Mercury 0.38,2439.7,3.3e23,57910000,88,0.0000000001,0,false
-	venus                 // Venus 0.95,6051.8,4.87e24,108200000,225,92,0,false
+	mercury               // Mercury 0.378,2439.7,3.3e23,57910000,88,0.0000000001,0,false
+	venus                 // Venus 0.907,6051.8,4.87e24,108200000,225,92,0,false
 	earth                 // Earth 1,6378.1,5.97e24,149600000,365,1,1,false
-	mars                  // Mars 0.38,3389.5,6.42e23,227900000,687,0.01,2,false
-	jupiter               // Jupiter 2.64,69911,1.90e27,778600000,4333,20,4,true
-	saturn                // Saturn 1.16,58232,5.68e26,1433500000,10759,1,7,true
-	uranus                // Uranus 1.11,25362,8.68e25,2872500000,30687,1.3,13,true
-	neptune               // Neptune 1.18,24622,1.02e26,4495100000,60190,1.5,2,true
+	mars                  // Mars 0.377,3389.5,6.42e23,227900000,687,0.01,2,false
+	jupiter               // Jupiter 2.36,69911,1.90e27,778600000,4333,20,4,true
+	saturn                // Saturn 0.916,58232,5.68e26,1433500000,10759,1,7,true
+	uranus                // Uranus 0.889,25362,8.68e25,2872500000,30687,1.3,13,true
+	neptune               // Neptune 1.12,24622,1.02e26,4495100000,60190,1.5,2,true
 )
+
 ```
 
 Now running the `go generate` command will generate the following code in a new file called `planet_enum.go`
@@ -237,7 +237,7 @@ type planetContainer struct {
 var Planets = planetContainer{
 	MERCURY: Planet{
 		planet:              mercury,
-		Gravity:             0.38,
+		Gravity:             0.378,
 		RadiusKm:            2439.7,
 		MassKg:              3.3e23,
 		OrbitKm:             57910000,
@@ -248,7 +248,7 @@ var Planets = planetContainer{
 	},
 	VENUS: Planet{
 		planet:              venus,
-		Gravity:             0.95,
+		Gravity:             0.907,
 		RadiusKm:            6051.8,
 		MassKg:              4.87e24,
 		OrbitKm:             108200000,
@@ -270,7 +270,7 @@ var Planets = planetContainer{
 	},
 	MARS: Planet{
 		planet:              mars,
-		Gravity:             0.38,
+		Gravity:             0.377,
 		RadiusKm:            3389.5,
 		MassKg:              6.42e23,
 		OrbitKm:             227900000,
@@ -281,7 +281,7 @@ var Planets = planetContainer{
 	},
 	JUPITER: Planet{
 		planet:              jupiter,
-		Gravity:             2.64,
+		Gravity:             2.36,
 		RadiusKm:            69911,
 		MassKg:              1.90e27,
 		OrbitKm:             778600000,
@@ -292,7 +292,7 @@ var Planets = planetContainer{
 	},
 	SATURN: Planet{
 		planet:              saturn,
-		Gravity:             1.16,
+		Gravity:             0.916,
 		RadiusKm:            58232,
 		MassKg:              5.68e26,
 		OrbitKm:             1433500000,
@@ -303,7 +303,7 @@ var Planets = planetContainer{
 	},
 	URANUS: Planet{
 		planet:              uranus,
-		Gravity:             1.11,
+		Gravity:             0.889,
 		RadiusKm:            25362,
 		MassKg:              8.68e25,
 		OrbitKm:             2872500000,
@@ -314,7 +314,7 @@ var Planets = planetContainer{
 	},
 	NEPTUNE: Planet{
 		planet:              neptune,
-		Gravity:             1.18,
+		Gravity:             1.12,
 		RadiusKm:            24622,
 		MassKg:              1.02e26,
 		OrbitKm:             4495100000,
@@ -447,13 +447,28 @@ func (i planet) String() string {
 	}
 	return _planet_name[_planet_index[i]:_planet_index[i+1]]
 }
-
 ```
 
 With the above code generated we can use the `ExhaustivePlanets` to iterate over all Enums for example:
 
 ```golang
+package main
 
+import (
+	"fmt"
+
+	"github.com/zarldev/goenums/examples/milkyway"
+)
+
+func main() {
+	weightKg := 100.0
+	milkyway.ExhaustivePlanets(func(p milkyway.Planet) {
+		// calculate weight on each planet
+		gravity := p.Gravity
+		planetMass := weightKg * gravity
+		fmt.Printf("Weight on %s is %fKg with gravity %f\n", p, planetMass, gravity)
+	})
+}
 ```
 
 #### Safety

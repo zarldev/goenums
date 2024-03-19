@@ -34,7 +34,7 @@ type planetContainer struct {
 var Planets = planetContainer{
 	MERCURY: Planet{
 		planet:              mercury,
-		Gravity:             0.38,
+		Gravity:             0.378,
 		RadiusKm:            2439.7,
 		MassKg:              3.3e23,
 		OrbitKm:             57910000,
@@ -45,7 +45,7 @@ var Planets = planetContainer{
 	},
 	VENUS: Planet{
 		planet:              venus,
-		Gravity:             0.95,
+		Gravity:             0.907,
 		RadiusKm:            6051.8,
 		MassKg:              4.87e24,
 		OrbitKm:             108200000,
@@ -67,7 +67,7 @@ var Planets = planetContainer{
 	},
 	MARS: Planet{
 		planet:              mars,
-		Gravity:             0.38,
+		Gravity:             0.377,
 		RadiusKm:            3389.5,
 		MassKg:              6.42e23,
 		OrbitKm:             227900000,
@@ -78,7 +78,7 @@ var Planets = planetContainer{
 	},
 	JUPITER: Planet{
 		planet:              jupiter,
-		Gravity:             2.64,
+		Gravity:             2.36,
 		RadiusKm:            69911,
 		MassKg:              1.90e27,
 		OrbitKm:             778600000,
@@ -89,7 +89,7 @@ var Planets = planetContainer{
 	},
 	SATURN: Planet{
 		planet:              saturn,
-		Gravity:             1.16,
+		Gravity:             0.916,
 		RadiusKm:            58232,
 		MassKg:              5.68e26,
 		OrbitKm:             1433500000,
@@ -100,7 +100,7 @@ var Planets = planetContainer{
 	},
 	URANUS: Planet{
 		planet:              uranus,
-		Gravity:             1.11,
+		Gravity:             0.889,
 		RadiusKm:            25362,
 		MassKg:              8.68e25,
 		OrbitKm:             2872500000,
@@ -111,7 +111,7 @@ var Planets = planetContainer{
 	},
 	NEPTUNE: Planet{
 		planet:              neptune,
-		Gravity:             1.18,
+		Gravity:             1.12,
 		RadiusKm:            24622,
 		MassKg:              1.02e26,
 		OrbitKm:             4495100000,
@@ -234,9 +234,9 @@ func _() {
 	_ = x[neptune-8]
 }
 
-const _planet_name = "unknownMercuryCVenusEarthMarsJupiterSaturnUranusNeptune"
+const _planet_name = "unknownMercuryVenusEarthMarsJupiterSaturnUranusNeptune"
 
-var _planet_index = [...]uint16{0, 7, 15, 20, 25, 29, 36, 42, 48, 55}
+var _planet_index = [...]uint16{0, 7, 14, 19, 24, 28, 35, 41, 47, 54}
 
 func (i planet) String() string {
 	if i < 0 || i >= planet(len(_planet_index)-1) {

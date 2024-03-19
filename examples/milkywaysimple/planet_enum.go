@@ -1,30 +1,29 @@
 package milkywaysimple
 
 import (
-	"fmt"
-	"strings"
-	"strconv"
 	"bytes"
+	"fmt"
+	"strconv"
+	"strings"
 )
 
 type Planet struct {
-planet
+	planet
 }
 
 type planetContainer struct {
 	UNKNOWN Planet
 	MERCURY Planet
-	VENUS Planet
-	EARTH Planet
-	MARS Planet
+	VENUS   Planet
+	EARTH   Planet
+	MARS    Planet
 	JUPITER Planet
-	SATURN Planet
-	URANUS Planet
+	SATURN  Planet
+	URANUS  Planet
 	NEPTUNE Planet
 }
 
-var Planets = planetContainer{
-}
+var Planets = planetContainer{}
 
 func (c planetContainer) All() []Planet {
 	return []Planet{
@@ -85,10 +84,10 @@ func stringToPlanet(s string) Planet {
 }
 
 func intToPlanet(i int) Planet {
-	if i < 0 || i >= len(Planets .All()) {
+	if i < 0 || i >= len(Planets.All()) {
 		return invalidPlanet
 	}
-	return Planets .All()[i]
+	return Planets.All()[i]
 }
 
 func ExhaustivePlanets(f func(Planet)) {
@@ -99,12 +98,12 @@ func ExhaustivePlanets(f func(Planet)) {
 
 var validPlanets = map[Planet]bool{
 	Planets.MERCURY: true,
-	Planets.VENUS: true,
-	Planets.EARTH: true,
-	Planets.MARS: true,
+	Planets.VENUS:   true,
+	Planets.EARTH:   true,
+	Planets.MARS:    true,
 	Planets.JUPITER: true,
-	Planets.SATURN: true,
-	Planets.URANUS: true,
+	Planets.SATURN:  true,
+	Planets.URANUS:  true,
 	Planets.NEPTUNE: true,
 }
 
@@ -113,11 +112,11 @@ func (p Planet) IsValid() bool {
 }
 
 func (p Planet) MarshalJSON() ([]byte, error) {
-	return []byte(`"`+p.String() + `"`), nil
+	return []byte(`"` + p.String() + `"`), nil
 }
 
 func (p *Planet) UnmarshalJSON(b []byte) error {
-b = bytes.Trim(bytes.Trim(b, `"`), ` `)
+	b = bytes.Trim(bytes.Trim(b, `"`), ` `)
 	*p = ParsePlanet(string(b))
 	return nil
 }
@@ -127,19 +126,20 @@ func _() {
 	// Re-run the goenums command to generate them again.
 	// Does not identify newly added constant values unless order changes
 	var x [1]struct{}
-	_ = x[unknown - 0]
-	_ = x[mercury - 1]
-	_ = x[venus - 2]
-	_ = x[earth - 3]
-	_ = x[mars - 4]
-	_ = x[jupiter - 5]
-	_ = x[saturn - 6]
-	_ = x[uranus - 7]
-	_ = x[neptune - 8]
+	_ = x[unknown-0]
+	_ = x[mercury-1]
+	_ = x[venus-2]
+	_ = x[earth-3]
+	_ = x[mars-4]
+	_ = x[jupiter-5]
+	_ = x[saturn-6]
+	_ = x[uranus-7]
+	_ = x[neptune-8]
 }
+
 const _planet_name = "unknownmercuryvenusearthmarsjupitersaturnuranusneptune"
 
-var  _planet_index = [...]uint16{0, 7, 14, 19, 24, 28, 35, 41, 47, 54}
+var _planet_index = [...]uint16{0, 7, 14, 19, 24, 28, 35, 41, 47, 54}
 
 func (i planet) String() string {
 	if i < 0 || i >= planet(len(_planet_index)-1) {
