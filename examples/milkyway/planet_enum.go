@@ -1,0 +1,246 @@
+package milkyway
+
+import (
+	"bytes"
+	"fmt"
+	"strconv"
+	"strings"
+)
+
+type Planet struct {
+	planet
+	Gravity             float64
+	RadiusKm            float64
+	MassKg              float64
+	OrbitKm             float64
+	OrbitDays           float64
+	SurfacePressureBars float64
+	Moons               int
+	Rings               bool
+}
+
+type planetContainer struct {
+	UNKNOWN Planet
+	MERCURY Planet
+	VENUS   Planet
+	EARTH   Planet
+	MARS    Planet
+	JUPITER Planet
+	SATURN  Planet
+	URANUS  Planet
+	NEPTUNE Planet
+}
+
+var Planets = planetContainer{
+	MERCURY: Planet{
+		planet:              mercury,
+		Gravity:             0.38,
+		RadiusKm:            2439.7,
+		MassKg:              3.3e23,
+		OrbitKm:             57910000,
+		OrbitDays:           88,
+		SurfacePressureBars: 0.0000000001,
+		Moons:               0,
+		Rings:               false,
+	},
+	VENUS: Planet{
+		planet:              venus,
+		Gravity:             0.95,
+		RadiusKm:            6051.8,
+		MassKg:              4.87e24,
+		OrbitKm:             108200000,
+		OrbitDays:           225,
+		SurfacePressureBars: 92,
+		Moons:               0,
+		Rings:               false,
+	},
+	EARTH: Planet{
+		planet:              earth,
+		Gravity:             1,
+		RadiusKm:            6378.1,
+		MassKg:              5.97e24,
+		OrbitKm:             149600000,
+		OrbitDays:           365,
+		SurfacePressureBars: 1,
+		Moons:               1,
+		Rings:               false,
+	},
+	MARS: Planet{
+		planet:              mars,
+		Gravity:             0.38,
+		RadiusKm:            3389.5,
+		MassKg:              6.42e23,
+		OrbitKm:             227900000,
+		OrbitDays:           687,
+		SurfacePressureBars: 0.01,
+		Moons:               2,
+		Rings:               false,
+	},
+	JUPITER: Planet{
+		planet:              jupiter,
+		Gravity:             2.64,
+		RadiusKm:            69911,
+		MassKg:              1.90e27,
+		OrbitKm:             778600000,
+		OrbitDays:           4333,
+		SurfacePressureBars: 20,
+		Moons:               4,
+		Rings:               true,
+	},
+	SATURN: Planet{
+		planet:              saturn,
+		Gravity:             1.16,
+		RadiusKm:            58232,
+		MassKg:              5.68e26,
+		OrbitKm:             1433500000,
+		OrbitDays:           10759,
+		SurfacePressureBars: 1,
+		Moons:               7,
+		Rings:               true,
+	},
+	URANUS: Planet{
+		planet:              uranus,
+		Gravity:             1.11,
+		RadiusKm:            25362,
+		MassKg:              8.68e25,
+		OrbitKm:             2872500000,
+		OrbitDays:           30687,
+		SurfacePressureBars: 1.3,
+		Moons:               13,
+		Rings:               true,
+	},
+	NEPTUNE: Planet{
+		planet:              neptune,
+		Gravity:             1.18,
+		RadiusKm:            24622,
+		MassKg:              1.02e26,
+		OrbitKm:             4495100000,
+		OrbitDays:           60190,
+		SurfacePressureBars: 1.5,
+		Moons:               2,
+		Rings:               true,
+	},
+}
+
+func (c planetContainer) All() []Planet {
+	return []Planet{
+		c.MERCURY,
+		c.VENUS,
+		c.EARTH,
+		c.MARS,
+		c.JUPITER,
+		c.SATURN,
+		c.URANUS,
+		c.NEPTUNE,
+	}
+}
+
+var invalidPlanet = Planet{}
+
+func ParsePlanet(a any) Planet {
+	switch v := a.(type) {
+	case Planet:
+		return v
+	case string:
+		return stringToPlanet(v)
+	case fmt.Stringer:
+		return stringToPlanet(v.String())
+	case int:
+		return intToPlanet(v)
+	case int64:
+		return intToPlanet(int(v))
+	case int32:
+		return intToPlanet(int(v))
+	}
+	return invalidPlanet
+}
+
+func stringToPlanet(s string) Planet {
+	lwr := strings.ToLower(s)
+	switch lwr {
+	case "unknown":
+		return Planets.UNKNOWN
+	case "mercury":
+		return Planets.MERCURY
+	case "venus":
+		return Planets.VENUS
+	case "earth":
+		return Planets.EARTH
+	case "mars":
+		return Planets.MARS
+	case "jupiter":
+		return Planets.JUPITER
+	case "saturn":
+		return Planets.SATURN
+	case "uranus":
+		return Planets.URANUS
+	case "neptune":
+		return Planets.NEPTUNE
+	}
+	return invalidPlanet
+}
+
+func intToPlanet(i int) Planet {
+	if i < 0 || i >= len(Planets.All()) {
+		return invalidPlanet
+	}
+	return Planets.All()[i]
+}
+
+func ExhaustivePlanets(f func(Planet)) {
+	for _, p := range Planets.All() {
+		f(p)
+	}
+}
+
+var validPlanets = map[Planet]bool{
+	Planets.MERCURY: true,
+	Planets.VENUS:   true,
+	Planets.EARTH:   true,
+	Planets.MARS:    true,
+	Planets.JUPITER: true,
+	Planets.SATURN:  true,
+	Planets.URANUS:  true,
+	Planets.NEPTUNE: true,
+}
+
+func (p Planet) IsValid() bool {
+	return validPlanets[p]
+}
+
+func (p Planet) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + p.String() + `"`), nil
+}
+
+func (p *Planet) UnmarshalJSON(b []byte) error {
+	b = bytes.Trim(bytes.Trim(b, `"`), ` `)
+	*p = ParsePlanet(string(b))
+	return nil
+}
+
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the goenums command to generate them again.
+	// Does not identify newly added constant values unless order changes
+	var x [1]struct{}
+	_ = x[unknown-0]
+	_ = x[mercury-1]
+	_ = x[venus-2]
+	_ = x[earth-3]
+	_ = x[mars-4]
+	_ = x[jupiter-5]
+	_ = x[saturn-6]
+	_ = x[uranus-7]
+	_ = x[neptune-8]
+}
+
+const _planet_name = "unknownMercuryCVenusEarthMarsJupiterSaturnUranusNeptune"
+
+var _planet_index = [...]uint16{0, 7, 15, 20, 25, 29, 36, 42, 48, 55}
+
+func (i planet) String() string {
+	if i < 0 || i >= planet(len(_planet_index)-1) {
+		return "planet(" + (strconv.FormatInt(int64(i), 10) + ")")
+	}
+	return _planet_name[_planet_index[i]:_planet_index[i+1]]
+}
