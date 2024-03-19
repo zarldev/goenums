@@ -1,7 +1,7 @@
 # goenums
 
-
-[![go-recipes](https://raw.githubusercontent.com/nikolaydubina/go-recipes/main/badge.svg?raw=true)](https://github.com/nikolaydubina/go-recipes)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![build](https://github.com/zarldev/goenums/actions/workflows/go.yml/badge.svg)
 
 goenums is a tool to help you generate go type safe enums that are much more tightly typed than just `iota` defined enums.
 
@@ -75,15 +75,15 @@ func ParseStatus(a any) Status {
 	switch v := a.(type) {
 	case Status:
 		return v
-	case string:
-		return stringToStatus(v)
 	case fmt.Stringer:
 		return stringToStatus(v.String())
+	case string:
+		return stringToStatus(v)
 	case int:
 		return intToStatus(v)
-	case int64:
-		return intToStatus(int(v))
 	case int32:
+		return intToStatus(int(v))
+	case int64:
 		return intToStatus(int(v))
 	}
 	return invalidStatus
@@ -117,7 +117,7 @@ func intToStatus(i int) Status {
 	return Statuses.All()[i]
 }
 
-func ExhaustiveStatuss(f func(Status)) {
+func ExhaustiveStatuses(f func(Status)) {
 	for _, p := range Statuses.All() {
 		f(p)
 	}
@@ -142,6 +142,8 @@ func (p Status) MarshalJSON() ([]byte, error) {
 }
 
 func (p *Status) UnmarshalJSON(b []byte) error {
+	if bytes.CO
+
 	b = bytes.Trim(bytes.Trim(b, `"`), ` `)
 	*p = ParseStatus(string(b))
 	return nil
@@ -479,4 +481,5 @@ Also the fact that the enums are concrete types with no way to instantiate the n
 
 The above `Status` and `Planet` examples can be found in the examples directory.
 
-  
+### Mentions
+[![go-recipes](https://raw.githubusercontent.com/nikolaydubina/go-recipes/main/badge.svg?raw=true)](https://github.com/nikolaydubina/go-recipes)
