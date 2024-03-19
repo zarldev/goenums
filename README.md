@@ -1,5 +1,8 @@
 # goenums
 
+
+[![go-recipes](https://raw.githubusercontent.com/nikolaydubina/go-recipes/main/badge.svg?raw=true)](https://github.com/nikolaydubina/go-recipes)
+
 goenums is a tool to help you generate go type safe enums that are much more tightly typed than just `iota` defined enums.
 
 # Usage
