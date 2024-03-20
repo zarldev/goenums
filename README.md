@@ -5,6 +5,9 @@
 
 goenums is a tool to help you generate go type safe enums that are much more tightly typed than just `iota` defined enums.
 
+# Installation
+`go install github.com/zarldev/goenums@latest`
+
 # Usage
 `goenums -h`
 `Usage: goenums <file-with-iota>`
