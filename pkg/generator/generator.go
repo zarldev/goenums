@@ -8,7 +8,9 @@ import (
 	"go/token"
 	"io"
 	"log"
+	"log/slog"
 	"os"
+	"os/exec"
 	"strings"
 
 	"golang.org/x/text/cases"
@@ -311,6 +313,7 @@ func ParseAndGenerate(filename string) error {
 	setupJSONUnmarshalMethod(w, enumRep)
 	setupCompileCheck(w, enumRep)
 	setupStringMethod(w, enumRep)
+	formatGeneratedFile(f)
 
 	return nil
 }
@@ -499,4 +502,16 @@ func setupStringToTypeMethod(w io.StringWriter, rep EnumRepresentation) {
 	w.WriteString("\t}\n")
 	w.WriteString("\treturn invalid" + rep.TypeInfo.Camel + "\n")
 	w.WriteString("}\n\n")
+}
+
+func formatGeneratedFile(f *os.File) {
+	cmd := exec.Command("gofmt", "-w", f.Name())
+	output, err := cmd.Output()
+	if err != nil {
+		slog.Error("Failed to format generated file using gofmt: %v", err)
+	}
+
+	if string(output) != "" {
+		fmt.Println(output)
+	}
 }
