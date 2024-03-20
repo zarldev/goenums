@@ -142,8 +142,6 @@ func (p Status) MarshalJSON() ([]byte, error) {
 }
 
 func (p *Status) UnmarshalJSON(b []byte) error {
-	if bytes.CO
-
 	b = bytes.Trim(bytes.Trim(b, `"`), ` `)
 	*p = ParseStatus(string(b))
 	return nil
