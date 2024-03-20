@@ -23,7 +23,7 @@ jobs:
         check-latest: true
 
     - name: Build
-      run: go build -v -o goenums cmd/goenums.go   
+      run: go build -v -o goenums goenums.go   
 
     - name: Test
       run: go test -v ./...
