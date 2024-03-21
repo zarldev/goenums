@@ -58,7 +58,29 @@ type statusContainer struct {
 	BOOKED    Status
 }
 
-var Statuses = statusContainer{}
+var Statuses = statusContainer{
+	UNKNOWN: Status{
+		status: unknown,
+	},
+	FAILED: Status{
+		status: failed,
+	},
+	PASSED: Status{
+		status: passed,
+	},
+	SKIPPED: Status{
+		status: skipped,
+	},
+	SCHEDULED: Status{
+		status: scheduled,
+	},
+	RUNNING: Status{
+		status: running,
+	},
+	BOOKED: Status{
+		status: booked,
+	},
+}
 
 func (c statusContainer) All() []Status {
 	return []Status{
