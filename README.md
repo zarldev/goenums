@@ -504,5 +504,8 @@ Also the fact that the enums are concrete types with no way to instantiate the n
 
 The above `Status` and `Planet` examples can be found in the examples directory.
 
+#### Gorm ORM
+If you use gorm in your project, just use gorm:"serializer:json" to store the enum in your database
+
 ### Mentions
 [![go-recipes](https://raw.githubusercontent.com/nikolaydubina/go-recipes/main/badge.svg?raw=true)](https://github.com/nikolaydubina/go-recipes)
