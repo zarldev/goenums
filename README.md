@@ -205,7 +205,7 @@ All enums are generated with a String representation for each enum and JSON Mars
 #### Extendable
 The enums can have additional functionality added by just adding comments to the type definition and corresponding values to the comments in the iota definitions.  There is also the `invalid` comment flag which will no longer include the value in the exhaustive list. 
 
-For example we have the file below called plants.go :
+For example we have the file below called planets.go :
 
 ```golang
 package milkyway
