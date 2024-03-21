@@ -450,7 +450,7 @@ func setupWrapperType(w io.Writer, rep EnumRepresentation) {
 	w.Write([]byte("}\n\n"))
 	w.Write([]byte("var " + rep.TypeInfo.PluralCamel + " = " + rep.TypeInfo.Lower + "Container{\n"))
 	for _, info := range rep.Enums {
-		if info.Info.Valid && len(info.TypeInfo.NameTypePairs) > 0 {
+		if info.Info.Valid {
 			w.Write([]byte("\t" + info.Info.Upper + ": " + info.TypeInfo.Camel + "{ \n\t" + info.TypeInfo.Name + ":" + info.Info.Name + ",\n"))
 			for i := range info.TypeInfo.NameTypePairs {
 				w.Write([]byte(info.TypeInfo.NameTypePairs[i].Name + ": " + info.TypeInfo.NameTypePairs[i].Value + ",\n"))
