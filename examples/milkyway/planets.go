@@ -2,7 +2,7 @@ package milkyway
 
 type planet int // Gravity[float64],RadiusKm[float64],MassKg[float64],OrbitKm[float64],OrbitDays[float64],SurfacePressureBars[float64],Moons[int],Rings[bool]
 
-//go:generate goenums planets.go
+//go:generate goenums -file planets.go
 const (
 	unknown planet = iota // invalid
 	mercury               // Mercury 0.378,2439.7,3.3e23,57910000,88,0.0000000001,0,false

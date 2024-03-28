@@ -9,8 +9,13 @@ goenums is a tool to help you generate go type safe enums that are much more tig
 `go install github.com/zarldev/goenums@latest`
 
 # Usage
-`goenums -h`
-`Usage: goenums <file-with-iota>`
+```
+Usage of goenums:
+  -file string
+        Path to the file to generate enums from
+  -valuer string
+        The return value type of db valuer implementation, support int and string (default "string")
+```
 
 ### Example
 Defining the list of enums in the respective go file and then point the goenum binary at the require file.  This can be specified in the go generate command like below:
@@ -21,7 +26,7 @@ package validation
 
 type status int
 
-//go:generate goenums status.go
+//go:generate goenums -file status.go
 const (
 	unknown status = iota
 	failed
@@ -39,6 +44,7 @@ package validation
 
 import (
 	"bytes"
+	"database/sql/driver"
 	"fmt"
 	"strconv"
 	"strings"
@@ -100,15 +106,17 @@ func ParseStatus(a any) Status {
 	switch v := a.(type) {
 	case Status:
 		return v
-	case fmt.Stringer:
-		return stringToStatus(v.String())
+	case []byte:
+		return stringToStatus(string(v))
 	case string:
 		return stringToStatus(v)
+	case fmt.Stringer:
+		return stringToStatus(v.String())
 	case int:
 		return intToStatus(v)
-	case int32:
-		return intToStatus(int(v))
 	case int64:
+		return intToStatus(int(v))
+	case int32:
 		return intToStatus(int(v))
 	}
 	return invalidStatus
@@ -142,7 +150,7 @@ func intToStatus(i int) Status {
 	return Statuses.All()[i]
 }
 
-func ExhaustiveStatuses(f func(Status)) {
+func ExhaustiveStatuss(f func(Status)) {
 	for _, p := range Statuses.All() {
 		f(p)
 	}
@@ -172,6 +180,15 @@ func (p *Status) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+func (p *Status) Scan(value any) error {
+	*p = ParseStatus(value)
+	return nil
+}
+
+func (p Status) Value() (driver.Value, error) {
+	return p.String(), nil
+}
+
 func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the goenums command to generate them again.
@@ -196,6 +213,7 @@ func (i status) String() string {
 	}
 	return _status_name[_status_index[i]:_status_index[i+1]]
 }
+
 ```
 ## Features
 
@@ -212,7 +230,7 @@ package milkyway
 
 type planet int // Gravity[float64],RadiusKm[float64],MassKg[float64],OrbitKm[float64],OrbitDays[float64],SurfacePressureBars[float64],Moons[int],Rings[bool]
 
-//go:generate goenums planets.go
+//go:generate goenums -file planets.go
 const (
 	unknown planet = iota // invalid
 	mercury               // Mercury 0.378,2439.7,3.3e23,57910000,88,0.0000000001,0,false
@@ -224,20 +242,11 @@ const (
 	uranus                // Uranus 0.889,25362,8.68e25,2872500000,30687,1.3,13,true
 	neptune               // Neptune 1.12,24622,1.02e26,4495100000,60190,1.5,2,true
 )
-
 ```
 
-Now running the `go generate` command will generate the following code in a new file called `planet_enum.go`
+Now running the `go generate` command will generate the following code in a new file called `planet_enum.go`:
+
 ```golang
-package milkyway
-
-import (
-	"bytes"
-	"fmt"
-	"strconv"
-	"strings"
-)
-
 type Planet struct {
 	planet
 	Gravity             float64
@@ -372,6 +381,8 @@ func ParsePlanet(a any) Planet {
 	switch v := a.(type) {
 	case Planet:
 		return v
+	case []byte:
+		return stringToPlanet(string(v))
 	case string:
 		return stringToPlanet(v)
 	case fmt.Stringer:
@@ -449,6 +460,15 @@ func (p *Planet) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+func (p *Planet) Scan(value any) error {
+	*p = ParsePlanet(value)
+	return nil
+}
+
+func (p Planet) Value() (driver.Value, error) {
+	return p.String(), nil
+}
+
 func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the goenums command to generate them again.
@@ -475,6 +495,7 @@ func (i planet) String() string {
 	}
 	return _planet_name[_planet_index[i]:_planet_index[i+1]]
 }
+
 ```
 
 With the above code generated we can use the `ExhaustivePlanets` to iterate over all Enums for example:

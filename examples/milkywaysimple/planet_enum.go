@@ -7,6 +7,7 @@ package milkywaysimple
 
 import (
 	"bytes"
+	"database/sql/driver"
 	"fmt"
 	"strconv"
 	"strings"
@@ -74,6 +75,8 @@ func ParsePlanet(a any) Planet {
 	switch v := a.(type) {
 	case Planet:
 		return v
+	case []byte:
+		return stringToPlanet(string(v))
 	case string:
 		return stringToPlanet(v)
 	case fmt.Stringer:
@@ -149,6 +152,15 @@ func (p *Planet) UnmarshalJSON(b []byte) error {
 	b = bytes.Trim(bytes.Trim(b, `"`), ` `)
 	*p = ParsePlanet(string(b))
 	return nil
+}
+
+func (p *Planet) Scan(value any) error {
+	*p = ParsePlanet(value)
+	return nil
+}
+
+func (p Planet) Value() (driver.Value, error) {
+	return int64(p.planet), nil
 }
 
 func _() {
