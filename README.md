@@ -9,8 +9,13 @@ goenums is a tool to help you generate go type safe enums that are much more tig
 `go install github.com/zarldev/goenums@latest`
 
 # Usage
-`goenums -h`
-`Usage: goenums <file-with-iota>`
+```
+Usage of goenums:
+  -file string
+        Path to the file to generate enums from
+  -valuer string
+        The return value type of db valuer implementation, support int and string (default "string")
+```
 
 ### Example
 Defining the list of enums in the respective go file and then point the goenum binary at the require file.  This can be specified in the go generate command like below:
@@ -21,7 +26,7 @@ package validation
 
 type status int
 
-//go:generate goenums status.go
+//go:generate goenums -file status.go
 const (
 	unknown status = iota
 	failed
@@ -39,6 +44,7 @@ package validation
 
 import (
 	"bytes"
+	"database/sql/driver"
 	"fmt"
 	"strconv"
 	"strings"
@@ -100,15 +106,17 @@ func ParseStatus(a any) Status {
 	switch v := a.(type) {
 	case Status:
 		return v
-	case fmt.Stringer:
-		return stringToStatus(v.String())
+	case []byte:
+		return stringToStatus(string(v))
 	case string:
 		return stringToStatus(v)
+	case fmt.Stringer:
+		return stringToStatus(v.String())
 	case int:
 		return intToStatus(v)
-	case int32:
-		return intToStatus(int(v))
 	case int64:
+		return intToStatus(int(v))
+	case int32:
 		return intToStatus(int(v))
 	}
 	return invalidStatus
@@ -142,7 +150,7 @@ func intToStatus(i int) Status {
 	return Statuses.All()[i]
 }
 
-func ExhaustiveStatuses(f func(Status)) {
+func ExhaustiveStatuss(f func(Status)) {
 	for _, p := range Statuses.All() {
 		f(p)
 	}
@@ -172,6 +180,15 @@ func (p *Status) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+func (p *Status) Scan(value any) error {
+	*p = ParseStatus(value)
+	return nil
+}
+
+func (p Status) Value() (driver.Value, error) {
+	return p.String(), nil
+}
+
 func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the goenums command to generate them again.
@@ -196,6 +213,7 @@ func (i status) String() string {
 	}
 	return _status_name[_status_index[i]:_status_index[i+1]]
 }
+
 ```
 ## Features
 
@@ -208,31 +226,11 @@ The enums can have additional functionality added by just adding comments to the
 For example we have the file below called planets.go :
 
 ```golang
-package milkyway
-
-type planet int // Gravity[float64],RadiusKm[float64],MassKg[float64],OrbitKm[float64],OrbitDays[float64],SurfacePressureBars[float64],Moons[int],Rings[bool]
-
-//go:generate goenums planets.go
-const (
-	unknown planet = iota // invalid
-	mercury               // Mercury 0.378,2439.7,3.3e23,57910000,88,0.0000000001,0,false
-	venus                 // Venus 0.907,6051.8,4.87e24,108200000,225,92,0,false
-	earth                 // Earth 1,6378.1,5.97e24,149600000,365,1,1,false
-	mars                  // Mars 0.377,3389.5,6.42e23,227900000,687,0.01,2,false
-	jupiter               // Jupiter 2.36,69911,1.90e27,778600000,4333,20,4,true
-	saturn                // Saturn 0.916,58232,5.68e26,1433500000,10759,1,7,true
-	uranus                // Uranus 0.889,25362,8.68e25,2872500000,30687,1.3,13,true
-	neptune               // Neptune 1.12,24622,1.02e26,4495100000,60190,1.5,2,true
-)
-
-```
-
-Now running the `go generate` command will generate the following code in a new file called `planet_enum.go`
-```golang
-package milkyway
+package milkywaysimple
 
 import (
 	"bytes"
+	"database/sql/driver"
 	"fmt"
 	"strconv"
 	"strings"
@@ -240,14 +238,6 @@ import (
 
 type Planet struct {
 	planet
-	Gravity             float64
-	RadiusKm            float64
-	MassKg              float64
-	OrbitKm             float64
-	OrbitDays           float64
-	SurfacePressureBars float64
-	Moons               int
-	Rings               bool
 }
 
 type planetContainer struct {
@@ -264,92 +254,28 @@ type planetContainer struct {
 
 var Planets = planetContainer{
 	MERCURY: Planet{
-		planet:              mercury,
-		Gravity:             0.378,
-		RadiusKm:            2439.7,
-		MassKg:              3.3e23,
-		OrbitKm:             57910000,
-		OrbitDays:           88,
-		SurfacePressureBars: 0.0000000001,
-		Moons:               0,
-		Rings:               false,
+		planet: mercury,
 	},
 	VENUS: Planet{
-		planet:              venus,
-		Gravity:             0.907,
-		RadiusKm:            6051.8,
-		MassKg:              4.87e24,
-		OrbitKm:             108200000,
-		OrbitDays:           225,
-		SurfacePressureBars: 92,
-		Moons:               0,
-		Rings:               false,
+		planet: venus,
 	},
 	EARTH: Planet{
-		planet:              earth,
-		Gravity:             1,
-		RadiusKm:            6378.1,
-		MassKg:              5.97e24,
-		OrbitKm:             149600000,
-		OrbitDays:           365,
-		SurfacePressureBars: 1,
-		Moons:               1,
-		Rings:               false,
+		planet: earth,
 	},
 	MARS: Planet{
-		planet:              mars,
-		Gravity:             0.377,
-		RadiusKm:            3389.5,
-		MassKg:              6.42e23,
-		OrbitKm:             227900000,
-		OrbitDays:           687,
-		SurfacePressureBars: 0.01,
-		Moons:               2,
-		Rings:               false,
+		planet: mars,
 	},
 	JUPITER: Planet{
-		planet:              jupiter,
-		Gravity:             2.36,
-		RadiusKm:            69911,
-		MassKg:              1.90e27,
-		OrbitKm:             778600000,
-		OrbitDays:           4333,
-		SurfacePressureBars: 20,
-		Moons:               4,
-		Rings:               true,
+		planet: jupiter,
 	},
 	SATURN: Planet{
-		planet:              saturn,
-		Gravity:             0.916,
-		RadiusKm:            58232,
-		MassKg:              5.68e26,
-		OrbitKm:             1433500000,
-		OrbitDays:           10759,
-		SurfacePressureBars: 1,
-		Moons:               7,
-		Rings:               true,
+		planet: saturn,
 	},
 	URANUS: Planet{
-		planet:              uranus,
-		Gravity:             0.889,
-		RadiusKm:            25362,
-		MassKg:              8.68e25,
-		OrbitKm:             2872500000,
-		OrbitDays:           30687,
-		SurfacePressureBars: 1.3,
-		Moons:               13,
-		Rings:               true,
+		planet: uranus,
 	},
 	NEPTUNE: Planet{
-		planet:              neptune,
-		Gravity:             1.12,
-		RadiusKm:            24622,
-		MassKg:              1.02e26,
-		OrbitKm:             4495100000,
-		OrbitDays:           60190,
-		SurfacePressureBars: 1.5,
-		Moons:               2,
-		Rings:               true,
+		planet: neptune,
 	},
 }
 
@@ -372,6 +298,8 @@ func ParsePlanet(a any) Planet {
 	switch v := a.(type) {
 	case Planet:
 		return v
+	case []byte:
+		return stringToPlanet(string(v))
 	case string:
 		return stringToPlanet(v)
 	case fmt.Stringer:
@@ -449,6 +377,15 @@ func (p *Planet) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+func (p *Planet) Scan(value any) error {
+	*p = ParsePlanet(value)
+	return nil
+}
+
+func (p Planet) Value() (driver.Value, error) {
+	return int64(p.planet), nil
+}
+
 func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the goenums command to generate them again.
@@ -465,7 +402,7 @@ func _() {
 	_ = x[neptune-8]
 }
 
-const _planet_name = "unknownMercuryVenusEarthMarsJupiterSaturnUranusNeptune"
+const _planet_name = "unknownmercuryvenusearthmarsjupitersaturnuranusneptune"
 
 var _planet_index = [...]uint16{0, 7, 14, 19, 24, 28, 35, 41, 47, 54}
 

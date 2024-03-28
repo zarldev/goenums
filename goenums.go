@@ -11,7 +11,7 @@ import (
 
 var (
 	fileName   = flag.String("file", "", "Path to the file to generate enums from")
-	valuerType = flag.String("valuer", "string", "Type of the valuer interface implementation, support int and string, default to string")
+	valuerType = flag.String("valuer", "string", "The return value type of db valuer implementation, support int and string")
 )
 
 func main() {
