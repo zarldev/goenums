@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log/slog"
 	"os"
@@ -8,20 +9,28 @@ import (
 	"github.com/zarldev/goenums/pkg/generator"
 )
 
+var (
+	fileName   = flag.String("file", "", "Path to the file to generate enums from")
+	valuerType = flag.String("valuer", "string", "Type of the valuer interface implementation, support int and string, default to string")
+)
+
 func main() {
-	var err error
-	if len(os.Args) != 2 {
-		printHelp()
-		return
+	flag.Parse()
+
+	if fileName == nil || *fileName == "" {
+		fmt.Printf("Usage of %s:\n", os.Args[0])
+		flag.PrintDefaults()
+		os.Exit(1)
 	}
-	filename := os.Args[1]
-	err = generator.ParseAndGenerate(filename)
+
+	options := &generator.GenerateOptions{
+		FileName:   *fileName,
+		ValuerType: *valuerType,
+	}
+
+	err := generator.ParseAndGenerate(options)
 	if err != nil {
 		slog.Error("Failed to generate enums: %v", err)
 		os.Exit(1)
 	}
-}
-
-func printHelp() {
-	fmt.Println("Usage: goenums <filename.go>")
 }

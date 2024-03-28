@@ -38,6 +38,8 @@ func Write(w io.Writer, rep EnumRepresentation) {
 	setupIsValidMethod(w, rep)
 	setupJSONMarshalMethod(w, rep)
 	setupJSONUnmarshalMethod(w, rep)
+	setupScanMethod(w, rep)
+	setupStringValueMethod(w, rep)
 	setupCompileCheck(w, rep)
 	setupStringMethod(w, rep)
 }
@@ -97,12 +99,17 @@ type NameTypePair struct {
 	Value string
 }
 
+type GenerateOptions struct {
+	FileName   string
+	ValuerType string
+}
+
 var ErrFailedToParseFile = fmt.Errorf("failed to parse file")
 
-func ParseAndGenerate(filename string) error {
+func ParseAndGenerate(options *GenerateOptions) error {
 	// Set up the parser
 	fset := token.NewFileSet()
-	node, err := parser.ParseFile(fset, filename, nil, parser.ParseComments)
+	node, err := parser.ParseFile(fset, options.FileName, nil, parser.ParseComments)
 	if err != nil {
 		return fmt.Errorf("failed to parse file while generating enum: %w", err)
 	}
@@ -309,6 +316,13 @@ func ParseAndGenerate(filename string) error {
 	setupIsValidMethod(w, enumRep)
 	setupJSONMarshalMethod(w, enumRep)
 	setupJSONUnmarshalMethod(w, enumRep)
+	setupScanMethod(w, enumRep)
+	switch options.ValuerType {
+	case "string":
+		setupStringValueMethod(w, enumRep)
+	case "int":
+		setupIntValueMethod(w, enumRep)
+	}
 	setupCompileCheck(w, enumRep)
 	setupStringMethod(w, enumRep)
 	f.Close()
@@ -433,6 +447,7 @@ func setupImports(w io.Writer) {
 	w.Write([]byte("\t\"strings\"\n"))
 	w.Write([]byte("\t\"strconv\"\n"))
 	w.Write([]byte("\t\"bytes\"\n"))
+	w.Write([]byte("\t\"database/sql/driver\"\n"))
 	w.Write([]byte(")\n\n"))
 }
 
@@ -476,12 +491,15 @@ func setupAllMethod(w io.Writer, rep EnumRepresentation) {
 func setupInvalidTypeMethod(w io.Writer, rep EnumRepresentation) {
 	w.Write([]byte("var invalid" + rep.TypeInfo.Camel + " = " + rep.TypeInfo.Camel + "{}\n\n"))
 }
+
 func setupParseMethod(w io.Writer, rep EnumRepresentation) {
 	setupInvalidTypeMethod(w, rep)
 	w.Write([]byte("func Parse" + rep.TypeInfo.Camel + "(a any) " + rep.TypeInfo.Camel + " {\n"))
 	w.Write([]byte("\tswitch v := a.(type) {\n"))
 	w.Write([]byte("\tcase " + rep.TypeInfo.Camel + ":\n"))
 	w.Write([]byte("\t\treturn v\n"))
+	w.Write([]byte("\tcase []byte:\n"))
+	w.Write([]byte("\t\treturn stringTo" + rep.TypeInfo.Camel + "(string(v))\n"))
 	w.Write([]byte("\tcase string:\n"))
 	w.Write([]byte("\t\treturn stringTo" + rep.TypeInfo.Camel + "(v)\n"))
 	w.Write([]byte("\tcase fmt.Stringer:\n"))
@@ -497,7 +515,6 @@ func setupParseMethod(w io.Writer, rep EnumRepresentation) {
 	w.Write([]byte("}\n\n"))
 	setupStringToTypeMethod(w, rep)
 	setupIntToTypeMethod(w, rep)
-
 }
 
 func setupIntToTypeMethod(w io.Writer, rep EnumRepresentation) {
@@ -519,5 +536,26 @@ func setupStringToTypeMethod(w io.Writer, rep EnumRepresentation) {
 	}
 	w.Write([]byte("\t}\n"))
 	w.Write([]byte("\treturn invalid" + rep.TypeInfo.Camel + "\n"))
+	w.Write([]byte("}\n\n"))
+}
+
+func setupScanMethod(w io.Writer, rep EnumRepresentation) {
+	w.Write([]byte("func (p *" + rep.TypeInfo.Camel + ") Scan(value any) error {\n"))
+	w.Write([]byte("\t*p = Parse" + rep.TypeInfo.Camel + "(value)\n"))
+	w.Write([]byte("\treturn nil\n"))
+	w.Write([]byte("}\n\n"))
+}
+
+func setupStringValueMethod(w io.Writer, rep EnumRepresentation) {
+	w.Write([]byte("func (p " + rep.TypeInfo.Camel + ") Value() (driver.Value, error) {\n"))
+	w.Write([]byte("\treturn p.String(), nil\n"))
+	w.Write([]byte("}\n\n"))
+}
+
+func setupIntValueMethod(w io.Writer, rep EnumRepresentation) {
+	w.Write([]byte("func (p " + rep.TypeInfo.Camel + ") Value() (driver.Value, error) {\n"))
+	// As per document, we should `int64` to represents `int` type
+	// See https://pkg.go.dev/database/sql/driver#Value
+	w.Write([]byte("\treturn int64(p." + rep.TypeInfo.Lower + "), nil\n"))
 	w.Write([]byte("}\n\n"))
 }

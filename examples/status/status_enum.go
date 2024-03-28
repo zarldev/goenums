@@ -7,6 +7,7 @@ package validation
 
 import (
 	"bytes"
+	"database/sql/driver"
 	"fmt"
 	"strconv"
 	"strings"
@@ -68,6 +69,8 @@ func ParseStatus(a any) Status {
 	switch v := a.(type) {
 	case Status:
 		return v
+	case []byte:
+		return stringToStatus(string(v))
 	case string:
 		return stringToStatus(v)
 	case fmt.Stringer:
@@ -138,6 +141,15 @@ func (p *Status) UnmarshalJSON(b []byte) error {
 	b = bytes.Trim(bytes.Trim(b, `"`), ` `)
 	*p = ParseStatus(string(b))
 	return nil
+}
+
+func (p *Status) Scan(value any) error {
+	*p = ParseStatus(value)
+	return nil
+}
+
+func (p Status) Value() (driver.Value, error) {
+	return p.String(), nil
 }
 
 func _() {
