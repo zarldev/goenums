@@ -1,0 +1,16 @@
+linters:
+  enable-all: true
+  fast: true
+run:
+  concurrency: 4
+  timeout: 5m
+  allow-parallel-runners: true
+  allow-serial-runners: true
+
+linters:
+  disable:
+    - gochecknoglobals
+    - gochecknoinits
+    - wsl
+    - nlreturn
+    - depguard

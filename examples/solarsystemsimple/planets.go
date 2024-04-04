@@ -1,4 +1,4 @@
-package milkywaysimple
+package solarsystemsimple
 
 type planet int
 

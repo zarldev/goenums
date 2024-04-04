@@ -1,5 +1,5 @@
 build:
-	go build -o bin/goenums cmd/goenums.go
+	go build -o bin/goenums goenums.go
 
 install:
 	chmod +x bin/goenums
