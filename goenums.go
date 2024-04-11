@@ -22,7 +22,7 @@ func main() {
 		case "help", "--help", "-h":
 			printHelp()
 			return
-		case "version":
+		case "version", "--version", "-v":
 			printVersion()
 			return
 		}
