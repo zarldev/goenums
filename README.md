@@ -542,7 +542,7 @@ func main() {
 #### Safety
 Also the fact that the enums are concrete types with no way to instantiate the nested struct means that you can't just pass the `int` representation of the enum into the generated wrapper struct.
 
-The above `Status` and `Planet` examples can be found in the examples directory.
+The above `Status` and `Planet` examples can be found in the examples directory.  There is also a `DiscountType` example to show handling of camelCase formatted input enums.
 
 ### Mentions
 [![go-recipes](https://raw.githubusercontent.com/nikolaydubina/go-recipes/main/badge.svg?raw=true)](https://github.com/nikolaydubina/go-recipes)
