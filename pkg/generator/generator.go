@@ -11,15 +11,14 @@ import (
 	"log"
 	"os"
 	"strings"
-
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 )
 
-var (
-	// camelCase is a Caser for turning strings into camelCase.
-	camelCase = cases.Title(language.English)
-)
+// camelCase is a Caser for turning strings into camelCase
+func camelCase(in string) string {
+	first := strings.ToUpper(in[:1])
+	rest := in[1:]
+	return first + rest
+}
 
 // EnumRepresentation is a struct to store the information to be used in writing the enum to a file.
 type EnumRepresentation struct {
@@ -99,11 +98,11 @@ func ParseAndGenerate(filename string) error {
 		PackageName: packageName,
 		TypeInfo: typeInfo{
 			Name:          iotaType,
-			Camel:         camelCase.String(iotaType),
+			Camel:         camelCase(iotaType),
 			Lower:         typeLower,
 			Upper:         strings.ToUpper(iotaType),
 			Plural:        plural,
-			PluralCamel:   camelCase.String(plural),
+			PluralCamel:   camelCase(plural),
 			NameTypePairs: nameTPairs,
 		},
 		Enums: enums,
@@ -184,7 +183,7 @@ func parseEnums(node *ast.File, typeComments map[string]string) ([]Enum, string,
 						enums = append(enums, Enum{
 							Info: info{
 								Name:          name.Name,
-								Camel:         camelCase.String(name.Name),
+								Camel:         camelCase(name.Name),
 								Lower:         strings.ToLower(name.Name),
 								Upper:         strings.ToUpper(name.Name),
 								AlternateName: alternate,
@@ -193,7 +192,7 @@ func parseEnums(node *ast.File, typeComments map[string]string) ([]Enum, string,
 							},
 							TypeInfo: typeInfo{
 								Name:          iotaType,
-								Camel:         camelCase.String(iotaType),
+								Camel:         camelCase(iotaType),
 								Lower:         strings.ToLower(iotaType),
 								Upper:         strings.ToUpper(iotaType),
 								NameTypePairs: nameTPairsCopy,
@@ -385,8 +384,8 @@ func writeStringMethod(w io.StringWriter, rep EnumRepresentation) {
 	index, nameConst := generateIndexAndNameRun(rep)
 	w.WriteString("const " + nameConst + "\n")
 	w.WriteString("var " + index + "\n")
-	w.WriteString("func (i " + rep.TypeInfo.Lower + ") String() string {\n")
-	w.WriteString("\tif i < 0 || i >= " + rep.TypeInfo.Lower + "(len(_" + rep.TypeInfo.Lower + "_index)-1) {\n")
+	w.WriteString("func (i " + rep.TypeInfo.Name + ") String() string {\n")
+	w.WriteString("\tif i < 0 || i >= " + rep.TypeInfo.Name + "(len(_" + rep.TypeInfo.Lower + "_index)-1) {\n")
 	w.WriteString("\t\treturn \"" + rep.TypeInfo.Lower + "(\" + (strconv.FormatInt(int64(i), 10) + \")\")\n")
 	w.WriteString("\t}\n")
 	w.WriteString("\treturn _" + rep.TypeInfo.Lower + "_name[_" + rep.TypeInfo.Lower + "_index[i]:_" + rep.TypeInfo.Lower + "_index[i+1]]\n")
