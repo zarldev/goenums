@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -55,6 +56,7 @@ type info struct {
 
 type typeInfo struct {
 	Filename string
+	Index    int
 	// type name for the enum in different cases
 	Name        string
 	Camel       string
@@ -93,12 +95,13 @@ func ParseAndGenerate(filename string) error {
 	// Traverse the AST to find type definitions and collect comments
 	// Collect comments associated with the type definition
 	typeComments := getTypeComments(node)
-	enums, iotaType, nameTPairs := parseEnums(node, typeComments)
+	enums, iotaType, iotaIdx, nameTPairs := parseEnums(node, typeComments)
 	typeLower, plural := getPlural(iotaType)
 	enumRep := EnumRepresentation{
 		PackageName: packageName,
 		TypeInfo: typeInfo{
 			Filename:      filename,
+			Index:         iotaIdx,
 			Name:          iotaType,
 			Camel:         camelCase(iotaType),
 			Lower:         typeLower,
@@ -143,12 +146,13 @@ func getPlural(iotaType string) (string, string) {
 	}
 }
 
-func parseEnums(node *ast.File, typeComments map[string]string) ([]Enum, string, []nameTypePair) {
+func parseEnums(node *ast.File, typeComments map[string]string) ([]Enum, string, int, []nameTypePair) {
 	var (
 		enums           []Enum
 		iotaName        string
 		iotaType        string
 		iotaTypeComment string
+		iotaIdx         int
 		foundConstants  = make(map[string]struct{})
 		nameTPairs      = make([]nameTypePair, 0)
 	)
@@ -164,7 +168,7 @@ func parseEnums(node *ast.File, typeComments map[string]string) ([]Enum, string,
 				continue
 			}
 			if len(valueSpec.Values) == 1 {
-				iotaName, iotaType, iotaTypeComment = iotaInfo(valueSpec, typeComments)
+				iotaName, iotaType, iotaTypeComment, iotaIdx = iotaInfo(valueSpec, typeComments)
 			}
 		}
 		if iotaTypeComment != "" {
@@ -219,7 +223,7 @@ func parseEnums(node *ast.File, typeComments map[string]string) ([]Enum, string,
 		}
 		return true
 	})
-	return enums, iotaType, nameTPairs
+	return enums, iotaType, iotaIdx, nameTPairs
 }
 
 func getPackageName(node *ast.File) string {
@@ -318,11 +322,12 @@ func nameTPairsFromComments(iotaTypeComment string, nameTPairs []nameTypePair) [
 	return nameTPairs
 }
 
-func iotaInfo(valueSpec *ast.ValueSpec, typeComments map[string]string) (string, string, string) {
+func iotaInfo(valueSpec *ast.ValueSpec, typeComments map[string]string) (string, string, string, int) {
 	var (
 		iotaName, iotaType, iotaTypeComment string
 	)
 	ident, ok := valueSpec.Values[0].(*ast.Ident)
+	iotaIdx := 0
 	if ok && ident.Name == "iota" {
 		iotaName = valueSpec.Names[0].Name
 		if valueSpec.Type != nil {
@@ -333,7 +338,26 @@ func iotaInfo(valueSpec *ast.ValueSpec, typeComments map[string]string) (string,
 			}
 		}
 	}
-	return iotaName, iotaType, iotaTypeComment
+	if !ok {
+		be, ok := valueSpec.Values[0].(*ast.BinaryExpr)
+		if ok {
+			if x, ok := be.X.(*ast.Ident); ok {
+				if x.Name == "iota" {
+					iotaName = valueSpec.Names[0].Name
+					if valueSpec.Type != nil {
+						iotaType = fmt.Sprintf("%s", valueSpec.Type)
+						if comment, exists := typeComments[iotaType]; exists {
+							iotaTypeComment = comment
+						}
+					}
+				}
+			}
+			if y, ok := be.Y.(*ast.BasicLit); ok {
+				iotaIdx, _ = strconv.Atoi(y.Value)
+			}
+		}
+	}
+	return iotaName, iotaType, iotaTypeComment, iotaIdx
 }
 
 func formatFile(filename string) error {
@@ -412,11 +436,12 @@ func generateIndexAndNameRun(rep EnumRepresentation) (string, string) {
 	nameConst := fmt.Sprintf("_%s_name = %q\n", rep.TypeInfo.Lower, b.String())
 	b.Reset()
 	fmt.Fprintf(b, " _%s_index = [...]uint16{0", rep.TypeInfo.Lower)
+	idx := rep.TypeInfo.Index
 	for _, i := range indexes {
 		if i > 0 {
 			fmt.Fprintf(b, ", ")
 		}
-		fmt.Fprintf(b, "%d", i)
+		fmt.Fprintf(b, "%d", idx)
 	}
 	fmt.Fprintf(b, "}\n")
 	return b.String(), nameConst
@@ -430,7 +455,7 @@ func writeCompileCheck(w io.StringWriter, rep EnumRepresentation) {
 	w.WriteString("\t// Does not identify newly added constant values unless order changes\n")
 	w.WriteString("\tvar x [1]struct{}\n")
 	for _, v := range rep.Enums {
-		w.WriteString(fmt.Sprintf("\t_ = x[%s - %d]\n", v.Info.Name, v.Info.Value))
+		w.WriteString(fmt.Sprintf("\t_ = x[%s - %d]\n", v.Info.Name, v.Info.Value+rep.TypeInfo.Index))
 	}
 	w.WriteString("}\n")
 }

@@ -18,15 +18,15 @@ type DiscountType struct {
 }
 
 type discounttypesContainer struct {
-	UNKNOWN    DiscountType
+	SALE       DiscountType
 	PERCENTAGE DiscountType
 	AMOUNT     DiscountType
 	GIVEAWAY   DiscountType
 }
 
 var DiscountTypes = discounttypesContainer{
-	UNKNOWN: DiscountType{
-		discountType: unknown,
+	SALE: DiscountType{
+		discountType: sale,
 	},
 	PERCENTAGE: DiscountType{
 		discountType: percentage,
@@ -41,7 +41,7 @@ var DiscountTypes = discounttypesContainer{
 
 func (c discounttypesContainer) All() []DiscountType {
 	return []DiscountType{
-		c.UNKNOWN,
+		c.SALE,
 		c.PERCENTAGE,
 		c.AMOUNT,
 		c.GIVEAWAY,
@@ -73,8 +73,8 @@ func ParseDiscountType(a any) DiscountType {
 func stringToDiscountType(s string) DiscountType {
 	lwr := strings.ToLower(s)
 	switch lwr {
-	case "unknown":
-		return DiscountTypes.UNKNOWN
+	case "sale":
+		return DiscountTypes.SALE
 	case "percentage":
 		return DiscountTypes.PERCENTAGE
 	case "amount":
@@ -99,7 +99,7 @@ func ExhaustiveDiscountTypes(f func(DiscountType)) {
 }
 
 var validDiscountTypes = map[DiscountType]bool{
-	DiscountTypes.UNKNOWN:    true,
+	DiscountTypes.SALE:       true,
 	DiscountTypes.PERCENTAGE: true,
 	DiscountTypes.AMOUNT:     true,
 	DiscountTypes.GIVEAWAY:   true,
@@ -133,15 +133,15 @@ func _() {
 	// Re-run the goenums command to generate them again.
 	// Does not identify newly added constant values unless order changes
 	var x [1]struct{}
-	_ = x[unknown-0]
-	_ = x[percentage-1]
-	_ = x[amount-2]
-	_ = x[giveaway-3]
+	_ = x[sale-1]
+	_ = x[percentage-2]
+	_ = x[amount-3]
+	_ = x[giveaway-4]
 }
 
-const _discounttypes_name = "unknownpercentageamountgiveaway"
+const _discounttypes_name = "salepercentageamountgiveaway"
 
-var _discounttypes_index = [...]uint16{0, 7, 17, 23, 31}
+var _discounttypes_index = [...]uint16{0, 1, 1, 1, 1}
 
 func (i discountType) String() string {
 	if i < 0 || i >= discountType(len(_discounttypes_index)-1) {

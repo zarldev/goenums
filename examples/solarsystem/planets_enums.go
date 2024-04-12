@@ -253,7 +253,7 @@ func _() {
 
 const _planets_name = "unknownMercuryVenusEarthMarsJupiterSaturnUranusNeptune"
 
-var _planets_index = [...]uint16{0, 7, 14, 19, 24, 28, 35, 41, 47, 54}
+var _planets_index = [...]uint16{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
 func (i planet) String() string {
 	if i < 0 || i >= planet(len(_planets_index)-1) {

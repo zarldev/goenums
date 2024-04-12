@@ -163,7 +163,7 @@ func _() {
 
 const _statuses_name = "unknownfailedpassedskippedscheduledrunningbooked"
 
-var _statuses_index = [...]uint16{0, 7, 13, 19, 26, 35, 42, 48}
+var _statuses_index = [...]uint16{0, 0, 0, 0, 0, 0, 0, 0}
 
 func (i status) String() string {
 	if i < 0 || i >= status(len(_statuses_index)-1) {

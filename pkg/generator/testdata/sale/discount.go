@@ -4,7 +4,7 @@ package sale
 type discountType int
 
 const (
-	unknown discountType = iota
+	sale discountType = iota + 1
 	percentage
 	amount
 	giveaway
