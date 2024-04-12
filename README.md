@@ -11,14 +11,22 @@ goenums is a tool to help you generate go type safe enums that are much more tig
 # Usage
 ```
 $ goenums -h
-
-goenums is a tool to generate enums from a Go source file.
-To generate enums, run the following command:
-		goenums <filename>
-	For example:
-		goenums example.go
-	To print the version, run:
-		goenums version
+   ____ _____  ___  ____  __  ______ ___  _____
+  / __ '/ __ \/ _ \/ __ \/ / / / __ '__ \/ ___/
+ / /_/ / /_/ /  __/ / / / /_/ / / / / / (__  ) 
+ \__, /\____/\___/_/ /_/\__,_/_/ /_/ /_/____/  
+/____/
+Usage: goenums [options] filename
+Options:
+  -f
+  -failfast
+        Enable failfast mode - fail on generation of invalid enum while parsing (default: false)
+  -h
+  -help
+        Print help information
+  -v
+  -version
+        Print version information
 ```
 
 ### Example
@@ -225,6 +233,26 @@ All enums are generated with a String representation for each enum and JSON Mars
 
 #### JSON & Database Storage
 The generated enum type also implements the JSON.UnMarshal, JSON.Marshal interfaces along with the sql.Scanner and sql.Valuer interface to handle parsing over the wire via HTTP or a Database.
+
+##### Error On Invalid
+You can enable the generator to adjust the `JSONUnmarshal` method so that it will return an error if an enum is found to be invalid.
+This is triggered by the failfast flag `-f` or `-failfast`. 
+
+Here is the updated UnmarshalJSON function for the `Status` example where we have enabled failfast in the go generate command.
+
+```golang
+//go:generate goenums -f status.go
+type status int
+
+func (p *Status) UnmarshalJSON(b []byte) error {
+	b = bytes.Trim(bytes.Trim(b, `"`), ` `)
+	*p = ParseStatus(b)
+	if *p == invalidStatus {
+		return fmt.Errorf("invalid Status value: %s", b)
+	}
+	return nil
+}
+```
 
 #### Extendable
 The enums can have additional functionality added by just adding comments to the type definition and corresponding values to the comments in the iota definitions.  There is also the `invalid` comment flag which will no longer include the value in the exhaustive list. 

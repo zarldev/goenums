@@ -10,7 +10,7 @@ import (
 func TestParseAndGenerateSimple(t *testing.T) {
 	t.Log("TestParseAndGenerate")
 	filename := "testdata/validation/status.go"
-	err := generator.ParseAndGenerate(filename)
+	err := generator.ParseAndGenerate(filename, true)
 	if err != nil {
 		t.Errorf("Expected nil, got %v", err)
 	}
@@ -29,7 +29,7 @@ func TestParseAndGenerateSimple(t *testing.T) {
 func TestParseAndGenerateComplex(t *testing.T) {
 	t.Log("TestParseAndGenerate")
 	filename := "testdata/solarsystem/planets.go"
-	err := generator.ParseAndGenerate(filename)
+	err := generator.ParseAndGenerate(filename, false)
 	if err != nil {
 		t.Errorf("Expected nil, got %v", err)
 	}
@@ -48,7 +48,7 @@ func TestParseAndGenerateComplex(t *testing.T) {
 func TestParseAndGenerateCamelCase(t *testing.T) {
 	t.Log("TestParseAndGenerate")
 	filename := "testdata/sale/discount.go"
-	err := generator.ParseAndGenerate(filename)
+	err := generator.ParseAndGenerate(filename, false)
 	if err != nil {
 		t.Errorf("Expected nil, got %v", err)
 	}

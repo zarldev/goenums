@@ -3,8 +3,7 @@ package validation
 type status int
 
 const (
-	unknown status = iota // invalid
-	failed
+	failed status = iota // invalid
 	passed
 	skipped
 	scheduled

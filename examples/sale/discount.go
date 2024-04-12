@@ -1,6 +1,6 @@
 package sale
 
-//go:generate goenums discount.go
+//go:generate goenums -f discount.go
 type discountType int
 
 const (
