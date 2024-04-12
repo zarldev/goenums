@@ -15,7 +15,7 @@ func TestParseAndGenerateSimple(t *testing.T) {
 		t.Errorf("Expected nil, got %v", err)
 	}
 	// check if the generated file exists
-	filename = "status_enums.go"
+	filename = "statuses_enums.go"
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		t.Errorf("Expected file to exist, got %v", err)
 	}
@@ -34,7 +34,7 @@ func TestParseAndGenerateComplex(t *testing.T) {
 		t.Errorf("Expected nil, got %v", err)
 	}
 	// check if the generated file exists
-	filename = "planet_enums.go"
+	filename = "planets_enums.go"
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		t.Errorf("Expected file to exist, got %v", err)
 	}
@@ -53,7 +53,7 @@ func TestParseAndGenerateCamelCase(t *testing.T) {
 		t.Errorf("Expected nil, got %v", err)
 	}
 	// check if the generated file exists
-	filename = "discounttype_enums.go"
+	filename = "discounttypes_enums.go"
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		t.Errorf("Expected file to exist, got %v", err)
 	}
