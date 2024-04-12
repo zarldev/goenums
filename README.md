@@ -257,7 +257,13 @@ func (p *Status) UnmarshalJSON(b []byte) error {
 ```
 
 #### Extendable
-The enums can have additional functionality added by just adding comments to the type definition and corresponding values to the comments in the iota definitions.  There is also the `invalid` comment flag which will no longer include the value in the exhaustive list. 
+The enums can have additional functionality added by just adding comments to the type definition and corresponding values to the comments in the iota definitions.  There is also the `invalid` comment flag which will no longer include the value in the exhaustive list.
+
+Extensions via comments is a comma separated list of `Name` and `Type` declarations, these declarations can be done in 1 of 3 formats depending on preference.
+
+1. Spaces `Gravity float64,RadiusKm float64,MassKg float64,OrbitKm float64`
+2. Square Brackets `Gravity[float64],RadiusKm[float64],MassKg[float64],OrbitKm[float64]`
+3. Parenthesis `Gravity(float64),RadiusKm(float64),MassKg(float64),OrbitKm(float64)`
 
 For example we have the file below called planets.go :
 
