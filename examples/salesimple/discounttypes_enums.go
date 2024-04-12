@@ -11,16 +11,10 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 )
 
 type DiscountType struct {
 	discountType
-	Available bool
-	Started   bool
-	Finished  bool
-	Cancelled bool
-	Duration  time.Duration
 }
 
 type discounttypesContainer struct {
@@ -33,35 +27,15 @@ type discounttypesContainer struct {
 var DiscountTypes = discounttypesContainer{
 	SALE: DiscountType{
 		discountType: sale,
-		Available:    false,
-		Started:      true,
-		Finished:     true,
-		Cancelled:    false,
-		Duration:     24 * 7 * time.Hour,
 	},
 	PERCENTAGE: DiscountType{
 		discountType: percentage,
-		Available:    false,
-		Started:      false,
-		Finished:     false,
-		Cancelled:    false,
-		Duration:     24 * time.Hour,
 	},
 	AMOUNT: DiscountType{
 		discountType: amount,
-		Available:    false,
-		Started:      false,
-		Finished:     false,
-		Cancelled:    false,
-		Duration:     48 * time.Hour,
 	},
 	GIVEAWAY: DiscountType{
 		discountType: giveaway,
-		Available:    true,
-		Started:      true,
-		Finished:     false,
-		Cancelled:    false,
-		Duration:     72 * time.Hour,
 	},
 }
 

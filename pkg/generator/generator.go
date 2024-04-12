@@ -82,7 +82,7 @@ type nameTypePair struct {
 // ErrFailedToParseFile is an error returned when the file cannot be parsed.
 var ErrFailedToParseFile = fmt.Errorf("failed to parse file")
 
-// ParseAndGenerate parses the file and generates the enum go file.
+// ParseAndGenerate parses the file and generates the enum go file for the enum type with failfast mode flag.
 func ParseAndGenerate(filename string, failfast bool) error {
 	// Set up the parser
 	fset := token.NewFileSet()
@@ -309,14 +309,34 @@ func getComment(valueSpec *ast.ValueSpec) string {
 func nameTPairsFromComments(iotaTypeComment string, nameTPairs []nameTypePair) []nameTypePair {
 	typeValues := strings.Split(iotaTypeComment, ",")
 	for i, v := range typeValues {
-		typeValues[i] = strings.TrimSpace(v)
-		idx := strings.Index(v, "[")
+		if len(v) == 0 {
+			continue
+		}
+		if v[0] == ' ' {
+			v = v[1:]
+		}
+		open := "["
+		close := "]"
+		if strings.Contains(v, "(") {
+			open = "("
+			close = ")"
+		}
+		if strings.Contains(v, " ") {
+			open = " "
+			close = " "
+		}
+		idx := strings.Index(v, open)
 		if idx == -1 {
 			continue
 		}
 		name := v[:idx]
 		name = strings.TrimSpace(name)
-		typeName := v[strings.Index(v, "[")+1 : strings.Index(v, "]")]
+
+		endIndex := strings.Index(v, close)
+		if open == " " {
+			endIndex = len(v)
+		}
+		typeName := v[strings.Index(v, open)+1 : endIndex]
 		nameTypePair := nameTypePair{Name: name, Type: typeName, Value: fmt.Sprintf("%d", i)}
 		nameTPairs = append(nameTPairs, nameTypePair)
 	}
@@ -381,7 +401,7 @@ func formatFile(filename string) error {
 func writeAll(w io.StringWriter, enum EnumRepresentation) {
 	writeGeneratedComment(w, enum)
 	writePackage(w, enum)
-	writeImports(w)
+	writeImports(w, enum)
 	writeWrapperType(w, enum)
 	writeAllMethod(w, enum)
 	writeParseMethod(w, enum)
@@ -510,13 +530,19 @@ func writePackage(w io.StringWriter, rep EnumRepresentation) {
 	w.WriteString("package " + rep.PackageName + "\n\n")
 }
 
-func writeImports(w io.StringWriter) {
+func writeImports(w io.StringWriter, rep EnumRepresentation) {
 	w.WriteString("import (\n")
 	w.WriteString("\t\"fmt\"\n")
 	w.WriteString("\t\"strings\"\n")
 	w.WriteString("\t\"strconv\"\n")
 	w.WriteString("\t\"bytes\"\n")
 	w.WriteString("\t\"database/sql/driver\"\n")
+	for _, pair := range rep.TypeInfo.NameTypePairs {
+		if strings.Contains(pair.Type, ".") {
+			pkg := strings.Split(pair.Type, ".")[0]
+			w.WriteString("\t\"" + pkg + "\"\n")
+		}
+	}
 	w.WriteString(")\n\n")
 }
 

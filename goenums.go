@@ -9,6 +9,23 @@ import (
 	"github.com/zarldev/goenums/pkg/generator"
 )
 
+const VERSION = "v0.2.9"
+
+//     ____ _____  ___  ____  __  ______ ___  _____
+//   / __ '/ __ \/ _ \/ __ \/ / / / __ '__ \/ ___/
+//  / /_/ / /_/ /  __/ / / / /_/ / / / / / (__  )
+//  \__, /\____/\___/_/ /_/\__,_/_/ /_/ /_/____/
+// /____/
+//
+// goenums is a tool to generate type-safe enums in from your idiomatic iota based enums.
+// It generates a new file with the pluralised name of your input file with the suffix "_enums.go".
+// Access to the enum values is done through the container struct which is the pluralised name of the enum type.
+// All the enum values are constants and can be accessed through the container struct.
+// The generated enum wrapper type will implement the interfaces fmt.Stringer, json.Marshaler, json.Unmarshaler, sql.Scanner, driver.Valuer.
+// Parse function to convert any type to the enum type as best as possible.
+// An All function to return all the enum values as a slice.
+// Failfast mode can be enabled to fail on generation of invalid enum while parsing rather than returning the zero value for the enum.
+
 func main() {
 	var (
 		help, version, failfast bool
@@ -54,15 +71,9 @@ func printHelp() {
 	flag.PrintDefaults()
 }
 
-const currentVersion = "v0.2.8"
-
 func printVersion() {
 	printTitle()
-	fmt.Printf("\t\tversion: %s\n", currentVersion)
-}
-
-func printTitle() {
-	fmt.Println(asciiArt)
+	fmt.Printf("\t\tversion: %s\n", VERSION)
 }
 
 var asciiArt = `   ____ _____  ___  ____  __  ______ ___  _____
@@ -70,3 +81,7 @@ var asciiArt = `   ____ _____  ___  ____  __  ______ ___  _____
  / /_/ / /_/ /  __/ / / / /_/ / / / / / (__  ) 
  \__, /\____/\___/_/ /_/\__,_/_/ /_/ /_/____/  
 /____/`
+
+func printTitle() {
+	fmt.Println(asciiArt)
+}
