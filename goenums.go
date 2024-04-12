@@ -8,7 +8,7 @@ import (
 	"github.com/zarldev/goenums/pkg/generator"
 )
 
-const currentVersion = "v0.2.4"
+const currentVersion = "v0.2.6"
 
 func main() {
 	var err error
