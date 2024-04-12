@@ -25,7 +25,6 @@ const VERSION = "v0.2.9"
 // Parse function to convert any type to the enum type as best as possible.
 // An All function to return all the enum values as a slice.
 // Failfast mode can be enabled to fail on generation of invalid enum while parsing rather than returning the zero value for the enum.
-
 func main() {
 	var (
 		help, version, failfast bool
