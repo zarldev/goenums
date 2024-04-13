@@ -73,7 +73,7 @@ type Status struct {
 	status
 }
 
-type statusContainer struct {
+type statusesContainer struct {
 	UNKNOWN   Status
 	FAILED    Status
 	PASSED    Status
@@ -83,7 +83,7 @@ type statusContainer struct {
 	BOOKED    Status
 }
 
-var Statuses = statusContainer{
+var Statuses = statusesContainer{
 	FAILED: Status{
 		status: failed,
 	},
@@ -104,7 +104,7 @@ var Statuses = statusContainer{
 	},
 }
 
-func (c statusContainer) All() []Status {
+func (c statusesContainer) All() []Status {
 	return []Status{
 		c.FAILED,
 		c.PASSED,
@@ -117,24 +117,25 @@ func (c statusContainer) All() []Status {
 
 var invalidStatus = Status{}
 
-func ParseStatus(a any) Status {
+func ParseStatus(a any) (Status, error) {
+	res := invalidStatus
 	switch v := a.(type) {
 	case Status:
-		return v
+		return v, nil
 	case []byte:
-		return stringToStatus(string(v))
+		res = stringToStatus(string(v))
 	case string:
-		return stringToStatus(v)
+		res = stringToStatus(v)
 	case fmt.Stringer:
-		return stringToStatus(v.String())
+		res = stringToStatus(v.String())
 	case int:
-		return intToStatus(v)
+		res = intToStatus(v)
 	case int64:
-		return intToStatus(int(v))
+		res = intToStatus(int(v))
 	case int32:
-		return intToStatus(int(v))
+		res = intToStatus(int(v))
 	}
-	return invalidStatus
+	return res, nil
 }
 
 func stringToStatus(s string) Status {
@@ -190,12 +191,20 @@ func (p Status) MarshalJSON() ([]byte, error) {
 
 func (p *Status) UnmarshalJSON(b []byte) error {
 	b = bytes.Trim(bytes.Trim(b, `"`), ` `)
-	*p = ParseStatus(b)
+	newp, err := ParseStatus(b)
+	if err != nil {
+		return err
+	}
+	*p = newp
 	return nil
 }
 
 func (p *Status) Scan(value any) error {
-	*p = ParseStatus(value)
+	newp, err := ParseStatus(value)
+	if err != nil {
+		return err
+	}
+	*p = newp
 	return nil
 }
 
@@ -217,16 +226,17 @@ func _() {
 	_ = x[booked-6]
 }
 
-const _status_name = "unknownfailedpassedskippedscheduledrunningbooked"
+const _statuses_name = "unknownfailedpassedskippedscheduledrunningbooked"
 
-var _status_index = [...]uint16{0, 7, 13, 19, 26, 35, 42, 48}
+var _statuses_index = [...]uint16{0, 0, 0, 0, 0, 0, 0, 0}
 
 func (i status) String() string {
-	if i < 0 || i >= status(len(_status_index)-1) {
-		return "status(" + (strconv.FormatInt(int64(i), 10) + ")")
+	if i < 0 || i >= status(len(_statuses_index)-1) {
+		return "statuses(" + (strconv.FormatInt(int64(i), 10) + ")")
 	}
-	return _status_name[_status_index[i]:_status_index[i+1]]
+	return _statuses_name[_statuses_index[i]:_statuses_index[i+1]]
 }
+
 ```
 ## Features
 
@@ -240,19 +250,34 @@ The generated enum type also implements the JSON.UnMarshal, JSON.Marshal interfa
 You can enable the generator to adjust the `JSONUnmarshal` method so that it will return an error if an enum is found to be invalid.
 This is triggered by the failfast flag `-f` or `-failfast`. 
 
-Here is the updated UnmarshalJSON function for the `Status` example where we have enabled failfast in the go generate command.
+Here is the updated ParseXXX function for the `Status` example where we have enabled failfast in the go generate command.
 
 ```golang
 //go:generate goenums -f status.go
 type status int
 
-func (p *Status) UnmarshalJSON(b []byte) error {
-	b = bytes.Trim(bytes.Trim(b, `"`), ` `)
-	*p = ParseStatus(b)
-	if *p == invalidStatus {
-		return fmt.Errorf("invalid Status value: %s", b)
+func ParseStatus(a any) (Status, error) {
+	res := invalidStatus
+	switch v := a.(type) {
+	case Status:
+		return v, nil
+	case []byte:
+		res = stringToStatus(string(v))
+	case string:
+		res = stringToStatus(v)
+	case fmt.Stringer:
+		res = stringToStatus(v.String())
+	case int:
+		res = intToStatus(v)
+	case int64:
+		res = intToStatus(int(v))
+	case int32:
+		res = intToStatus(int(v))
 	}
-	return nil
+	if res == invalidStatus {
+		return res, fmt.Errorf("failed to parse %v", a)
+	}
+	return res, nil
 }
 ```
 
