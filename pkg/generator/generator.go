@@ -1,3 +1,14 @@
+// generator package is responsible for parsing the file
+// and generating the enum go file.
+// It uses the ast package to parse the file and generate the
+// enum go file from the parsed information.
+// The EnumRepresentation struct is the struct to store the
+// information that is to be used in writing the enum to a file.
+// ParseAndGenerate function to parse the file and generate the
+// enum go file for the enum type with failfast mode flag.
+// Provides the failfast mode flag to enable failfast mode.
+// This mode is 'error on invalid' and will error instead of
+// generating an enum class as 'Invalid' when Parsed.
 package generator
 
 import (
@@ -14,7 +25,7 @@ import (
 	"strings"
 )
 
-// camelCase is a Caser for turning strings into camelCase
+// camelCase is a Caser for turning strings into camelCase.
 func camelCase(in string) string {
 	first := strings.ToUpper(in[:1])
 	rest := in[1:]
@@ -158,7 +169,6 @@ func parseEnums(node *ast.File, typeComments map[string]string) ([]Enum, string,
 		foundConstants  = make(map[string]struct{})
 		nameTPairs      = make([]nameTypePair, 0)
 	)
-
 	ast.Inspect(node, func(n ast.Node) bool {
 		decl, ok := n.(*ast.GenDecl)
 		if !ok || decl.Tok != token.CONST {
@@ -184,14 +194,7 @@ func parseEnums(node *ast.File, typeComments map[string]string) ([]Enum, string,
 				}
 				for _, name := range valueSpec.Names {
 					if _, found := foundConstants[name.Name]; !found {
-						var constantType string
-						if valueSpec.Type != nil {
-							constantType = fmt.Sprintf("%s", valueSpec.Type)
-
-							if comment, exists := typeComments[constantType]; exists {
-								iotaTypeComment = comment
-							}
-						}
+						iotaTypeComment = getTypeComment(valueSpec, typeComments)
 						comment := getComment(valueSpec)
 						valid := !strings.Contains(comment, "invalid")
 						comment, alternate := getAlternateName(comment, name)
@@ -228,6 +231,16 @@ func parseEnums(node *ast.File, typeComments map[string]string) ([]Enum, string,
 	return enums, iotaType, iotaIdx, nameTPairs
 }
 
+func getTypeComment(valueSpec *ast.ValueSpec, typeComments map[string]string) string {
+	if valueSpec.Type != nil {
+		constantType := fmt.Sprintf("%s", valueSpec.Type)
+		if comment, exists := typeComments[constantType]; exists {
+			return comment
+		}
+	}
+	return ""
+}
+
 func getPackageName(node *ast.File) string {
 	var packageName string
 	if node.Name != nil {
@@ -241,7 +254,6 @@ func getTypeComments(node *ast.File) map[string]string {
 	ast.Inspect(node, func(n ast.Node) bool {
 		decl, ok := n.(*ast.GenDecl)
 		if !ok || decl.Tok != token.TYPE {
-
 			return true
 		}
 		for _, spec := range decl.Specs {
@@ -354,7 +366,6 @@ func iotaInfo(valueSpec *ast.ValueSpec, typeComments map[string]string) (string,
 		iotaName = valueSpec.Names[0].Name
 		if valueSpec.Type != nil {
 			iotaType = fmt.Sprintf("%s", valueSpec.Type)
-
 			if comment, exists := typeComments[iotaType]; exists {
 				iotaTypeComment = comment
 			}
@@ -375,7 +386,11 @@ func iotaInfo(valueSpec *ast.ValueSpec, typeComments map[string]string) (string,
 				}
 			}
 			if y, ok := be.Y.(*ast.BasicLit); ok {
-				iotaIdx, _ = strconv.Atoi(y.Value)
+				var err error
+				iotaIdx, err = strconv.Atoi(y.Value)
+				if err != nil {
+					iotaIdx = 0
+				}
 			}
 		}
 	}
@@ -417,7 +432,11 @@ func writeAll(w io.StringWriter, enum EnumRepresentation) {
 
 func writeScanMethod(w io.StringWriter, rep EnumRepresentation) {
 	w.WriteString("func (p *" + rep.TypeInfo.Camel + ") Scan(value any) error {\n")
-	w.WriteString("\t*p = Parse" + rep.TypeInfo.Camel + "(value)\n")
+	w.WriteString("\tnewp, err := Parse" + rep.TypeInfo.Camel + "(value)\n")
+	w.WriteString("\tif err != nil {\n")
+	w.WriteString("\t\treturn err\n")
+	w.WriteString("\t}\n")
+	w.WriteString("\t*p = newp\n")
 	w.WriteString("\treturn nil\n")
 	w.WriteString("}\n\n")
 }
@@ -495,12 +514,11 @@ func writeJSONMarshalMethod(w io.StringWriter, rep EnumRepresentation) {
 func writeJSONUnmarshalMethod(w io.StringWriter, rep EnumRepresentation) {
 	w.WriteString("func (p *" + rep.TypeInfo.Camel + ") UnmarshalJSON(b []byte) error {\n")
 	w.WriteString("b = bytes.Trim(bytes.Trim(b, `\"`), ` `)\n")
-	w.WriteString("\t*p = Parse" + rep.TypeInfo.Camel + "(b)\n")
-	if rep.Failfast {
-		w.WriteString("\tif *p == invalid" + rep.TypeInfo.Camel + " {\n")
-		w.WriteString("\t\treturn fmt.Errorf(\"invalid " + rep.TypeInfo.Camel + " value: %s\", b)\n")
-		w.WriteString("\t}\n")
-	}
+	w.WriteString("\tnewp, err := Parse" + rep.TypeInfo.Camel + "(b)\n")
+	w.WriteString("\tif err != nil {\n")
+	w.WriteString("\t\treturn err\n")
+	w.WriteString("\t}\n")
+	w.WriteString("\t*p = newp\n")
 	w.WriteString("\treturn nil\n")
 	w.WriteString("}\n\n")
 }
@@ -588,24 +606,30 @@ func setupInvalidTypeMethod(w io.StringWriter, rep EnumRepresentation) {
 }
 func writeParseMethod(w io.StringWriter, rep EnumRepresentation) {
 	setupInvalidTypeMethod(w, rep)
-	w.WriteString("func Parse" + rep.TypeInfo.Camel + "(a any) " + rep.TypeInfo.Camel + " {\n")
+	w.WriteString("func Parse" + rep.TypeInfo.Camel + "(a any) (" + rep.TypeInfo.Camel + ", error) {\n")
+	w.WriteString("\tres := invalid" + rep.TypeInfo.Camel + "\n")
 	w.WriteString("\tswitch v := a.(type) {\n")
 	w.WriteString("\tcase " + rep.TypeInfo.Camel + ":\n")
-	w.WriteString("\t\treturn v\n")
+	w.WriteString("\t\treturn v, nil\n")
 	w.WriteString("\tcase []byte:\n")
-	w.WriteString("\t\treturn stringTo" + rep.TypeInfo.Camel + "(string(v))\n")
+	w.WriteString("\t\tres = stringTo" + rep.TypeInfo.Camel + "(string(v))\n")
 	w.WriteString("\tcase string:\n")
-	w.WriteString("\t\treturn stringTo" + rep.TypeInfo.Camel + "(v)\n")
+	w.WriteString("\t\tres = stringTo" + rep.TypeInfo.Camel + "(v)\n")
 	w.WriteString("\tcase fmt.Stringer:\n")
-	w.WriteString("\t\treturn stringTo" + rep.TypeInfo.Camel + "(v.String())\n")
+	w.WriteString("\t\tres = stringTo" + rep.TypeInfo.Camel + "(v.String())\n")
 	w.WriteString("\tcase int:\n")
-	w.WriteString("\t\treturn intTo" + rep.TypeInfo.Camel + "(v)\n")
+	w.WriteString("\t\tres = intTo" + rep.TypeInfo.Camel + "(v)\n")
 	w.WriteString("\tcase int64:\n")
-	w.WriteString("\t\treturn intTo" + rep.TypeInfo.Camel + "(int(v))\n")
+	w.WriteString("\t\tres = intTo" + rep.TypeInfo.Camel + "(int(v))\n")
 	w.WriteString("\tcase int32:\n")
-	w.WriteString("\t\treturn intTo" + rep.TypeInfo.Camel + "(int(v))\n")
+	w.WriteString("\t\tres = intTo" + rep.TypeInfo.Camel + "(int(v))\n")
 	w.WriteString("\t}\n")
-	w.WriteString("\treturn invalid" + rep.TypeInfo.Camel + "\n")
+	if rep.Failfast {
+		w.WriteString("\tif res == invalid" + rep.TypeInfo.Camel + " {\n")
+		w.WriteString("\t\treturn res, fmt.Errorf(\"failed to parse %v\", a)\n")
+		w.WriteString("\t}\n")
+	}
+	w.WriteString("\treturn res, nil\n")
 	w.WriteString("}\n\n")
 	setupStringToTypeMethod(w, rep)
 	setupIntToTypeMethod(w, rep)

@@ -76,24 +76,28 @@ func (c discounttypesContainer) All() []DiscountType {
 
 var invalidDiscountType = DiscountType{}
 
-func ParseDiscountType(a any) DiscountType {
+func ParseDiscountType(a any) (DiscountType, error) {
+	res := invalidDiscountType
 	switch v := a.(type) {
 	case DiscountType:
-		return v
+		return v, nil
 	case []byte:
-		return stringToDiscountType(string(v))
+		res = stringToDiscountType(string(v))
 	case string:
-		return stringToDiscountType(v)
+		res = stringToDiscountType(v)
 	case fmt.Stringer:
-		return stringToDiscountType(v.String())
+		res = stringToDiscountType(v.String())
 	case int:
-		return intToDiscountType(v)
+		res = intToDiscountType(v)
 	case int64:
-		return intToDiscountType(int(v))
+		res = intToDiscountType(int(v))
 	case int32:
-		return intToDiscountType(int(v))
+		res = intToDiscountType(int(v))
 	}
-	return invalidDiscountType
+	if res == invalidDiscountType {
+		return res, fmt.Errorf("failed to parse %v", a)
+	}
+	return res, nil
 }
 
 func stringToDiscountType(s string) DiscountType {
@@ -141,15 +145,20 @@ func (p DiscountType) MarshalJSON() ([]byte, error) {
 
 func (p *DiscountType) UnmarshalJSON(b []byte) error {
 	b = bytes.Trim(bytes.Trim(b, `"`), ` `)
-	*p = ParseDiscountType(b)
-	if *p == invalidDiscountType {
-		return fmt.Errorf("invalid DiscountType value: %s", b)
+	newp, err := ParseDiscountType(b)
+	if err != nil {
+		return err
 	}
+	*p = newp
 	return nil
 }
 
 func (p *DiscountType) Scan(value any) error {
-	*p = ParseDiscountType(value)
+	newp, err := ParseDiscountType(value)
+	if err != nil {
+		return err
+	}
+	*p = newp
 	return nil
 }
 

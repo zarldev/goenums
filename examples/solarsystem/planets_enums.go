@@ -143,24 +143,25 @@ func (c planetsContainer) All() []Planet {
 
 var invalidPlanet = Planet{}
 
-func ParsePlanet(a any) Planet {
+func ParsePlanet(a any) (Planet, error) {
+	res := invalidPlanet
 	switch v := a.(type) {
 	case Planet:
-		return v
+		return v, nil
 	case []byte:
-		return stringToPlanet(string(v))
+		res = stringToPlanet(string(v))
 	case string:
-		return stringToPlanet(v)
+		res = stringToPlanet(v)
 	case fmt.Stringer:
-		return stringToPlanet(v.String())
+		res = stringToPlanet(v.String())
 	case int:
-		return intToPlanet(v)
+		res = intToPlanet(v)
 	case int64:
-		return intToPlanet(int(v))
+		res = intToPlanet(int(v))
 	case int32:
-		return intToPlanet(int(v))
+		res = intToPlanet(int(v))
 	}
-	return invalidPlanet
+	return res, nil
 }
 
 func stringToPlanet(s string) Planet {
@@ -222,12 +223,20 @@ func (p Planet) MarshalJSON() ([]byte, error) {
 
 func (p *Planet) UnmarshalJSON(b []byte) error {
 	b = bytes.Trim(bytes.Trim(b, `"`), ` `)
-	*p = ParsePlanet(b)
+	newp, err := ParsePlanet(b)
+	if err != nil {
+		return err
+	}
+	*p = newp
 	return nil
 }
 
 func (p *Planet) Scan(value any) error {
-	*p = ParsePlanet(value)
+	newp, err := ParsePlanet(value)
+	if err != nil {
+		return err
+	}
+	*p = newp
 	return nil
 }
 

@@ -61,24 +61,25 @@ func (c statusesContainer) All() []Status {
 
 var invalidStatus = Status{}
 
-func ParseStatus(a any) Status {
+func ParseStatus(a any) (Status, error) {
+	res := invalidStatus
 	switch v := a.(type) {
 	case Status:
-		return v
+		return v, nil
 	case []byte:
-		return stringToStatus(string(v))
+		res = stringToStatus(string(v))
 	case string:
-		return stringToStatus(v)
+		res = stringToStatus(v)
 	case fmt.Stringer:
-		return stringToStatus(v.String())
+		res = stringToStatus(v.String())
 	case int:
-		return intToStatus(v)
+		res = intToStatus(v)
 	case int64:
-		return intToStatus(int(v))
+		res = intToStatus(int(v))
 	case int32:
-		return intToStatus(int(v))
+		res = intToStatus(int(v))
 	}
-	return invalidStatus
+	return res, nil
 }
 
 func stringToStatus(s string) Status {
@@ -134,12 +135,20 @@ func (p Status) MarshalJSON() ([]byte, error) {
 
 func (p *Status) UnmarshalJSON(b []byte) error {
 	b = bytes.Trim(bytes.Trim(b, `"`), ` `)
-	*p = ParseStatus(b)
+	newp, err := ParseStatus(b)
+	if err != nil {
+		return err
+	}
+	*p = newp
 	return nil
 }
 
 func (p *Status) Scan(value any) error {
-	*p = ParseStatus(value)
+	newp, err := ParseStatus(value)
+	if err != nil {
+		return err
+	}
+	*p = newp
 	return nil
 }
 
