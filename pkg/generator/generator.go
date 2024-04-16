@@ -302,6 +302,9 @@ func getAlternateName(comment string, name *ast.Ident) (string, string) {
 		alternate = nameComm[0]
 		comment = nameComm[1]
 	}
+	if comment != "" {
+		alternate = comment
+	}
 	comment = strings.TrimSpace(comment)
 	return comment, alternate
 }
