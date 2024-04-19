@@ -10,7 +10,6 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"strconv"
-	"strings"
 )
 
 type DiscountType struct {
@@ -75,8 +74,7 @@ func ParseDiscountType(a any) (DiscountType, error) {
 }
 
 func stringToDiscountType(s string) DiscountType {
-	lwr := strings.ToLower(s)
-	switch lwr {
+	switch s {
 	case "sale":
 		return DiscountTypes.SALE
 	case "percentage":
@@ -153,7 +151,7 @@ func _() {
 
 const _discounttypes_name = "salepercentageamountgiveaway"
 
-var _discounttypes_index = [...]uint16{0, 1, 1, 1, 1}
+var _discounttypes_index = [...]uint16{0, 4, 14, 20, 28}
 
 func (i discountType) String() string {
 	if i < 0 || i >= discountType(len(_discounttypes_index)-1) {

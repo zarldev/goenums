@@ -10,7 +10,6 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"strconv"
-	"strings"
 )
 
 type Status struct {
@@ -83,9 +82,8 @@ func ParseStatus(a any) (Status, error) {
 }
 
 func stringToStatus(s string) Status {
-	lwr := strings.ToLower(s)
-	switch lwr {
-	case "unknown":
+	switch s {
+	case "invalid":
 		return Statuses.UNKNOWN
 	case "failed":
 		return Statuses.FAILED
@@ -170,9 +168,9 @@ func _() {
 	_ = x[booked-6]
 }
 
-const _statuses_name = "unknownfailedpassedskippedscheduledrunningbooked"
+const _statuses_name = "invalidfailedpassedskippedscheduledrunningbooked"
 
-var _statuses_index = [...]uint16{0, 0, 0, 0, 0, 0, 0, 0}
+var _statuses_index = [...]uint16{0, 7, 13, 19, 26, 35, 42, 48}
 
 func (i status) String() string {
 	if i < 0 || i >= status(len(_statuses_index)-1) {

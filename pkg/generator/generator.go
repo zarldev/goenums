@@ -133,7 +133,6 @@ func ParseAndGenerate(filename string, failfast bool) error {
 	// path separator
 	linuxPathSeparator := "/"
 	fullPath := p + linuxPathSeparator + typeLower + "_enums.go"
-	fmt.Println("Creating file: ", fullPath)
 	f, err := os.Create(fullPath)
 	if err != nil {
 		log.Fatalf("Error creating file: %v", err)

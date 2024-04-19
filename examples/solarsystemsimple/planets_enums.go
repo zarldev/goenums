@@ -10,7 +10,6 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"strconv"
-	"strings"
 )
 
 type Planet struct {
@@ -93,9 +92,8 @@ func ParsePlanet(a any) (Planet, error) {
 }
 
 func stringToPlanet(s string) Planet {
-	lwr := strings.ToLower(s)
-	switch lwr {
-	case "unknown":
+	switch s {
+	case "invalid":
 		return Planets.UNKNOWN
 	case "mercury":
 		return Planets.MERCURY
@@ -188,9 +186,9 @@ func _() {
 	_ = x[neptune-8]
 }
 
-const _planets_name = "unknownmercuryvenusearthmarsjupitersaturnuranusneptune"
+const _planets_name = "invalidmercuryvenusearthmarsjupitersaturnuranusneptune"
 
-var _planets_index = [...]uint16{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+var _planets_index = [...]uint16{0, 7, 14, 19, 24, 28, 35, 41, 47, 54}
 
 func (i planet) String() string {
 	if i < 0 || i >= planet(len(_planets_index)-1) {

@@ -66,7 +66,6 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"strconv"
-	"strings"
 )
 
 type Status struct {
@@ -139,9 +138,8 @@ func ParseStatus(a any) (Status, error) {
 }
 
 func stringToStatus(s string) Status {
-	lwr := strings.ToLower(s)
-	switch lwr {
-	case "unknown":
+	switch s {
+	case "invalid":
 		return Statuses.UNKNOWN
 	case "failed":
 		return Statuses.FAILED
@@ -226,9 +224,9 @@ func _() {
 	_ = x[booked-6]
 }
 
-const _statuses_name = "unknownfailedpassedskippedscheduledrunningbooked"
+const _statuses_name = "invalidfailedpassedskippedscheduledrunningbooked"
 
-var _statuses_index = [...]uint16{0, 0, 0, 0, 0, 0, 0, 0}
+var _statuses_index = [...]uint16{0, 7, 13, 19, 26, 35, 42, 48}
 
 func (i status) String() string {
 	if i < 0 || i >= status(len(_statuses_index)-1) {
@@ -236,7 +234,6 @@ func (i status) String() string {
 	}
 	return _statuses_name[_statuses_index[i]:_statuses_index[i+1]]
 }
-
 ```
 ## Features
 
@@ -325,7 +322,6 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"strconv"
-	"strings"
 )
 
 type Planet struct {
@@ -340,7 +336,7 @@ type Planet struct {
 	Rings               bool
 }
 
-type planetContainer struct {
+type planetsContainer struct {
 	UNKNOWN Planet
 	MERCURY Planet
 	VENUS   Planet
@@ -352,7 +348,7 @@ type planetContainer struct {
 	NEPTUNE Planet
 }
 
-var Planets = planetContainer{
+var Planets = planetsContainer{
 	MERCURY: Planet{
 		planet:              mercury,
 		Gravity:             0.378,
@@ -443,7 +439,7 @@ var Planets = planetContainer{
 	},
 }
 
-func (c planetContainer) All() []Planet {
+func (c planetsContainer) All() []Planet {
 	return []Planet{
 		c.MERCURY,
 		c.VENUS,
@@ -458,46 +454,46 @@ func (c planetContainer) All() []Planet {
 
 var invalidPlanet = Planet{}
 
-func ParsePlanet(a any) Planet {
+func ParsePlanet(a any) (Planet, error) {
+	res := invalidPlanet
 	switch v := a.(type) {
 	case Planet:
-		return v
+		return v, nil
 	case []byte:
-		return stringToPlanet(string(v))
+		res = stringToPlanet(string(v))
 	case string:
-		return stringToPlanet(v)
+		res = stringToPlanet(v)
 	case fmt.Stringer:
-		return stringToPlanet(v.String())
+		res = stringToPlanet(v.String())
 	case int:
-		return intToPlanet(v)
+		res = intToPlanet(v)
 	case int64:
-		return intToPlanet(int(v))
+		res = intToPlanet(int(v))
 	case int32:
-		return intToPlanet(int(v))
+		res = intToPlanet(int(v))
 	}
-	return invalidPlanet
+	return res, nil
 }
 
 func stringToPlanet(s string) Planet {
-	lwr := strings.ToLower(s)
-	switch lwr {
-	case "unknown":
+	switch s {
+	case "invalid":
 		return Planets.UNKNOWN
-	case "mercury":
+	case "Mercury":
 		return Planets.MERCURY
-	case "venus":
+	case "Venus":
 		return Planets.VENUS
-	case "earth":
+	case "Earth":
 		return Planets.EARTH
-	case "mars":
+	case "Mars":
 		return Planets.MARS
-	case "jupiter":
+	case "Jupiter":
 		return Planets.JUPITER
-	case "saturn":
+	case "Saturn":
 		return Planets.SATURN
-	case "uranus":
+	case "Uranus":
 		return Planets.URANUS
-	case "neptune":
+	case "Neptune":
 		return Planets.NEPTUNE
 	}
 	return invalidPlanet
@@ -537,12 +533,20 @@ func (p Planet) MarshalJSON() ([]byte, error) {
 
 func (p *Planet) UnmarshalJSON(b []byte) error {
 	b = bytes.Trim(bytes.Trim(b, `"`), ` `)
-	*p = ParsePlanet(b)
+	newp, err := ParsePlanet(b)
+	if err != nil {
+		return err
+	}
+	*p = newp
 	return nil
 }
 
 func (p *Planet) Scan(value any) error {
-	*p = ParsePlanet(value)
+	newp, err := ParsePlanet(value)
+	if err != nil {
+		return err
+	}
+	*p = newp
 	return nil
 }
 
@@ -566,15 +570,15 @@ func _() {
 	_ = x[neptune-8]
 }
 
-const _planet_name = "unknownMercuryVenusEarthMarsJupiterSaturnUranusNeptune"
+const _planets_name = "invalidMercuryVenusEarthMarsJupiterSaturnUranusNeptune"
 
-var _planet_index = [...]uint16{0, 7, 14, 19, 24, 28, 35, 41, 47, 54}
+var _planets_index = [...]uint16{0, 7, 14, 19, 24, 28, 35, 41, 47, 54}
 
 func (i planet) String() string {
-	if i < 0 || i >= planet(len(_planet_index)-1) {
-		return "planet(" + (strconv.FormatInt(int64(i), 10) + ")")
+	if i < 0 || i >= planet(len(_planets_index)-1) {
+		return "planets(" + (strconv.FormatInt(int64(i), 10) + ")")
 	}
-	return _planet_name[_planet_index[i]:_planet_index[i+1]]
+	return _planets_name[_planets_index[i]:_planets_index[i+1]]
 }
 ```
 
