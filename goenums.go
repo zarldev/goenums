@@ -34,7 +34,7 @@ import (
 	"github.com/zarldev/goenums/pkg/generator"
 )
 
-const VERSION = "v0.3.0"
+const VERSION = "v0.3.2"
 
 func main() {
 	var (

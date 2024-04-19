@@ -1,4 +1,4 @@
-package enums
+package planets
 
 type planet int
 

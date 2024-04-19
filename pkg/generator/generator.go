@@ -21,6 +21,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 )
@@ -126,7 +127,14 @@ func ParseAndGenerate(filename string, failfast bool) error {
 		Enums: enums,
 	}
 	// create new file
-	f, err := os.Create(typeLower + "_enums.go")
+	// get the p from the filename
+
+	p := path.Dir(filename)
+	// path separator
+	linuxPathSeparator := "/"
+	fullPath := p + linuxPathSeparator + typeLower + "_enums.go"
+	fmt.Println("Creating file: ", fullPath)
+	f, err := os.Create(fullPath)
 	if err != nil {
 		log.Fatalf("Error creating file: %v", err)
 	}
@@ -134,7 +142,7 @@ func ParseAndGenerate(filename string, failfast bool) error {
 	defer f.Close()
 	writeAll(w, enumRep)
 	// format the file
-	err = formatFile(typeLower + "_enums.go")
+	err = formatFile(fullPath)
 	if err != nil {
 		return fmt.Errorf("failed to format file: %w", err)
 	}
@@ -197,7 +205,7 @@ func parseEnums(node *ast.File, typeComments map[string]string) ([]Enum, string,
 						iotaTypeComment = getTypeComment(valueSpec, typeComments)
 						comment := getComment(valueSpec)
 						valid := !strings.Contains(comment, "invalid")
-						comment, alternate := getAlternateName(comment, name)
+						comment, alternate := getAlternateName(comment, name, nameTPairs)
 						nameTPairsCopy := copyNameTPairs(nameTPairs, getValues(comment))
 						enums = append(enums, Enum{
 							Info: info{
@@ -294,29 +302,34 @@ func copyNameTPairs(nameTPairs []nameTypePair, values []string) []nameTypePair {
 	return nameTPairsCopy
 }
 
-func getAlternateName(comment string, name *ast.Ident) (string, string) {
+func getAlternateName(comment string, name *ast.Ident, nameTPairs []nameTypePair) (string, string) {
+	// get value between the first space and the first comma
+	comment = strings.TrimLeft(comment, " ")
 	count := strings.Count(comment, " ")
-	alternate := name.Name
-	if count > 0 {
-		nameComm := strings.Split(comment, " ")
-		alternate = nameComm[0]
-		comment = nameComm[1]
+	switch count {
+	case 0:
+		if comment == "" {
+			return "", name.Name
+		}
+		if strings.Contains(comment, ",") {
+			return comment, name.Name
+		}
+		if len(nameTPairs) == 1 {
+			return comment, name.Name
+		}
+		return comment, comment
+	case 1:
+		split := strings.Split(comment, " ")
+		return split[1], split[0]
 	}
-	if comment != "" {
-		alternate = comment
-	}
-	comment = strings.TrimSpace(comment)
-	return comment, alternate
+	return comment, name.Name
 }
 
 func getComment(valueSpec *ast.ValueSpec) string {
 	var comment string
 	if valueSpec.Comment != nil && len(valueSpec.Comment.List) > 0 {
-		comment = strings.TrimSpace(valueSpec.Comment.List[0].Text)
-
+		comment = valueSpec.Comment.List[0].Text
 		comment = comment[2:]
-
-		comment = strings.TrimSpace(comment)
 	}
 	return comment
 }
@@ -484,12 +497,12 @@ func generateIndexAndNameRun(rep EnumRepresentation) (string, string) {
 	nameConst := fmt.Sprintf("_%s_name = %q\n", rep.TypeInfo.Lower, b.String())
 	b.Reset()
 	fmt.Fprintf(b, " _%s_index = [...]uint16{0", rep.TypeInfo.Lower)
-	idx := rep.TypeInfo.Index
+	// idx := rep.TypeInfo.Index
 	for _, i := range indexes {
 		if i > 0 {
 			fmt.Fprintf(b, ", ")
 		}
-		fmt.Fprintf(b, "%d", idx)
+		fmt.Fprintf(b, "%d", i)
 	}
 	fmt.Fprintf(b, "}\n")
 	return b.String(), nameConst
@@ -554,7 +567,6 @@ func writePackage(w io.StringWriter, rep EnumRepresentation) {
 func writeImports(w io.StringWriter, rep EnumRepresentation) {
 	w.WriteString("import (\n")
 	w.WriteString("\t\"fmt\"\n")
-	w.WriteString("\t\"strings\"\n")
 	w.WriteString("\t\"strconv\"\n")
 	w.WriteString("\t\"bytes\"\n")
 	w.WriteString("\t\"database/sql/driver\"\n")
@@ -649,10 +661,10 @@ func setupIntToTypeMethod(w io.StringWriter, rep EnumRepresentation) {
 
 func setupStringToTypeMethod(w io.StringWriter, rep EnumRepresentation) {
 	w.WriteString("func stringTo" + rep.TypeInfo.Camel + "(s string) " + rep.TypeInfo.Camel + " {\n")
-	w.WriteString("\tlwr := strings.ToLower(s)\n")
-	w.WriteString("\tswitch lwr {\n")
+	// w.WriteString("\tlwr := strings.ToLower(s)\n")
+	w.WriteString("\tswitch s {\n")
 	for _, info := range rep.Enums {
-		w.WriteString("\tcase \"" + info.Info.Lower + "\":\n")
+		w.WriteString("\tcase \"" + info.Info.AlternateName + "\":\n")
 		w.WriteString("\t\treturn " + rep.TypeInfo.PluralCamel + "." + info.Info.Upper + "\n")
 	}
 	w.WriteString("\t}\n")

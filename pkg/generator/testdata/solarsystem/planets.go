@@ -1,4 +1,4 @@
-package milkyway
+package solarsystem
 
 type planet int // Gravity[float64],RadiusKm[float64],MassKg[float64],OrbitKm[float64],OrbitDays[float64],SurfacePressureBars[float64],Moons[int],Rings[bool]
 

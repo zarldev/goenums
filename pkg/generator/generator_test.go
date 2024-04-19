@@ -9,13 +9,14 @@ import (
 
 func TestParseAndGenerateSimple(t *testing.T) {
 	t.Log("TestParseAndGenerate")
-	filename := "testdata/validation/status.go"
+	path := "testdata/validation/"
+	filename := path + "status.go"
 	err := generator.ParseAndGenerate(filename, true)
 	if err != nil {
 		t.Errorf("Expected nil, got %v", err)
 	}
 	// check if the generated file exists
-	filename = "statuses_enums.go"
+	filename = path + "statuses_enums.go"
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		t.Errorf("Expected file to exist, got %v", err)
 	}
@@ -28,13 +29,14 @@ func TestParseAndGenerateSimple(t *testing.T) {
 
 func TestParseAndGenerateComplex(t *testing.T) {
 	t.Log("TestParseAndGenerate")
-	filename := "testdata/solarsystem/planets.go"
+	path := "testdata/solarsystem/"
+	filename := path + "planets.go"
 	err := generator.ParseAndGenerate(filename, false)
 	if err != nil {
 		t.Errorf("Expected nil, got %v", err)
 	}
 	// check if the generated file exists
-	filename = "planets_enums.go"
+	filename = path + "planets_enums.go"
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		t.Errorf("Expected file to exist, got %v", err)
 	}
@@ -47,13 +49,14 @@ func TestParseAndGenerateComplex(t *testing.T) {
 
 func TestParseAndGenerateCamelCase(t *testing.T) {
 	t.Log("TestParseAndGenerate")
-	filename := "testdata/sale/discount.go"
+	path := "testdata/sale/"
+	filename := path + "discount.go"
 	err := generator.ParseAndGenerate(filename, false)
 	if err != nil {
 		t.Errorf("Expected nil, got %v", err)
 	}
 	// check if the generated file exists
-	filename = "discounttypes_enums.go"
+	filename = path + "discounttypes_enums.go"
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		t.Errorf("Expected file to exist, got %v", err)
 	}
@@ -66,13 +69,34 @@ func TestParseAndGenerateCamelCase(t *testing.T) {
 
 func TestParseAndGenerateOnlyStrings(t *testing.T) {
 	t.Log("TestParseAndGenerate")
-	filename := "testdata/planets/planets.go"
+	path := "testdata/planets/"
+	filename := path + "planets.go"
 	err := generator.ParseAndGenerate(filename, false)
 	if err != nil {
 		t.Errorf("Expected nil, got %v", err)
 	}
 	// check if the generated file exists
-	filename = "planets_enums.go"
+	filename = path + "planets_enums.go"
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		t.Errorf("Expected file to exist, got %v", err)
+	}
+	// cleanup
+	err = os.Remove(filename)
+	if err != nil {
+		t.Errorf("Expected nil, got %v", err)
+	}
+}
+
+func TestParseAndGenerateOnlyExtensions(t *testing.T) {
+	t.Log("TestParseAndGenerate")
+	path := "testdata/planets-extended/"
+	filename := path + "planets.go"
+	err := generator.ParseAndGenerate(filename, false)
+	if err != nil {
+		t.Errorf("Expected nil, got %v", err)
+	}
+	// check if the generated file exists
+	filename = path + "planets_enums.go"
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		t.Errorf("Expected file to exist, got %v", err)
 	}
