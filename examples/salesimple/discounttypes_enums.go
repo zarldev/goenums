@@ -151,7 +151,7 @@ func _() {
 
 const _discounttypes_name = "salepercentageamountgiveaway"
 
-var _discounttypes_index = [...]uint16{0, 4, 14, 20, 28}
+var _discounttypes_index = [...]uint16{0, 0, 4, 14, 20, 28}
 
 func (i discountType) String() string {
 	if i < 0 || i >= discountType(len(_discounttypes_index)-1) {

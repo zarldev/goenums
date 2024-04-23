@@ -165,7 +165,7 @@ func ParsePlanet(a any) (Planet, error) {
 
 func stringToPlanet(s string) Planet {
 	switch s {
-	case "invalid":
+	case "unknown":
 		return Planets.UNKNOWN
 	case "Mercury":
 		return Planets.MERCURY
@@ -258,7 +258,7 @@ func _() {
 	_ = x[neptune-8]
 }
 
-const _planets_name = "invalidMercuryVenusEarthMarsJupiterSaturnUranusNeptune"
+const _planets_name = "unknownMercuryVenusEarthMarsJupiterSaturnUranusNeptune"
 
 var _planets_index = [...]uint16{0, 7, 14, 19, 24, 28, 35, 41, 47, 54}
 

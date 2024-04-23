@@ -83,7 +83,7 @@ func ParseStatus(a any) (Status, error) {
 
 func stringToStatus(s string) Status {
 	switch s {
-	case "invalid":
+	case "unknown":
 		return Statuses.UNKNOWN
 	case "failed":
 		return Statuses.FAILED
@@ -168,7 +168,7 @@ func _() {
 	_ = x[booked-6]
 }
 
-const _statuses_name = "invalidfailedpassedskippedscheduledrunningbooked"
+const _statuses_name = "unknownfailedpassedskippedscheduledrunningbooked"
 
 var _statuses_index = [...]uint16{0, 7, 13, 19, 26, 35, 42, 48}
 
