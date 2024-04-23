@@ -182,13 +182,10 @@ func parseEnums(node *ast.File, typeComments map[string]string) ([]Enum, string,
 			return true
 		}
 		for _, spec := range decl.Specs {
-			valueSpec, ok := spec.(*ast.ValueSpec)
-			if !ok {
-				continue
-			}
-			if len(valueSpec.Values) == 1 {
+			if valueSpec, ok := spec.(*ast.ValueSpec); ok && len(valueSpec.Values) == 1 {
 				iotaName, iotaType, iotaTypeComment, iotaIdx = iotaInfo(valueSpec, typeComments)
 			}
+			continue
 		}
 		if iotaTypeComment != "" {
 			nameTPairs = nameTPairsFromComments(iotaTypeComment, nameTPairs)
@@ -316,10 +313,19 @@ func getAlternateName(comment string, name *ast.Ident, nameTPairs []nameTypePair
 		if len(nameTPairs) == 1 {
 			return comment, name.Name
 		}
+		if strings.Contains(comment, "invalid") {
+			return comment, name.Name
+		}
 		return comment, comment
 	case 1:
 		split := strings.Split(comment, " ")
-		return split[1], split[0]
+		if len(split) == 2 {
+			if strings.Contains(split[0], "invalid") {
+				return split[1], split[1]
+			}
+			return split[1], split[0]
+		}
+		return comment, name.Name
 	}
 	return comment, name.Name
 }
@@ -342,28 +348,28 @@ func nameTPairsFromComments(iotaTypeComment string, nameTPairs []nameTypePair) [
 		if v[0] == ' ' {
 			v = v[1:]
 		}
-		open := "["
-		close := "]"
+		o := "["
+		c := "]"
 		if strings.Contains(v, "(") {
-			open = "("
-			close = ")"
+			o = "("
+			c = ")"
 		}
 		if strings.Contains(v, " ") {
-			open = " "
-			close = " "
+			o = " "
+			c = " "
 		}
-		idx := strings.Index(v, open)
+		idx := strings.Index(v, o)
 		if idx == -1 {
 			continue
 		}
 		name := v[:idx]
 		name = strings.TrimSpace(name)
 
-		endIndex := strings.Index(v, close)
-		if open == " " {
+		endIndex := strings.Index(v, c)
+		if o == " " {
 			endIndex = len(v)
 		}
-		typeName := v[strings.Index(v, open)+1 : endIndex]
+		typeName := v[strings.Index(v, o)+1 : endIndex]
 		nameTypePair := nameTypePair{Name: name, Type: typeName, Value: fmt.Sprintf("%d", i)}
 		nameTPairs = append(nameTPairs, nameTypePair)
 	}
@@ -376,6 +382,7 @@ func iotaInfo(valueSpec *ast.ValueSpec, typeComments map[string]string) (string,
 		iotaName, iotaType, iotaTypeComment string
 	)
 	ident, ok := valueSpec.Values[0].(*ast.Ident)
+
 	iotaIdx := 0
 	if ok && ident.Name == "iota" {
 		iotaName = valueSpec.Names[0].Name
@@ -387,8 +394,7 @@ func iotaInfo(valueSpec *ast.ValueSpec, typeComments map[string]string) (string,
 		}
 	}
 	if !ok {
-		be, ok := valueSpec.Values[0].(*ast.BinaryExpr)
-		if ok {
+		if be, ok := valueSpec.Values[0].(*ast.BinaryExpr); ok {
 			if x, ok := be.X.(*ast.Ident); ok {
 				if x.Name == "iota" {
 					iotaName = valueSpec.Names[0].Name
@@ -496,7 +502,9 @@ func generateIndexAndNameRun(rep EnumRepresentation) (string, string) {
 	nameConst := fmt.Sprintf("_%s_name = %q\n", rep.TypeInfo.Lower, b.String())
 	b.Reset()
 	fmt.Fprintf(b, " _%s_index = [...]uint16{0", rep.TypeInfo.Lower)
-	// idx := rep.TypeInfo.Index
+	for range rep.TypeInfo.Index {
+		fmt.Fprintf(b, ", %d", 0)
+	}
 	for _, i := range indexes {
 		if i > 0 {
 			fmt.Fprintf(b, ", ")

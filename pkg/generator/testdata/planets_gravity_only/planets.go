@@ -1,4 +1,4 @@
-package planetsc
+package planets_gravity_only
 
 type planet int // Gravity[float64]
 
