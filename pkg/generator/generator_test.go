@@ -5,12 +5,12 @@ import (
 	"os"
 	"testing"
 
+	"github.com/zarldev/goenums/examples/sale"
 	"github.com/zarldev/goenums/pkg/generator"
 	"github.com/zarldev/goenums/pkg/generator/testdata/orders"
 	"github.com/zarldev/goenums/pkg/generator/testdata/planets"
 	planetsgravityonly "github.com/zarldev/goenums/pkg/generator/testdata/planets_gravity_only"
 	plannetssimple "github.com/zarldev/goenums/pkg/generator/testdata/planets_simple"
-	"github.com/zarldev/goenums/pkg/generator/testdata/sale"
 	"github.com/zarldev/goenums/pkg/generator/testdata/validation"
 )
 
@@ -18,42 +18,50 @@ var (
 	testCases = []struct {
 		name     string
 		filename string
+		failfast bool
 		expected string
 	}{
 		{
 			name:     "TestParseAndGenerate-Statuses-Strings",
 			filename: "testdata/validation-strings/status.go",
+			failfast: false,
 			expected: "testdata/validation-strings/statuses_enums.go",
 		},
 		{
 			name:     "TestParseAndGenerate-Statuses",
 			filename: "testdata/validation/status.go",
+			failfast: false,
 			expected: "testdata/validation/statuses_enums.go",
 		},
 
 		{
 			name:     "TestParseAndGenerate-Planets",
 			filename: "testdata/planets/planets.go",
+			failfast: false,
 			expected: "testdata/planets/planets_enums.go",
 		},
 		{
 			name:     "TestParseAndGenerate-PlanetsGravityOnly",
 			filename: "testdata/planets_gravity_only/planets.go",
+			failfast: false,
 			expected: "testdata/planets_gravity_only/planets_enums.go",
 		},
 		{
 			name:     "TestParseAndGenerate-PlanetsSimple",
 			filename: "testdata/planets_simple/planets.go",
+			failfast: false,
 			expected: "testdata/planets_simple/planets_enums.go",
 		},
 		{
 			name:     "TestParseAndGenerate-DiscountTypes",
 			filename: "testdata/sale/discount.go",
+			failfast: true,
 			expected: "testdata/sale/discounttypes_enums.go",
 		},
 		{
 			name:     "TestParseAndGenerate-Orders",
 			filename: "testdata/orders/orders.go",
+			failfast: false,
 			expected: "testdata/orders/orders_enums.go",
 		},
 	}
@@ -71,7 +79,7 @@ func TestGenerator(t *testing.T) {
 	// Run test cases
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := generator.ParseAndGenerate(tc.filename, false)
+			err := generator.ParseAndGenerate(tc.filename, tc.failfast)
 			if err != nil {
 				t.Errorf("failed to generate enums for %s, got %v", tc.filename, err)
 			}

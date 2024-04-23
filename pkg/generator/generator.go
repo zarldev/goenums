@@ -648,7 +648,7 @@ func writeParseMethod(w io.StringWriter, rep EnumRepresentation) {
 	w.WriteString("\t}\n")
 	if rep.Failfast {
 		w.WriteString("\tif res == invalid" + rep.TypeInfo.Camel + " {\n")
-		w.WriteString("\t\treturn res, fmt.Errorf(\"failed to parse %v\", a)\n")
+		w.WriteString("\t\treturn res, fmt.Errorf(\"failed to parse invalid " + rep.TypeInfo.Camel + ": %v\", a)\n")
 		w.WriteString("\t}\n")
 	}
 	w.WriteString("\treturn res, nil\n")
@@ -659,6 +659,9 @@ func writeParseMethod(w io.StringWriter, rep EnumRepresentation) {
 
 func setupIntToTypeMethod(w io.StringWriter, rep EnumRepresentation) {
 	w.WriteString("func intTo" + rep.TypeInfo.Camel + "(i int) " + rep.TypeInfo.Camel + " {\n")
+	if rep.TypeInfo.Index != 0 {
+		w.WriteString("\ti = i - " + strconv.Itoa(rep.TypeInfo.Index) + "\n")
+	}
 	w.WriteString("\tif i < 0 || i >= len(" + rep.TypeInfo.PluralCamel + " .All()) {\n")
 	w.WriteString("\t\treturn invalid" + rep.TypeInfo.Camel + "\n")
 	w.WriteString("\t}\n")
