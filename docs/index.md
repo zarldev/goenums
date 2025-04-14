@@ -58,4 +58,4 @@ if !parsed.IsValid() {
     fmt.Println("Invalid status")
 }
 ```
-Get Started → [Installation](/installation)
+[Get Started with Installation]({% link installation.md %})
