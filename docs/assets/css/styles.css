@@ -321,3 +321,6 @@ body {
       padding-right: 0;
     }
   }
+  .spaced-subtitle {
+    margin-left: 0.5rem; /* Adjust spacing as needed */
+  }
