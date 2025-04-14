@@ -12,7 +12,7 @@ Using goenums involves a simple workflow:
 
 ## Quick Start
 
-```go
+```golang
 package validation
 
 type status int
@@ -36,7 +36,7 @@ $ go generate ./...
 
 Now you can use the generated `status` enums type in your code:
 
-```go
+```golang
 /// Access enum constants safely
 myStatus := validation.Statuses.PASSED
 
@@ -64,7 +64,7 @@ Where <filename> is the Go source file containing your enum definitions.
 
 To use goenums, you need to add a `go:generate` directive to your Go source file. 
 
-```go
+```golang
 package validation
 
 type status int
@@ -110,7 +110,7 @@ This file will contain:
 
 After generating the enum implementations, you can use the generated code in your Go project.
 
-```go
+```golang
 // Import the package containing your enum
 import "yourpackage/validation"
 

@@ -13,8 +13,6 @@ highlighter: rouge
 # Rouge syntax highlighting settings
 kramdown:
   syntax_highlighter: rouge
-  syntax_highlighter_opts:
-    default_lang: go
 
 # Navigation
 navigation:
