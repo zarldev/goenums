@@ -1,0 +1,25 @@
+@import "rouge-github";
+
+// Additional Go-specific syntax highlighting
+.highlight {
+  .go, .gd, .ge, .gr, .gt, .nb, .nc, .no, .nf, .nn, .nt, .nv, .o, .ow {
+    color: #000;
+  }
+  .c, .c1, .cm, .cs, .cp {
+    color: #999;
+    font-style: italic;
+  }
+  .k, .kc, .kd, .kn, .kp, .kr, .kt {
+    color: #00a;
+    font-weight: bold;
+  }
+  .s, .sb, .sc, .sd, .s2, .se, .sh, .si, .sx, .sr, .s1, .ss {
+    color: #d14;
+  }
+  .na, .nb, .bp, .nc, .no, .nd, .ni, .ne, .nf, .nl, .nn, .nt, .nv, .vc, .vg, .vi, .py {
+    color: #900;
+  }
+  .m, .mf, .mh, .mi, .mo, .il {
+    color: #099;
+  }
+}
