@@ -35,3 +35,14 @@ You should see the goenums logo and current version displayed:
 /____/
         version: v0.3.6
 ```
+
+# Prerequisites
+Go 1.23+ for full functionality including iterator support
+For Go 1.18-1.22, use the -l flag to generate code without iterator 
+support
+
+# Zero Dependencies
+goenums is completely dependency-free, using only the Go standard library. This ensures minimal bloat, maximum stability, and eliminates dependency-related security concerns.
+
+# Next Steps
+Learn how to [use goenums in your project]({{ '/usage' | relative_url }}).
