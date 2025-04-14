@@ -3,10 +3,38 @@ title: goenums
 description: Type-safe enum generation for Go
 url: "https://zarldev.github.io/goenums"
 baseurl: "/goenums"
+repository: "zarldev/goenums"
+version: "0.3.6"
 
 # Build settings
 markdown: kramdown
 highlighter: rouge
-remote_theme: pages-themes/cayman@v0.2.0
-plugins:
-  - jekyll-remote-theme
+
+# Navigation
+navigation:
+  - title: Home
+    url: /
+  - title: Installation
+    url: /installation
+  - title: Usage
+    url: /usage
+  - title: Features
+    url: /features
+    subitems:
+      - title: Type Safety
+        url: /features/type-safety
+      - title: JSON & DB
+        url: /features/json-db
+      - title: Exhaustive Handling
+        url: /features/exhaustive
+      - title: Iterator Support
+        url: /features/iterators
+  - title: Examples
+    url: /examples
+    subitems:
+      - title: Basic
+        url: /examples/basic
+      - title: Extended
+        url: /examples/extended
+      - title: Custom Strings
+        url: /examples/custom-strings
