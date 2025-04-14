@@ -1,0 +1,471 @@
+// Package gofile provides Go-specific parsing and generation capabilities for enums.
+// This parser analyzes Go source files to extract enum-like constant declarations and
+// transforms them into language-agnostic enum representations.
+package gofile
+
+import (
+	"context"
+	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"log/slog"
+	"slices"
+	"strconv"
+
+	"github.com/zarldev/goenums/enum"
+	"github.com/zarldev/goenums/producer"
+	"github.com/zarldev/goenums/producer/config"
+	"github.com/zarldev/goenums/strings"
+)
+
+// Compile-time check that Parser implements enum.Parser
+var _ enum.Parser = (*Parser)(nil)
+
+// Parser implements the enum.Parser interface for Go source files.
+// It analyzes Go constant declarations to identify and extract enum patterns,
+// translating them into a standardized representation model.
+type Parser struct {
+	Configuration config.Configuration
+	source        enum.Source
+}
+
+// NewParser creates a new Go file parser with the specified configuration and source.
+// The parser will analyze the source according to the configuration settings.
+func NewParser(configuration config.Configuration, source enum.Source) *Parser {
+	return &Parser{
+		Configuration: configuration,
+		source:        source,
+	}
+}
+
+// Parse analyzes Go source code to identify and extract enum-like constant declarations.
+// It returns a slice of enum representations or an error if parsing fails.
+// The implementation uses Go's standard AST parsing to analyze the source code structure.
+func (p *Parser) Parse(ctx context.Context) ([]enum.Representation, error) {
+	content, err := p.source.Content()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read source content: %w", err)
+	}
+	slog.Debug("parsing source content")
+	filename := p.source.Filename()
+	fset := token.NewFileSet()
+	slog.Debug("parsing file", "filename", filename)
+	node, err := parser.ParseFile(fset, filename, content, parser.ParseComments)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse Go file %s: %w", filename, err)
+	}
+	slog.Debug("collecting all enum representations")
+	typeComments := p.getTypeComments(node)
+	reps := p.collectAllEnumRepresentations(node, filename, typeComments,
+		p.Configuration)
+	if len(reps) == 0 {
+		return nil, fmt.Errorf("%w: %w", producer.ErrParserNoEnumsFound, err)
+	}
+	return reps, nil
+}
+
+// tempHolder is a temporary struct used to collect enum representations
+// during parsing.
+type tempHolder struct {
+	enums      []enum.Enum
+	iotaType   string
+	iotaIdx    int
+	nameTPairs []enum.NameTypePair
+}
+
+// collectAllEnumRepresentations analyzes an AST to identify enum-like declarations.
+// It extracts type information, constant values, and associated metadata to build
+// complete enum representations for code generation.
+func (p *Parser) collectAllEnumRepresentations(node *ast.File,
+	filename string, typeComments map[string]string,
+	cfg config.Configuration) []enum.Representation {
+	packageName := p.getPackageName(node)
+	slog.Debug("enum package name", "name", packageName)
+	enumsByType := make(map[string]tempHolder)
+	slog.Debug("traversing ast")
+	ast.Inspect(node, func(n ast.Node) bool {
+		decl, ok := n.(*ast.GenDecl)
+		if !ok || decl.Tok != token.CONST {
+			return true
+		}
+		var (
+			currIotaType string
+			currIotaIdx  int
+		)
+		currNTPs := make([]enum.NameTypePair, 0)
+		if len(decl.Specs) > 0 {
+			if valueSpec, ok := decl.Specs[0].(*ast.ValueSpec); ok && len(valueSpec.Values) == 1 {
+				iotaName, iotaType, iotaTypeComment, iotaIdx := p.iotaInfo(valueSpec, typeComments)
+				if iotaName != "" && iotaType != "" {
+					currIotaType = iotaType
+					currIotaIdx = iotaIdx
+					if iotaTypeComment != "" {
+						currNTPs = p.nameTPairsFromComments(iotaTypeComment, currNTPs)
+					}
+				}
+			}
+		}
+		if currIotaType != "" {
+			entry, exists := enumsByType[currIotaType]
+			if !exists {
+				entry = tempHolder{
+					iotaType:   currIotaType,
+					iotaIdx:    currIotaIdx,
+					nameTPairs: currNTPs,
+				}
+			}
+			for i, spec := range decl.Specs {
+				vs, ok := spec.(*ast.ValueSpec)
+				if !ok {
+					continue
+				}
+				for _, name := range vs.Names {
+					comment := p.getComment(vs)
+					valid := !strings.Contains(comment, "invalid")
+					comment, alternate := p.getAlternateName(comment, name, currNTPs)
+					nameTPairsCopy := p.copyNameTPairs(currNTPs, p.getValues(comment))
+					entry.enums = append(entry.enums, enum.Enum{
+						Info: enum.Info{
+							Name:          name.Name,
+							Camel:         strings.CamelCase(name.Name),
+							Lower:         strings.ToLower(name.Name),
+							Upper:         strings.ToUpper(name.Name),
+							AlternateName: alternate,
+							Value:         i,
+							Valid:         valid,
+						},
+						TypeInfo: enum.TypeInfo{
+							Name:          currIotaType,
+							Camel:         strings.CamelCase(currIotaType),
+							Lower:         strings.ToLower(currIotaType),
+							Upper:         strings.ToUpper(currIotaType),
+							NameTypePairs: nameTPairsCopy,
+						},
+						Raw: enum.Raw{
+							Comment:     comment,
+							TypeComment: p.getTypeComment(vs, typeComments),
+						},
+					})
+				}
+			}
+			enumsByType[currIotaType] = entry
+		}
+		return true
+	})
+	if len(enumsByType) == 0 {
+		return nil
+	}
+	representations := make([]enum.Representation, 0, len(enumsByType))
+	for iotaType, info := range enumsByType {
+		slog.Debug("enum representation for type", "type", iotaType)
+		for _, v := range info.enums {
+			slog.Debug("enum information", "enum", v.Info.Name)
+		}
+		typeLower, plural := strings.GetPlural(iotaType)
+		rep := enum.Representation{
+			PackageName:     packageName,
+			Failfast:        cfg.Failfast,
+			Legacy:          cfg.Legacy,
+			CaseInsensitive: cfg.Insensitive,
+			SourceFilename:  filename,
+			TypeInfo: enum.TypeInfo{
+				Filename:      packageName,
+				Index:         info.iotaIdx,
+				Name:          info.iotaType,
+				Camel:         strings.CamelCase(info.iotaType),
+				Lower:         typeLower,
+				Upper:         strings.ToUpper(info.iotaType),
+				Plural:        plural,
+				PluralCamel:   strings.CamelCase(plural),
+				NameTypePairs: info.nameTPairs,
+			},
+			Enums: info.enums,
+		}
+		representations = append(representations, rep)
+	}
+	return representations
+}
+
+// getTypeComment retrieves the documentation comment associated with a type.
+// This is used to extract metadata about enum types from their definitions.
+func (p *Parser) getTypeComment(valueSpec *ast.ValueSpec, typeComments map[string]string) string {
+	if valueSpec.Type != nil {
+		constantType := fmt.Sprintf("%s", valueSpec.Type)
+		if comment, exists := typeComments[constantType]; exists {
+			return comment
+		}
+	}
+	return ""
+}
+
+// getPackageName extracts the package name from an AST node.
+// This is used to determine the package context for generated code.
+func (p *Parser) getPackageName(node *ast.File) string {
+	var packageName string
+	if node.Name != nil {
+		packageName = node.Name.Name
+	}
+	return packageName
+}
+
+// getTypeComments collects all comments associated with type declarations.
+// This builds a mapping of type names to their documentation comments.
+func (p *Parser) getTypeComments(node *ast.File) map[string]string {
+	typeComments := make(map[string]string)
+	ast.Inspect(node, func(n ast.Node) bool {
+		decl, ok := n.(*ast.GenDecl)
+		if !ok || decl.Tok != token.TYPE {
+			return true
+		}
+		for _, spec := range decl.Specs {
+			typeSpec, ok := spec.(*ast.TypeSpec)
+			if !ok {
+				continue
+			}
+			if typeSpec.Comment != nil && len(typeSpec.Comment.List) > 0 {
+				comment := strings.TrimSpace(typeSpec.Comment.List[0].Text[2:])
+				typeComments[typeSpec.Name.Name] = comment
+			}
+		}
+		return true
+	})
+	return typeComments
+}
+
+// getValues extracts value information from a comment string.
+// This is used to parse comma-separated values in enum comments.
+func (p *Parser) getValues(comment string) []string {
+	values := strings.Split(comment, ",")
+	if len(values) > 1 {
+		for i, v := range values {
+			v = strings.TrimSpace(v)
+			if strings.HasPrefix(v, `"`) && strings.HasSuffix(v, `"`) {
+				values[i] = v[1 : len(v)-1]
+				continue
+			}
+			values[i] = v
+		}
+	}
+	return values
+}
+
+// copyNameTPairs creates a copy of name-type pairs with updated values.
+// This ensures that each enum representation has its own isolated metadata.
+func (p *Parser) copyNameTPairs(nameTPairs []enum.NameTypePair, values []string) []enum.NameTypePair {
+	nameTPairsCopy := slices.Clone(nameTPairs)
+	if len(values) == len(nameTPairsCopy) {
+		for i, v := range values {
+			v = strings.TrimSpace(v)
+			ntp := nameTPairsCopy[i]
+			switch ntp.Type {
+			case "float64":
+				val := parseOrDefault(v, 0.0, func(s string) (float64, error) {
+					return strconv.ParseFloat(s, 64)
+				})
+				ntp.Value = fmt.Sprintf("%g", val)
+			case "int":
+				val := parseOrDefault(v, 0, func(s string) (int, error) {
+					return strconv.Atoi(s)
+				})
+				ntp.Value = fmt.Sprintf("%d", val)
+			case "bool":
+				val := parseOrDefault(v, false, strconv.ParseBool)
+				ntp.Value = fmt.Sprintf("%t", val)
+			default:
+				ntp.Value = formatValue(v)
+			}
+		}
+	}
+	return nameTPairsCopy
+}
+
+// getAlternateName extracts alternate name information from comments.
+// This allows for separate string representations of enum values.
+func (p *Parser) getAlternateName(comment string, n *ast.Ident, nameTPairs []enum.NameTypePair) (string, string) {
+	comment = strings.TrimLeft(comment, " ")
+	if strings.HasPrefix(comment, `"`) {
+		endQI := strings.Index(comment[1:], `"`)
+		if endQI != -1 {
+			quotedValue := comment[1 : endQI+1]
+			return comment, quotedValue
+		}
+	}
+
+	count := strings.Count(comment, " ")
+	switch count {
+	case 0:
+		if comment == "" {
+			return "", n.Name
+		}
+		if strings.Contains(comment, ",") ||
+			strings.Contains(comment, "invalid") ||
+			len(nameTPairs) == 1 {
+			return comment, n.Name
+		}
+		return comment, comment
+	case 1:
+		split := strings.Split(comment, " ")
+		if len(split) == 2 {
+			if strings.Contains(split[0], "invalid") {
+				return split[1], split[1]
+			}
+			return split[1], split[0]
+		}
+		return comment, n.Name
+	}
+	return comment, n.Name
+}
+
+// getComment retrieves the comment associated with a value specification.
+// This extracts documentation from the source code for use in generation.
+func (p *Parser) getComment(valueSpec *ast.ValueSpec) string {
+	comment := ""
+	if valueSpec.Comment != nil && len(valueSpec.Comment.List) > 0 {
+		comment = valueSpec.Comment.List[0].Text
+		comment = comment[2:]
+	}
+	return comment
+}
+
+// nameTPairsFromComments parses type comments to extract name-type pairs.
+// This allows for metadata extraction from type documentation.
+func (p *Parser) nameTPairsFromComments(iotaTypeComment string, nameTPairs []enum.NameTypePair) []enum.NameTypePair {
+	typeValues := strings.Split(iotaTypeComment, ",")
+	for i, v := range typeValues {
+		if len(v) == 0 {
+			continue
+		}
+		var (
+			formatType         = "unknown"
+			openR, closeR      string
+			nEnd, tStart, tEnd int
+		)
+		v = strings.TrimSpace(v)
+		if strings.Contains(v, "[") {
+			formatType = "bracket"
+			openR, closeR = "[", "]"
+		} else if strings.Contains(v, "(") {
+			formatType = "parenthesis"
+			openR, closeR = "(", ")"
+		} else if strings.Contains(v, " ") {
+			formatType = "space"
+			openR, closeR = " ", " "
+		}
+		nEnd = strings.Index(v, openR)
+		if nEnd == -1 {
+			continue
+		}
+		tStart = nEnd + len(openR)
+		tEnd = len(v)
+
+		if formatType != "space" {
+			tEnd = strings.Index(v[tStart:], closeR)
+			if tEnd == -1 {
+				continue
+			}
+			tEnd += tStart
+		}
+		name := strings.TrimSpace(v[:nEnd])
+		typeName := strings.TrimSpace(v[tStart:tEnd])
+		if name == "" || typeName == "" {
+			continue
+		}
+		nameTypePair := enum.NameTypePair{
+			Name:  name,
+			Type:  typeName,
+			Value: fmt.Sprintf("%d", i),
+		}
+		nameTPairs = append(nameTPairs, nameTypePair)
+	}
+	return nameTPairs
+}
+
+// iotaIdentifier is the token that identifies iota-based enum declarations
+const (
+	iotaIdentifier = "iota"
+)
+
+// iotaInfo extracts information about iota-based enum declarations.
+// It identifies the enum type, name, and starting index value.
+func (p *Parser) iotaInfo(valueSpec *ast.ValueSpec, typeComments map[string]string) (string, string, string, int) {
+	if len(valueSpec.Values) == 0 ||
+		len(valueSpec.Names) == 0 {
+		return "", "", "", 0
+	}
+	var (
+		iotaName, iotaType, iotaTypeComment string
+		iotaIdx                             int
+		vsVal                               = valueSpec.Values[0]
+		vsName                              = valueSpec.Names[0]
+	)
+	ident, ok := vsVal.(*ast.Ident)
+	if ok && ident.Name == iotaIdentifier {
+		iotaName = vsName.Name
+		if valueSpec.Type != nil {
+			iotaType = fmt.Sprintf("%s", valueSpec.Type)
+			if comment, exists := typeComments[iotaType]; exists {
+				iotaTypeComment = comment
+			}
+		}
+	}
+	if !ok {
+		if be, ok := vsVal.(*ast.BinaryExpr); ok {
+			if x, ok := be.X.(*ast.Ident); ok {
+				if x.Name == iotaIdentifier {
+					iotaName = vsName.Name
+					if valueSpec.Type != nil {
+						iotaType = fmt.Sprintf("%s", valueSpec.Type)
+						if comment, exists := typeComments[iotaType]; exists {
+							iotaTypeComment = comment
+						}
+					}
+				}
+			}
+			if y, ok := be.Y.(*ast.BasicLit); ok {
+				if idx, err := strconv.Atoi(y.Value); err == nil {
+					iotaIdx = idx
+				}
+			}
+		}
+	}
+	return iotaName, iotaType, iotaTypeComment, iotaIdx
+}
+
+// Ordered is a constraint that permits any ordered type: any type
+// that supports the operators < <= >= >.
+type Ordered interface {
+	~int | ~int8 | ~int16 | ~int32 | ~int64 |
+		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr |
+		~float32 | ~float64 |
+		~string | bool
+}
+
+// parseOrDefault is a generic function that attempts to parse a string as type T,
+// returning the parsed value if successful or the default value if not.
+func parseOrDefault[T Ordered](s string, defaultVal T, parser func(string) (T, error)) T {
+	if val, err := parser(s); err == nil {
+		return val
+	}
+	return defaultVal
+}
+
+// formatValue formats values for code generation according to their type.
+// It ensures that values are properly quoted and formatted in generated code.
+func formatValue[T any](val T) string {
+	switch v := any(val).(type) {
+	case string:
+		if v == "" {
+			return `""`
+		}
+		return fmt.Sprintf("%q", v)
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		return fmt.Sprintf("%d", v)
+	case float32, float64:
+		return fmt.Sprintf("%g", v)
+	case bool:
+		return fmt.Sprintf("%t", v)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}

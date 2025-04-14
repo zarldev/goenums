@@ -94,7 +94,7 @@ func ParseDiscountType(a any) (DiscountType, error) {
 		res = intToDiscountType(int(v))
 	}
 	if res == invalidDiscountType {
-		return res, fmt.Errorf("failed to parse %v", a)
+		return res, fmt.Errorf("failed to parse invalid DiscountType: %v", a)
 	}
 	return res, nil
 }
@@ -114,6 +114,7 @@ func stringToDiscountType(s string) DiscountType {
 }
 
 func intToDiscountType(i int) DiscountType {
+	i = i - 1
 	if i < 0 || i >= len(DiscountTypes.All()) {
 		return invalidDiscountType
 	}

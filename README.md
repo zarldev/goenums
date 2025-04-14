@@ -3,12 +3,41 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![build](https://github.com/zarldev/goenums/actions/workflows/go.yml/badge.svg)
 
-goenums is a tool to help you generate go type safe enums that are much more tightly typed than just `iota` defined enums.
+`goenums` addresses Go's lack of native enum support by generating comprehensive, type-safe enum implementations from simple constant declarations. Transform basic `iota` based constants into feature-rich enums with string conversion, validation, JSON handling, database integration, and more.
+
+## Table of Contents
+- [Installation](#installation)
+- [Key Features](#key-features)
+- [Usage](#usage)
+- [Getting Started](#getting-started)
+  - [Basic Example](#basic-example)
+- [Advanced Features](#advanced-features)
+  - [Custom String Representations](#custom-string-representations)
+  - [Extended Enum Types with Custom Fields](#extended-enum-types-with-custom-fields)
+  - [Strict Validation](#strict-validation)
+  - [Case Insensitive String Parsing](#case-insensitive-string-parsing)
+  - [JSON & Database Storage](#json--database-storage)
+  - [Exhaustive Handling](#exhaustive-handling)
+  - [Iterator Support (Go 1.23+)](#iterator-support-go-123)
+- [Requirements](#requirements)
+- [Examples](#examples)
+- [License](#license)
 
 # Installation
 ```
 go install github.com/zarldev/goenums@latest
 ```
+
+# Key Features
+ - Type Safety: Wrapper types prevent accidental misuse of enum values
+ - String Conversion: Automatic string representation and parsing
+ - JSON Support: Built-in marshaling and unmarshaling
+ - Database Integration: SQL Scanner and Valuer implementations
+ - Validation: Methods to check for valid enum values
+ - Iteration: Modern Go 1.23+ iteration support with legacy fallback
+ - Extensibility: Add custom fields to enums via comments
+ - Exhaustive Handling: Helper functions to ensure you handle all enum values
+ - Zero Dependencies: Completely dependency-free, using only the Go standard library
 
 # Usage
 ```
@@ -20,22 +49,29 @@ $ goenums -h
 /____/
 Usage: goenums [options] filename
 Options:
-  -f
-  -failfast
-        Enable failfast mode - fail on generation of invalid enum while parsing (default: false)
-  -h
-  -help
+  -f, -failfast
+        Enable failfast mode - fail on invalid enum parsing (default: false)
+  -l, -legacy
+        Generate legacy code without Go 1.23+ iterator support (default: false)
+  -i, -insensitive
+        Enable case-insensitive string parsing (default: false)
+  -h, -help
         Print help information
-  -v
-  -version
+  -v, -version
         Print version information
+  -vv, -verbose
+        Enable verbose logging (default: false)
 ```
 
-### Example
-Defining the list of enums in the respective go file and then point the goenum binary at the require file.  This can be specified in the go generate command like below:
-For example we have the file below called status.go :
+# Getting Started
 
-```golang
+## Basic Example
+
+goenums is designed to work seamlessly with Go's standard tooling, particularly with `go:generate` directives. This allows you to automatically regenerate your enum code whenever your source files change, integrating smoothly into your existing build process.
+
+1. Define your enum constant in a Go file:
+
+```go
 package validation
 
 type status int
@@ -51,20 +87,259 @@ const (
 	booked
 )
 ```
-Now running the `go generate` command will generate the following code in a new file called `statuses_enums.go`
+2. Run `go generate ./...` to generate the enum implementations.
+
+3. Use the generated `status` enums type in your code:
+
+```go
+// Access enum constants safely
+myStatus := validation.Statuses.PASSED
+
+// Convert to string
+fmt.Println(myStatus.String()) // "PASSED"
+
+// Parse from various sources
+input := "SKIPPED"
+parsed, _ := validation.ParseStatus(input)
+
+// Validate enum values
+if !parsed.IsValid() {
+    fmt.Println("Invalid status")
+}
+
+// JSON marshaling/unmarshaling works automatically
+type Task struct {
+    ID     int              `json:"id"`
+    Status validation.Status `json:"status"`
+}
+```
+
+# Advanced Features
+
+## Custom String Representations
+
+Handle custom string representations defined in the comments of each enum.  Support for enum strings with spaces is supported by adding the alternative name in double quotes: 
+
+### Standard Name Comment
+
+When the Alternative name does not contain spaces there is no need
+to add the double quotes.
+
+```go
+type ticketStatus int
+
+//go:generate goenums status.go
+const (
+    unknown   ticketStatus = iota // invalid Unknown
+    pending                       // Pending
+    approved                      // Approved
+    rejected                      // Rejected
+    completed                     // Completed
+)
+```
+
+### Name Comment with spaces
+
+When using Alternative names that contain spaces, the double quotes are required.
+
+```go
+type ticketStatus int
+
+//go:generate goenums status.go
+const (
+    unknown   ticketStatus = iota // invalid "Not Found"
+    pending                       // "In Progress"
+    approved                      // "Fully Approved"
+    rejected                      // "Has Been Rejected"
+    completed                     // "Successfully Completed"
+)
+```
+## Extended Enum Types with Custom Fields
+Add custom fields to your enums with type comments:
+
+```go
+// Define fields in the type comment using one of three formats:
+// 1. Space-separated: "Field Type,AnotherField Type"
+// 2. Brackets: "Field[Type],AnotherField[Type]"
+// 3. Parentheses: "Field(Type),AnotherField(Type)"
+
+type planet int // Gravity float64,RadiusKm float64,MassKg float64,OrbitKm float64
+
+//go:generate goenums planets.go
+const (
+    unknown planet = iota // invalid
+    mercury               // Mercury 0.378,2439.7,3.3e23,57910000
+    venus                 // Venus 0.907,6051.8,4.87e24,108200000
+    earth                 // Earth 1,6378.1,5.97e24,149600000
+	... 
+)
+```
+Then we can use the extended enum type:
+
+```go
+earthWeight := 100.0
+fmt.Printf("Weight on %s: %.2f kg\n", 
+    solarsystem.Planets.MARS, 
+    earthWeight * solarsystem.Planets.MARS.Gravity)
+```
+
+## Strict Validation
+Use the -f flag to enable strict validation that returns errors for invalid enum values:
+
+```go
+//go:generate goenums -f status.go
+
+// Generated code will return errors for invalid values
+status, err := validation.ParseStatus("INVALID_STATUS")
+if err != nil {
+    fmt.Println("error:", err)
+}
+```
+
+## Case Insensitive String Parsing
+Use the -i flag to enable case insensitive string parsing:
+
+```go
+//go:generate goenums -i status.go
+
+// Generated code will parse case insensitive strings. All
+// of the below will validate and produce the 'Pending' enum
+status, err := validation.ParseStatus("Pending")
+if err != nil {
+    fmt.Println("error:", err)
+}
+status, err := validation.ParseStatus("pending")
+if err != nil {
+    fmt.Println("error:", err)
+}
+status, err := validation.ParseStatus("PENDING")
+if err != nil {
+    fmt.Println("error:", err)
+}
+```
+
+## JSON & Database Storage
+The generated enum type also implements the `json.Unmarshal` and `json.Marshal` interfaces along with the `sql.Scanner` and `sql.Valuer` interfaces to handle parsing over the wire via HTTP or via a Database.
+
+```go
+func (p Status) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + p.String() + `"`), nil
+}
+
+func (p *Status) UnmarshalJSON(b []byte) error {
+	b = bytes.Trim(bytes.Trim(b, `"`), ` `)
+	newp, err := ParseStatus(b)
+	if err != nil {
+		return err
+	}
+	*p = newp
+	return nil
+}
+
+func (p *Status) Scan(value any) error {
+	newp, err := ParseStatus(value)
+	if err != nil {
+		return err
+	}
+	*p = newp
+	return nil
+}
+
+func (p Status) Value() (driver.Value, error) {
+	return p.String(), nil
+}
+```
+
+## Exhaustive Handling
+Ensure you handle all enum values with the generated Exhaustive function:
+
+```go
+// Process all enum values safely
+// This is especially useful in tests to ensure all enum values are covered
+validation.ExhaustiveStatuses(func(status validation.Status) {
+    // Process each status exactly once
+    switch status {
+    case validation.Statuses.FAILED:
+        handleFailed()
+    case validation.Statuses.PASSED:
+        handlePassed()
+    // ... handle all other cases
+    }
+})
+
+// We can also iterate over all enum values to do exhaustive calculations
+weightKg := 100.0
+solarsystem.ExhaustivePlanets(func(p solarsystem.Planet) {
+	// calculate weight on each planet
+	gravity := p.Gravity
+	planetMass := weightKg * gravity
+	fmt.Printf("Weight on %s is %fKg with gravity %f\n", p, planetMass, gravity)
+})
+```
+
+## Iterator Support (Go 1.23+)
+By default, goenums generates modern iterator support using Go 1.23's range-over-func feature:
+
+```go 
+// Using Go 1.23+ iterator
+for status := range validation.Statuses.All() {
+    fmt.Printf("Status: %s\n", status)
+}
+// There is the fallback method for slice based access
+for _, status := range validation.Statuses.AllSlice() {
+    fmt.Printf("Status: %s\n", status)
+}
+```
+
+When using the legacy mode, the function is still called All() but it returns a slice of the enums.
+
+```go
+// Legacy mode (or with -l flag)
+for _, status := range validation.Statuses.All() {
+    fmt.Printf("Status: %s\n", status)
+}
+```
+
+
+# Requirements
+- Go 1.23+ for iterator support (or use -l flag for legacy mode)
+
+# Examples
+
+Input source go file:
 
 ```golang
-// Code generated by goenums. DO NOT EDIT.
+package validation
+
+type status int
+
+//go:generate goenums status.go
+
+const (
+	failed    status = iota // FAILED
+	passed                  // PASSED
+	skipped                 // SKIPPED
+	scheduled               // SCHEDULED
+	running                 // RUNNING
+	booked                  // BOOKED
+)
+```
+
+Produces a go output file called `statuses_enums.go` with the following content:
+
+```go
+// Code generated by goenums v0.3.6. DO NOT EDIT.
 // This file was generated by github.com/zarldev/goenums
 // using the command:
-// goenums status.go
+// goenums testdata/multiple/multiple.go
 
-package validation
+package multipleenums
 
 import (
 	"bytes"
 	"database/sql/driver"
 	"fmt"
+	"iter"
 	"strconv"
 )
 
@@ -73,7 +348,6 @@ type Status struct {
 }
 
 type statusesContainer struct {
-	UNKNOWN   Status
 	FAILED    Status
 	PASSED    Status
 	SKIPPED   Status
@@ -103,7 +377,9 @@ var Statuses = statusesContainer{
 	},
 }
 
-func (c statusesContainer) All() []Status {
+var invalidStatus = Status{}
+
+func (c statusesContainer) allSlice() []Status {
 	return []Status{
 		c.FAILED,
 		c.PASSED,
@@ -114,7 +390,22 @@ func (c statusesContainer) All() []Status {
 	}
 }
 
-var invalidStatus = Status{}
+// AllSlice returns all valid Status values as a slice.
+// Deprecated: Use All() with Go 1.23+ range over function types instead.
+func (c statusesContainer) AllSlice() []Status {
+	return c.allSlice()
+}
+
+// All returns all valid Status values.
+func (c statusesContainer) All() iter.Seq[Status] {
+	return func(yield func(Status) bool) {
+		for _, v := range c.allSlice() {
+			if !yield(v) {
+				return
+			}
+		}
+	}
+}
 
 func ParseStatus(a any) (Status, error) {
 	res := invalidStatus
@@ -137,35 +428,33 @@ func ParseStatus(a any) (Status, error) {
 	return res, nil
 }
 
+var (
+	_statusesNameMap = map[string]Status{
+		"FAILED":    Statuses.FAILED,
+		"PASSED":    Statuses.PASSED,
+		"SKIPPED":   Statuses.SKIPPED,
+		"SCHEDULED": Statuses.SCHEDULED,
+		"RUNNING":   Statuses.RUNNING,
+		"BOOKED":    Statuses.BOOKED,
+	}
+)
+
 func stringToStatus(s string) Status {
-	switch s {
-	case "unknown":
-		return Statuses.UNKNOWN
-	case "failed":
-		return Statuses.FAILED
-	case "passed":
-		return Statuses.PASSED
-	case "skipped":
-		return Statuses.SKIPPED
-	case "scheduled":
-		return Statuses.SCHEDULED
-	case "running":
-		return Statuses.RUNNING
-	case "booked":
-		return Statuses.BOOKED
+	if v, ok := _statusesNameMap[s]; ok {
+		return v
 	}
 	return invalidStatus
 }
 
 func intToStatus(i int) Status {
-	if i < 0 || i >= len(Statuses.All()) {
+	if i < 0 || i >= len(Statuses.allSlice()) {
 		return invalidStatus
 	}
-	return Statuses.All()[i]
+	return Statuses.allSlice()[i]
 }
 
 func ExhaustiveStatuss(f func(Status)) {
-	for _, p := range Statuses.All() {
+	for _, p := range Statuses.allSlice() {
 		f(p)
 	}
 }
@@ -215,18 +504,17 @@ func _() {
 	// Re-run the goenums command to generate them again.
 	// Does not identify newly added constant values unless order changes
 	var x [1]struct{}
-	_ = x[unknown-0]
-	_ = x[failed-1]
-	_ = x[passed-2]
-	_ = x[skipped-3]
-	_ = x[scheduled-4]
-	_ = x[running-5]
-	_ = x[booked-6]
+	_ = x[failed-0]
+	_ = x[passed-1]
+	_ = x[skipped-2]
+	_ = x[scheduled-3]
+	_ = x[running-4]
+	_ = x[booked-5]
 }
 
-const _statuses_name = "unknownfailedpassedskippedscheduledrunningbooked"
+const _statuses_name = "FAILEDPASSEDSKIPPEDSCHEDULEDRUNNINGBOOKED"
 
-var _statuses_index = [...]uint16{0, 7, 13, 19, 26, 35, 42, 48}
+var _statuses_index = [...]uint16{0, 6, 12, 19, 28, 35, 41}
 
 func (i status) String() string {
 	if i < 0 || i >= status(len(_statuses_index)-1) {
@@ -235,379 +523,13 @@ func (i status) String() string {
 	return _statuses_name[_statuses_index[i]:_statuses_index[i+1]]
 }
 ```
-## Features
 
-#### String representation
-All enums are generated with a String representation for each enum and JSON Marshaling and UnMarshaling for use in HTTP Request structs.  The string function is now the same as the `go cmd stringer` for the base case.
+For more examples, see the [examples](https://github.com/zarldev/goenums/tree/main/examples) directory.
 
-#### JSON & Database Storage
-The generated enum type also implements the JSON.UnMarshal, JSON.Marshal interfaces along with the sql.Scanner and sql.Valuer interface to handle parsing over the wire via HTTP or a Database.
-
-##### Error On Invalid
-You can enable the generator to adjust the `JSONUnmarshal` method so that it will return an error if an enum is found to be invalid.
-This is triggered by the failfast flag `-f` or `-failfast`. 
-
-Here is the updated ParseXXX function for the `Status` example where we have enabled failfast in the go generate command.
-
-```golang
-//go:generate goenums -f status.go
-type status int
-
-func ParseStatus(a any) (Status, error) {
-	res := invalidStatus
-	switch v := a.(type) {
-	case Status:
-		return v, nil
-	case []byte:
-		res = stringToStatus(string(v))
-	case string:
-		res = stringToStatus(v)
-	case fmt.Stringer:
-		res = stringToStatus(v.String())
-	case int:
-		res = intToStatus(v)
-	case int64:
-		res = intToStatus(int(v))
-	case int32:
-		res = intToStatus(int(v))
-	}
-	if res == invalidStatus {
-		return res, fmt.Errorf("failed to parse %v", a)
-	}
-	return res, nil
-}
-```
-
-#### Extendable
-The enums can have additional functionality added by just adding comments to the type definition and corresponding values to the comments in the iota definitions.  There is also the `invalid` comment flag which will no longer include the value in the exhaustive list.
-
-Extensions via comments is a comma separated list of `Name` and `Type` declarations, these declarations can be done in 1 of 3 formats depending on preference.
-
-1. Spaces `Gravity float64,RadiusKm float64,MassKg float64,OrbitKm float64`
-2. Square Brackets `Gravity[float64],RadiusKm[float64],MassKg[float64],OrbitKm[float64]`
-3. Parenthesis `Gravity(float64),RadiusKm(float64),MassKg(float64),OrbitKm(float64)`
-
-For example we have the file below called planets.go :
-
-```golang
-package solarsystem
-
-type planet int // Gravity[float64],RadiusKm[float64],MassKg[float64],OrbitKm[float64],OrbitDays[float64],SurfacePressureBars[float64],Moons[int],Rings[bool]
-
-//go:generate goenums planets.go
-const (
-	unknown planet = iota // invalid
-	mercury               // Mercury 0.378,2439.7,3.3e23,57910000,88,0.0000000001,0,false
-	venus                 // Venus 0.907,6051.8,4.87e24,108200000,225,92,0,false
-	earth                 // Earth 1,6378.1,5.97e24,149600000,365,1,1,false
-	mars                  // Mars 0.377,3389.5,6.42e23,227900000,687,0.01,2,false
-	jupiter               // Jupiter 2.36,69911,1.90e27,778600000,4333,20,4,true
-	saturn                // Saturn 0.916,58232,5.68e26,1433500000,10759,1,7,true
-	uranus                // Uranus 0.889,25362,8.68e25,2872500000,30687,1.3,13,true
-	neptune               // Neptune 1.12,24622,1.02e26,4495100000,60190,1.5,2,true
-)
-```
-
-Now running the `go generate` command will generate the following code in a new file called `planets_enums.go`
-```golang
-// Code generated by goenums. DO NOT EDIT.
-// This file was generated by github.com/zarldev/goenums
-// using the command:
-// goenums planets.go
-
-package solarsystem
-
-import (
-	"bytes"
-	"database/sql/driver"
-	"fmt"
-	"strconv"
-)
-
-type Planet struct {
-	planet
-	Gravity             float64
-	RadiusKm            float64
-	MassKg              float64
-	OrbitKm             float64
-	OrbitDays           float64
-	SurfacePressureBars float64
-	Moons               int
-	Rings               bool
-}
-
-type planetsContainer struct {
-	UNKNOWN Planet
-	MERCURY Planet
-	VENUS   Planet
-	EARTH   Planet
-	MARS    Planet
-	JUPITER Planet
-	SATURN  Planet
-	URANUS  Planet
-	NEPTUNE Planet
-}
-
-var Planets = planetsContainer{
-	MERCURY: Planet{
-		planet:              mercury,
-		Gravity:             0.378,
-		RadiusKm:            2439.7,
-		MassKg:              3.3e23,
-		OrbitKm:             57910000,
-		OrbitDays:           88,
-		SurfacePressureBars: 0.0000000001,
-		Moons:               0,
-		Rings:               false,
-	},
-	VENUS: Planet{
-		planet:              venus,
-		Gravity:             0.907,
-		RadiusKm:            6051.8,
-		MassKg:              4.87e24,
-		OrbitKm:             108200000,
-		OrbitDays:           225,
-		SurfacePressureBars: 92,
-		Moons:               0,
-		Rings:               false,
-	},
-	EARTH: Planet{
-		planet:              earth,
-		Gravity:             1,
-		RadiusKm:            6378.1,
-		MassKg:              5.97e24,
-		OrbitKm:             149600000,
-		OrbitDays:           365,
-		SurfacePressureBars: 1,
-		Moons:               1,
-		Rings:               false,
-	},
-	MARS: Planet{
-		planet:              mars,
-		Gravity:             0.377,
-		RadiusKm:            3389.5,
-		MassKg:              6.42e23,
-		OrbitKm:             227900000,
-		OrbitDays:           687,
-		SurfacePressureBars: 0.01,
-		Moons:               2,
-		Rings:               false,
-	},
-	JUPITER: Planet{
-		planet:              jupiter,
-		Gravity:             2.36,
-		RadiusKm:            69911,
-		MassKg:              1.90e27,
-		OrbitKm:             778600000,
-		OrbitDays:           4333,
-		SurfacePressureBars: 20,
-		Moons:               4,
-		Rings:               true,
-	},
-	SATURN: Planet{
-		planet:              saturn,
-		Gravity:             0.916,
-		RadiusKm:            58232,
-		MassKg:              5.68e26,
-		OrbitKm:             1433500000,
-		OrbitDays:           10759,
-		SurfacePressureBars: 1,
-		Moons:               7,
-		Rings:               true,
-	},
-	URANUS: Planet{
-		planet:              uranus,
-		Gravity:             0.889,
-		RadiusKm:            25362,
-		MassKg:              8.68e25,
-		OrbitKm:             2872500000,
-		OrbitDays:           30687,
-		SurfacePressureBars: 1.3,
-		Moons:               13,
-		Rings:               true,
-	},
-	NEPTUNE: Planet{
-		planet:              neptune,
-		Gravity:             1.12,
-		RadiusKm:            24622,
-		MassKg:              1.02e26,
-		OrbitKm:             4495100000,
-		OrbitDays:           60190,
-		SurfacePressureBars: 1.5,
-		Moons:               2,
-		Rings:               true,
-	},
-}
-
-func (c planetsContainer) All() []Planet {
-	return []Planet{
-		c.MERCURY,
-		c.VENUS,
-		c.EARTH,
-		c.MARS,
-		c.JUPITER,
-		c.SATURN,
-		c.URANUS,
-		c.NEPTUNE,
-	}
-}
-
-var invalidPlanet = Planet{}
-
-func ParsePlanet(a any) (Planet, error) {
-	res := invalidPlanet
-	switch v := a.(type) {
-	case Planet:
-		return v, nil
-	case []byte:
-		res = stringToPlanet(string(v))
-	case string:
-		res = stringToPlanet(v)
-	case fmt.Stringer:
-		res = stringToPlanet(v.String())
-	case int:
-		res = intToPlanet(v)
-	case int64:
-		res = intToPlanet(int(v))
-	case int32:
-		res = intToPlanet(int(v))
-	}
-	return res, nil
-}
-
-func stringToPlanet(s string) Planet {
-	switch s {
-	case "unknown":
-		return Planets.UNKNOWN
-	case "Mercury":
-		return Planets.MERCURY
-	case "Venus":
-		return Planets.VENUS
-	case "Earth":
-		return Planets.EARTH
-	case "Mars":
-		return Planets.MARS
-	case "Jupiter":
-		return Planets.JUPITER
-	case "Saturn":
-		return Planets.SATURN
-	case "Uranus":
-		return Planets.URANUS
-	case "Neptune":
-		return Planets.NEPTUNE
-	}
-	return invalidPlanet
-}
-
-func intToPlanet(i int) Planet {
-	if i < 0 || i >= len(Planets.All()) {
-		return invalidPlanet
-	}
-	return Planets.All()[i]
-}
-
-func ExhaustivePlanets(f func(Planet)) {
-	for _, p := range Planets.All() {
-		f(p)
-	}
-}
-
-var validPlanets = map[Planet]bool{
-	Planets.MERCURY: true,
-	Planets.VENUS:   true,
-	Planets.EARTH:   true,
-	Planets.MARS:    true,
-	Planets.JUPITER: true,
-	Planets.SATURN:  true,
-	Planets.URANUS:  true,
-	Planets.NEPTUNE: true,
-}
-
-func (p Planet) IsValid() bool {
-	return validPlanets[p]
-}
-
-func (p Planet) MarshalJSON() ([]byte, error) {
-	return []byte(`"` + p.String() + `"`), nil
-}
-
-func (p *Planet) UnmarshalJSON(b []byte) error {
-	b = bytes.Trim(bytes.Trim(b, `"`), ` `)
-	newp, err := ParsePlanet(b)
-	if err != nil {
-		return err
-	}
-	*p = newp
-	return nil
-}
-
-func (p *Planet) Scan(value any) error {
-	newp, err := ParsePlanet(value)
-	if err != nil {
-		return err
-	}
-	*p = newp
-	return nil
-}
-
-func (p Planet) Value() (driver.Value, error) {
-	return p.String(), nil
-}
-
-func _() {
-	// An "invalid array index" compiler error signifies that the constant values have changed.
-	// Re-run the goenums command to generate them again.
-	// Does not identify newly added constant values unless order changes
-	var x [1]struct{}
-	_ = x[unknown-0]
-	_ = x[mercury-1]
-	_ = x[venus-2]
-	_ = x[earth-3]
-	_ = x[mars-4]
-	_ = x[jupiter-5]
-	_ = x[saturn-6]
-	_ = x[uranus-7]
-	_ = x[neptune-8]
-}
-
-const _planets_name = "unknownMercuryVenusEarthMarsJupiterSaturnUranusNeptune"
-
-var _planets_index = [...]uint16{0, 7, 14, 19, 24, 28, 35, 41, 47, 54}
-
-func (i planet) String() string {
-	if i < 0 || i >= planet(len(_planets_index)-1) {
-		return "planets(" + (strconv.FormatInt(int64(i), 10) + ")")
-	}
-	return _planets_name[_planets_index[i]:_planets_index[i+1]]
-}
-```
-
-With the above code generated we can use the `ExhaustivePlanets` to iterate over all Enums for example:
-
-```golang
-package main
-
-import (
-	"fmt"
-
-	"github.com/zarldev/goenums/examples/solarsystem"
-)
-
-func main() {
-	weightKg := 100.0
-	solarsystem.ExhaustivePlanets(func(p solarsystem.Planet) {
-		// calculate weight on each planet
-		gravity := p.Gravity
-		planetMass := weightKg * gravity
-		fmt.Printf("Weight on %s is %fKg with gravity %f\n", p, planetMass, gravity)
-	})
-}
-```
-
-#### Safety
-Also the fact that the enums are concrete types with no way to instantiate the nested struct means that you can't just pass the `int` representation of the enum into the generated wrapper struct.
-
-The above `Status` and `Planet` examples can be found in the examples directory.  There is also a `DiscountType` example to show handling of camelCase formatted input enums.
 
 ### Mentions
 [![go-recipes](https://raw.githubusercontent.com/nikolaydubina/go-recipes/main/badge.svg?raw=true)](https://github.com/nikolaydubina/go-recipes)
+
+## License
+
+MIT License - See [LICENSE](https://github.com/zarldev/goenums/blob/main/LICENSE) for full details.
