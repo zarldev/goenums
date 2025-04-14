@@ -24,7 +24,7 @@ navigation:
   - title: Usage
     url: /usage
   - title: Features
-    url: /features/
+    url: /features
     subitems:
       - title: Type Safety
         url: /features/type-safety
@@ -35,7 +35,7 @@ navigation:
       - title: Iterator Support
         url: /features/iterators
   - title: Examples
-    url: /examples/
+    url: /examples
     subitems:
       - title: Basic Usage
         url: /examples/basic

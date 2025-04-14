@@ -58,4 +58,4 @@ if !parsed.IsValid() {
     fmt.Println("Invalid status")
 }
 ```
-[Get Started with Installation]({% link installation.md %})
+[Get Started with Installation]({{ '/installation' | relative_url }})
