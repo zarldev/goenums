@@ -6,23 +6,152 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% if page.title %}{{ page.title }} | {% endif %}{{ site.title }}</title>
     <style>
-      .highlight { background-color: #f8f8f8; padding: 10px; border-radius: 5px; overflow-x: auto; }
-      .navigation { margin-bottom: 20px; }
-      .navigation a { margin-right: 15px; }
-      .page-content { max-width: 800px; margin: 0 auto; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+        line-height: 1.6;
+        color: #24292e;
+        background-color: #fff;
+        margin: 0;
+        padding: 0;
+      }
+      
+      .container {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 0 15px;
+      }
+      
+      /* Header styles */
+      .header-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 0;
+        border-bottom: 1px solid #eaecef;
+      }
+      
+      .logo {
+        display: flex;
+        align-items: center;
+        text-decoration: none;
+        color: inherit;
+      }
+      
+      .title {
+        font-weight: 600;
+        font-size: 18px;
+        margin-left: 10px;
+      }
+      
+      /* Navigation styles */
+      .main-nav ul {
+        list-style: none;
+        padding: 0;
+        margin: 20px 0;
+      }
+      
+      .nav-item {
+        margin-bottom: 5px;
+      }
+      
+      .nav-item a {
+        display: block;
+        padding: 5px 0;
+        color: #0366d6;
+        text-decoration: none;
+      }
+      
+      .nav-item a:hover {
+        text-decoration: underline;
+      }
+      
+      .nav-item.active > a {
+        font-weight: 600;
+        color: #24292e;
+      }
+      
+      .subnav {
+        padding-left: 20px;
+        margin-top: 5px;
+        list-style: none;
+      }
+      
+      /* Content styles */
+      .content {
+        padding: 20px 0;
+      }
+      
+      h1 {
+        border-bottom: 1px solid #eaecef;
+        padding-bottom: 10px;
+      }
+      
+      /* Code and highlighting */
+      .highlight {
+        background-color: #f6f8fa;
+        border-radius: 3px;
+        padding: 15px;
+        overflow-x: auto;
+        margin-bottom: 16px;
+      }
+      
+      code {
+        font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+        font-size: 85%;
+      }
+      
+      /* Footer styles */
+      .footer-container {
+        border-top: 1px solid #eaecef;
+        padding: 20px 0;
+        margin-top: 30px;
+        color: #586069;
+      }
+      
+      /* Layout */
+      .page-layout {
+        display: flex;
+      }
+      
+      .sidebar {
+        flex: 0 0 250px;
+        padding-right: 30px;
+      }
+      
+      .main-content {
+        flex: 1;
+      }
+      
+      @media (max-width: 768px) {
+        .page-layout {
+          flex-direction: column;
+        }
+        
+        .sidebar {
+          flex: none;
+          padding-right: 0;
+        }
+      }
     </style>
   </head>
   <body>
-    <div class="page-content">
-      <div class="navigation">
-        <a href="{{ '/' | relative_url }}">Home</a>
-        <a href="{{ '/installation' | relative_url }}">Installation</a>
-        <a href="{{ '/usage' | relative_url }}">Usage</a>
+    <div class="container">
+      {% include header.html %}
+      
+      <div class="page-layout">
+        <div class="sidebar">
+          {% include navigation.html %}
+        </div>
+        
+        <div class="main-content">
+          <div class="content">
+            <h1>{{ page.title }}</h1>
+            {{ content }}
+          </div>
+        </div>
       </div>
       
-      <h1>{{ page.title }}</h1>
-      
-      {{ content }}
+      {% include footer.html %}
     </div>
   </body>
 </html>
