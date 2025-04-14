@@ -3,8 +3,6 @@ layout: default
 title: Usage
 ---
 
-# Usage
-
 Using goenums involves a simple workflow:
 
 1. Define your enum constants as you normally would with Go's `iota`

@@ -3,8 +3,6 @@ layout: default
 title: Installation
 ---
 
-# Installation
-
 Getting started with goenums is simple. Since it's a code generation tool that runs during development rather than a runtime dependency, you just need to install the CLI tool.
 
 ## Via Go Install
