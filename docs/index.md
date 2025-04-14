@@ -1,6 +1,6 @@
 ---
 layout: default
-title: Type-Safe Enum Generation for Go
+title: goenums
 ---
 
 `goenums` addresses Go's lack of native enum support by generating comprehensive, type-safe enum implementations from simple constant declarations. Transform basic `iota` based constants into feature-rich enums with string conversion, validation, JSON handling, database integration, and more.
