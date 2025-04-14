@@ -17,4 +17,4 @@ title: Type-Safe Enum Generation for Go
 - **Exhaustive Handling**: Helper functions to ensure you handle all enum values
 - **Zero Dependencies**: Completely dependency-free, using only the Go standard library
 
-[Get Started with Installation]({{ '/installation' | relative_url }})
+Get Started with [Installation]({{ '/installation' | relative_url }}) → 
