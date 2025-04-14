@@ -10,6 +10,48 @@ Using goenums involves a simple workflow:
 3. Run `go generate` to create the enum implementation
 4. Use the generated code in your project
 
+## Quick Start
+
+```go
+package validation
+
+type status int
+
+//go:generate goenums status.go
+const (
+    unknown status = iota // invalid
+    failed
+    passed
+    skipped
+    scheduled
+    running
+    booked
+)
+```
+Generate your enums:
+
+```bash
+$ go generate ./...
+```
+
+Now you can use the generated `status` enums type in your code:
+
+```go
+/// Access enum constants safely
+myStatus := validation.Statuses.PASSED
+
+// Convert to string
+fmt.Println(myStatus.String()) // "PASSED"
+
+// Parse from various sources
+parsed, _ := validation.ParseStatus("SKIPPED")
+
+// Validate enum values
+if !parsed.IsValid() {
+    fmt.Println("Invalid status")
+}
+```
+
 ## Basic Command Syntax
 
 ```bash
