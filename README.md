@@ -6,6 +6,7 @@
 `goenums` addresses Go's lack of native enum support by generating comprehensive, type-safe enum implementations from simple constant declarations. Transform basic `iota` based constants into feature-rich enums with string conversion, validation, JSON handling, database integration, and more.
 
 ## Table of Contents
+- [Documentation](#documentation)
 - [Installation](#installation)
 - [Key Features](#key-features)
 - [Usage](#usage)
@@ -22,6 +23,9 @@
 - [Requirements](#requirements)
 - [Examples](#examples)
 - [License](#license)
+
+# Documentation
+Documentation is available at [https://zarldev.github.io/goenums](https://zarldev.github.io/goenums).
 
 # Installation
 ```
