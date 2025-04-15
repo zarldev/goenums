@@ -627,12 +627,18 @@
     }
   }
 
-  .logo-img {
-    width: 30px; /* Smaller logo size */
-    height: auto;
-    margin-right: 10px;
-  }
-  
+ /* Logo styling with theme support */
+.logo-img {
+  width: 30px; /* Smaller logo size */
+  height: auto;
+  margin-right: 10px;
+  transition: filter 0.3s ease;
+}
+
+/* Make logo white in dark mode using CSS filters */
+html[data-theme='dark'] .logo-img {
+  filter: brightness(0) invert(1); /* This turns the logo white */
+}
   .logo {
     display: flex;
     align-items: center;
