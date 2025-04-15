@@ -3,7 +3,7 @@ layout: default
 title: Basic Examples
 ---
 
-Simple demonstrations to help you get started with the core functionality.
+Simple demonstration to help you get started with the core functionality.
 
 Here we have a simple enum type definition that represents a status of a task:
 
@@ -236,8 +236,7 @@ func (i status) String() string {
 }
 ```
 
-Now we can use the generated `Status` type in our code
-[Usage]({{ '/usage' | relative_url }}) →
+Now we can use the generated `Status` type in our code. See the [Usage]({{ '/usage' | relative_url }}) section for more details.
 
 [Back to Examples]({{ '/examples' | relative_url }}) →
 
