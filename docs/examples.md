@@ -1,4 +1,7 @@
-# Examples
+---
+layout: default
+title: Examples
+---
 
 Explore different usage examples of our library:
 
