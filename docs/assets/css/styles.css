@@ -626,3 +626,72 @@
       display: none; /* Hide the text on very small screens */
     }
   }
+
+  .logo-img {
+    width: 30px; /* Smaller logo size */
+    height: auto;
+    margin-right: 10px;
+  }
+  
+  .logo {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    color: var(--text-color);
+  }
+  
+  .title {
+    font-weight: 600;
+    font-size: 18px;
+    margin-right: 10px;
+  }
+  
+  .subtitle {
+    font-size: 14px;
+    color: var(--muted-color);
+  }
+  
+  /* Theme toggle button */
+  .theme-toggle {
+    background-color: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    color: var(--text-color);
+    cursor: pointer;
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+  }
+  
+  .theme-toggle:hover {
+    background-color: var(--code-bg);
+  }
+  
+  .theme-toggle svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+  }
+  
+  /* Theme toggle icons visibility */
+  .theme-toggle .sun {
+    display: none;
+  }
+  
+  .theme-toggle .moon {
+    display: inline-block;
+  }
+  
+  html[data-theme='dark'] .theme-toggle .sun {
+    display: inline-block;
+  }
+  
+  html[data-theme='dark'] .theme-toggle .moon {
+    display: none;
+  }

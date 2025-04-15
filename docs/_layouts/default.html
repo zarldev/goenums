@@ -1,26 +1,27 @@
 <!DOCTYPE html>
-<html lang="{{ site.lang | default: 'en-US' }}">
+<html lang="{{ site.lang | default: 'en-US' }}" data-theme="light">
   <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="{{ '/assets/css/styles.css' | relative_url }}">
     <title>{% if page.title %}{{ page.title }} | {% endif %}{{ site.title }}</title>
+    
     <!-- Immediately apply saved theme to prevent flash of incorrect theme -->
     <script>
-        (function() {
-          // Check for saved theme preference
-          const savedTheme = localStorage.getItem('theme');
-          
-          // Check OS preference
-          const prefersDark = window.matchMedia && 
-                              window.matchMedia('(prefers-color-scheme: dark)').matches;
-          
-          // Apply theme (saved preference takes priority)
-          const theme = savedTheme || (prefersDark ? 'dark' : 'light');
-          document.documentElement.setAttribute('data-theme', theme);
-        })();
-      </script>
+      (function() {
+        // Check for saved theme preference
+        const savedTheme = localStorage.getItem('theme');
+        
+        // Check OS preference
+        const prefersDark = window.matchMedia && 
+                            window.matchMedia('(prefers-color-scheme: dark)').matches;
+        
+        // Apply theme (saved preference takes priority)
+        const theme = savedTheme || (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
   </head>
   <body>
     <div class="container">
@@ -41,24 +42,26 @@
       
       {% include footer.html %}
     </div>
+    
+    <!-- Theme toggle script -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-          const themeToggle = document.getElementById('theme-toggle');
-          
-          if (themeToggle) {
-            themeToggle.addEventListener('click', function() {
-              // Get current theme
-              const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
-              
-              // Toggle theme
-              const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-              
-              // Apply and save theme
-              document.documentElement.setAttribute('data-theme', newTheme);
-              localStorage.setItem('theme', newTheme);
-            });
-          }
-        });
-      </script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const themeToggle = document.getElementById('theme-toggle');
+        
+        if (themeToggle) {
+          themeToggle.addEventListener('click', function() {
+            // Get current theme
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            
+            // Toggle theme
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            
+            // Apply and save theme
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+          });
+        }
+      });
+    </script>
   </body>
 </html>
