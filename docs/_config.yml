@@ -24,8 +24,5 @@ navigation:
     url: /usage
   - title: Examples
     url: /examples
-    subitems:
-      - title: Basic
-        url: /examples/basic
-      - title: Advanced
-        url: /examples/advanced
+
+
