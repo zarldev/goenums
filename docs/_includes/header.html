@@ -31,41 +31,41 @@
             </svg>
         </button>
     </div>
+    <script>
+        // Immediately apply the saved theme to prevent flash of unstyled content
+        (function () {
+            // Check for saved theme preference
+            const savedTheme = localStorage.getItem('theme');
+    
+            // Check OS preference
+            const prefersDark = window.matchMedia &&
+                window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+            // Apply theme (saved preference takes priority)
+            if (savedTheme) {
+                document.documentElement.setAttribute('data-theme', savedTheme);
+            } else if (prefersDark) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    
+        // Theme toggle functionality
+        document.addEventListener('DOMContentLoaded', function () {
+            const themeToggle = document.getElementById('theme-toggle');
+    
+            if (themeToggle) {
+                themeToggle.addEventListener('click', function () {
+                    // Get current theme
+                    const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+    
+                    // Toggle theme
+                    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    
+                    // Apply and save theme
+                    document.documentElement.setAttribute('data-theme', newTheme);
+                    localStorage.setItem('theme', newTheme);
+                });
+            }
+        });
+    </script>
 </header>
-<script>
-    // Immediately apply the saved theme to prevent flash of unstyled content
-    (function () {
-        // Check for saved theme preference
-        const savedTheme = localStorage.getItem('theme');
-
-        // Check OS preference
-        const prefersDark = window.matchMedia &&
-            window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-        // Apply theme (saved preference takes priority)
-        if (savedTheme) {
-            document.documentElement.setAttribute('data-theme', savedTheme);
-        } else if (prefersDark) {
-            document.documentElement.setAttribute('data-theme', 'dark');
-        }
-    })();
-
-    // Theme toggle functionality
-    document.addEventListener('DOMContentLoaded', function () {
-        const themeToggle = document.getElementById('theme-toggle');
-
-        if (themeToggle) {
-            themeToggle.addEventListener('click', function () {
-                // Get current theme
-                const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
-
-                // Toggle theme
-                const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-
-                // Apply and save theme
-                document.documentElement.setAttribute('data-theme', newTheme);
-                localStorage.setItem('theme', newTheme);
-            });
-        }
-    });
-</script>
