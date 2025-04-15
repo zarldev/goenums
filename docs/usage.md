@@ -154,3 +154,5 @@ for status := range validation.Statuses.All() {
     fmt.Printf("Status: %s\n", status)
 }
 ```
+
+Here is some more [Examples]({{ '/examples' | relative_url }}) → 
