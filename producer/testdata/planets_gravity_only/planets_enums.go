@@ -32,35 +32,35 @@ type planetsContainer struct {
 var Planets = planetsContainer{
 	MERCURY: Planet{
 		planet:  mercury,
-		Gravity: 2,
+		Gravity: 0,
 	},
 	VENUS: Planet{
 		planet:  venus,
-		Gravity: 2,
+		Gravity: 0,
 	},
 	EARTH: Planet{
 		planet:  earth,
-		Gravity: 1,
+		Gravity: 0,
 	},
 	MARS: Planet{
 		planet:  mars,
-		Gravity: 3,
+		Gravity: 0,
 	},
 	JUPITER: Planet{
 		planet:  jupiter,
-		Gravity: 69,
+		Gravity: 0,
 	},
 	SATURN: Planet{
 		planet:  saturn,
-		Gravity: 58,
+		Gravity: 0,
 	},
 	URANUS: Planet{
 		planet:  uranus,
-		Gravity: 25,
+		Gravity: 0,
 	},
 	NEPTUNE: Planet{
 		planet:  neptune,
-		Gravity: 24,
+		Gravity: 0,
 	},
 }
 
