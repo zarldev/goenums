@@ -22,23 +22,10 @@ navigation:
     url: /installation
   - title: Usage
     url: /usage
-  - title: Features
-    url: /features
-    subitems:
-      - title: Type Safety
-        url: /features/type-safety
-      - title: JSON & DB
-        url: /features/json-db
-      - title: Exhaustive Handling
-        url: /features/exhaustive
-      - title: Iterator Support
-        url: /features/iterators
   - title: Examples
     url: /examples
     subitems:
       - title: Basic
         url: /examples/basic
-      - title: Extended
-        url: /examples/extended
-      - title: Custom Strings
-        url: /examples/custom-strings
+      - title: Advanced
+        url: /examples/advanced
