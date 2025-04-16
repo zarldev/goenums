@@ -1,10 +1,19 @@
 package source
 
-import "os"
+import (
+	"errors"
+	"fmt"
+	"os"
+)
 
-// NewFileSource creates a new file-based Source implementation that reads
+var (
+	// ErrReadFileSource is returned when there is an error reading the source file.
+	ErrReadFileSource = errors.New("failed to read file source")
+)
+
+// FromFile creates a new file-based Source implementation that reads
 // enum definitions from a file at the specified path.
-func NewFileSource(path string) *FileSource {
+func FromFile(path string) *FileSource {
 	return &FileSource{Path: path}
 }
 
@@ -19,7 +28,11 @@ type FileSource struct {
 // It fulfills the Source interface by providing the raw content
 // to be parsed for enum definitions.
 func (fs *FileSource) Content() ([]byte, error) {
-	return os.ReadFile(fs.Path)
+	b, err := os.ReadFile(fs.Path)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s: %w", ErrReadFileSource, fs.Path, err)
+	}
+	return b, nil
 }
 
 // Filename returns the path of the source file.

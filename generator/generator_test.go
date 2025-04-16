@@ -1,4 +1,4 @@
-package producer_test
+package generator_test
 
 import (
 	"context"
@@ -8,15 +8,15 @@ import (
 
 	"github.com/zarldev/goenums/enum"
 	"github.com/zarldev/goenums/examples/sale"
-	"github.com/zarldev/goenums/producer"
-	"github.com/zarldev/goenums/producer/config"
-	"github.com/zarldev/goenums/producer/gofile"
-	"github.com/zarldev/goenums/producer/testdata/orders"
-	"github.com/zarldev/goenums/producer/testdata/planets"
-	planetsgravityonly "github.com/zarldev/goenums/producer/testdata/planets_gravity_only"
-	plannetssimple "github.com/zarldev/goenums/producer/testdata/planets_simple"
-	"github.com/zarldev/goenums/producer/testdata/spaces"
-	"github.com/zarldev/goenums/producer/testdata/validation"
+	producer "github.com/zarldev/goenums/generator"
+	"github.com/zarldev/goenums/generator/config"
+	"github.com/zarldev/goenums/generator/gofile"
+	"github.com/zarldev/goenums/generator/testdata/orders"
+	"github.com/zarldev/goenums/generator/testdata/planets"
+	planetsgravityonly "github.com/zarldev/goenums/generator/testdata/planets_gravity_only"
+	plannetssimple "github.com/zarldev/goenums/generator/testdata/planets_simple"
+	"github.com/zarldev/goenums/generator/testdata/spaces"
+	"github.com/zarldev/goenums/generator/testdata/validation"
 	"github.com/zarldev/goenums/source"
 )
 
@@ -29,111 +29,111 @@ var (
 	}{
 		{
 			name:     "TestParseAndGenerate-Statuses-Strings",
-			Source:   source.NewFileSource("testdata/validation-strings/status.go"),
+			Source:   source.FromFile("testdata/validation-strings/status.go"),
 			Config:   config.Configuration{Failfast: true, Legacy: true},
 			expected: []string{"testdata/validation-strings/statuses_enums.go"},
 		},
 		{
 			name:     "TestParseAndGenerate-Statuses",
-			Source:   source.NewFileSource("testdata/validation/status.go"),
+			Source:   source.FromFile("testdata/validation/status.go"),
 			Config:   config.Configuration{Failfast: true, Legacy: true},
 			expected: []string{"testdata/validation/statuses_enums.go"},
 		},
 
 		{
 			name:     "TestParseAndGenerate-Planets",
-			Source:   source.NewFileSource("testdata/planets/planets.go"),
+			Source:   source.FromFile("testdata/planets/planets.go"),
 			Config:   config.Configuration{Failfast: true, Legacy: true},
 			expected: []string{"testdata/planets/planets_enums.go"},
 		},
 		{
 			name:     "TestParseAndGenerate-PlanetsGravityOnly",
-			Source:   source.NewFileSource("testdata/planets_gravity_only/planets.go"),
+			Source:   source.FromFile("testdata/planets_gravity_only/planets.go"),
 			Config:   config.Configuration{Failfast: true, Legacy: true},
 			expected: []string{"testdata/planets_gravity_only/planets_enums.go"},
 		},
 		{
 			name:     "TestParseAndGenerate-PlanetsSimple",
-			Source:   source.NewFileSource("testdata/planets_simple/planets.go"),
+			Source:   source.FromFile("testdata/planets_simple/planets.go"),
 			Config:   config.Configuration{Failfast: true, Legacy: true},
 			expected: []string{"testdata/planets_simple/planets_enums.go"},
 		},
 		{
 			name:     "TestParseAndGenerate-DiscountTypes",
-			Source:   source.NewFileSource("testdata/sale/discount.go"),
+			Source:   source.FromFile("testdata/sale/discount.go"),
 			Config:   config.Configuration{Failfast: true, Legacy: true},
 			expected: []string{"testdata/sale/discounttypes_enums.go"},
 		},
 		{
 			name:     "TestParseAndGenerate-Orders",
-			Source:   source.NewFileSource("testdata/orders/orders.go"),
+			Source:   source.FromFile("testdata/orders/orders.go"),
 			Config:   config.Configuration{Failfast: true, Legacy: true},
 			expected: []string{"testdata/orders/orders_enums.go"},
 		},
 		{
 			name:   "TestParseAndGenerate-Multiple-OrdersSales",
-			Source: source.NewFileSource("testdata/multiple/multiple.go"),
+			Source: source.FromFile("testdata/multiple/multiple.go"),
 			Config: config.Configuration{Failfast: true, Legacy: true},
 			expected: []string{"testdata/multiple/orders_enums.go",
 				"testdata/multiple/statuses_enums.go"},
 		},
 		{
 			name:     "TestParseAndGenerate-TicketStatuses-Spaces",
-			Source:   source.NewFileSource("testdata/spaces/tickets.go"),
+			Source:   source.FromFile("testdata/spaces/tickets.go"),
 			Config:   config.Configuration{Failfast: true, Legacy: true},
 			expected: []string{"testdata/spaces/ticketstatuses_enums.go"},
 		},
 		{
 			name:     "TestParseAndGenerate-TicketStatuses-Spaces",
-			Source:   source.NewFileSource("testdata/spaces/tickets.go"),
+			Source:   source.FromFile("testdata/spaces/tickets.go"),
 			Config:   config.Configuration{Failfast: false, Legacy: false},
 			expected: []string{"testdata/spaces/ticketstatuses_enums.go"},
 		},
 		{
 			name:     "TestParseAndGenerate-Statuses-Strings",
-			Source:   source.NewFileSource("testdata/validation-strings/status.go"),
+			Source:   source.FromFile("testdata/validation-strings/status.go"),
 			Config:   config.Configuration{Failfast: false, Legacy: false},
 			expected: []string{"testdata/validation-strings/statuses_enums.go"},
 		},
 		{
 			name:     "TestParseAndGenerate-Statuses",
-			Source:   source.NewFileSource("testdata/validation/status.go"),
+			Source:   source.FromFile("testdata/validation/status.go"),
 			Config:   config.Configuration{Failfast: false, Legacy: false},
 			expected: []string{"testdata/validation/statuses_enums.go"},
 		},
 		{
 			name:     "TestParseAndGenerate-Planets",
-			Source:   source.NewFileSource("testdata/planets/planets.go"),
+			Source:   source.FromFile("testdata/planets/planets.go"),
 			Config:   config.Configuration{Failfast: false, Legacy: false},
 			expected: []string{"testdata/planets/planets_enums.go"},
 		},
 		{
 			name:     "TestParseAndGenerate-PlanetsGravityOnly",
-			Source:   source.NewFileSource("testdata/planets_gravity_only/planets.go"),
+			Source:   source.FromFile("testdata/planets_gravity_only/planets.go"),
 			Config:   config.Configuration{Failfast: false, Legacy: false},
 			expected: []string{"testdata/planets_gravity_only/planets_enums.go"},
 		},
 		{
 			name:     "TestParseAndGenerate-PlanetsSimple",
-			Source:   source.NewFileSource("testdata/planets_simple/planets.go"),
+			Source:   source.FromFile("testdata/planets_simple/planets.go"),
 			Config:   config.Configuration{Failfast: false, Legacy: false},
 			expected: []string{"testdata/planets_simple/planets_enums.go"},
 		},
 		{
 			name:     "TestParseAndGenerate-DiscountTypes",
-			Source:   source.NewFileSource("testdata/sale/discount.go"),
+			Source:   source.FromFile("testdata/sale/discount.go"),
 			Config:   config.Configuration{Failfast: false, Legacy: false},
 			expected: []string{"testdata/sale/discounttypes_enums.go"},
 		},
 		{
 			name:     "TestParseAndGenerate-Orders",
-			Source:   source.NewFileSource("testdata/orders/orders.go"),
+			Source:   source.FromFile("testdata/orders/orders.go"),
 			Config:   config.Configuration{Failfast: false, Legacy: false},
 			expected: []string{"testdata/orders/orders_enums.go"},
 		},
 		{
 			name:   "TestParseAndGenerate-Multiple-OrdersSales",
-			Source: source.NewFileSource("testdata/multiple/multiple.go"),
+			Source: source.FromFile("testdata/multiple/multiple.go"),
 			Config: config.Configuration{Failfast: false, Legacy: false},
 			expected: []string{"testdata/multiple/orders_enums.go",
 				"testdata/multiple/statuses_enums.go"},
@@ -154,8 +154,8 @@ func TestGenerator(t *testing.T) {
 		}
 		t.Run(tc.name, func(t *testing.T) {
 			parser := gofile.NewParser(tc.Config, tc.Source)
-			gen := gofile.NewGenerator(tc.Config)
-			p := producer.NewProducer(tc.Config, parser, gen)
+			wri := gofile.NewWriter(tc.Config)
+			p := producer.New(tc.Config, parser, wri)
 			// Run
 			err := p.ParseAndWrite(context.Background())
 			if err != nil {

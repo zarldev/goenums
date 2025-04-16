@@ -29,6 +29,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -36,21 +37,27 @@ import (
 	"path/filepath"
 
 	"github.com/zarldev/goenums/enum"
+	"github.com/zarldev/goenums/generator"
+	producer "github.com/zarldev/goenums/generator"
+	"github.com/zarldev/goenums/generator/config"
+	"github.com/zarldev/goenums/generator/gofile"
 	"github.com/zarldev/goenums/internal/version"
 	"github.com/zarldev/goenums/logging"
-	"github.com/zarldev/goenums/producer"
-	"github.com/zarldev/goenums/producer/config"
-	"github.com/zarldev/goenums/producer/gofile"
 	"github.com/zarldev/goenums/source"
 )
 
-// main is the entry point for the goenums command-line tool. It parses command-line
-// flags, initializes the appropriate parser and writer based on input file type,
-// and orchestrates the enum generation process.
+// asciiArt is the goenums logo
+const asciiArt = `   ____ _____  ___  ____  __  ______ ___  _____
+  / __ '/ __ \/ _ \/ __ \/ / / / __ '__ \/ ___/
+ / /_/ / /_/ /  __/ / / / /_/ / / / / / (__  ) 
+ \__, /\____/\___/_/ /_/\__,_/_/ /_/ /_/____/  
+/____/ `
+
 func main() {
 	var (
 		help, vers, failfast, legacy, insensitive, verbose bool
 		err                                                error
+		output                                             string
 	)
 	flag.BoolVar(&help, "help", false,
 		"Print help information")
@@ -70,6 +77,9 @@ func main() {
 	flag.BoolVar(&verbose, "verbose", false,
 		"Enable verbose mode - prints out the generated code (default: false)")
 	flag.BoolVar(&verbose, "vv", false, "")
+	flag.StringVar(&output, "output", "",
+		"Specify the output format (default: go)")
+	flag.StringVar(&output, "o", "", "")
 	flag.Parse()
 
 	args := flag.Args()
@@ -96,14 +106,11 @@ func main() {
 		Insensitive: insensitive,
 		Legacy:      legacy,
 		Verbose:     verbose,
+		Output:      output,
 	}
 
 	logging.Configure(config.Verbose)
 
-	var (
-		parser enum.Parser
-		writer enum.Writer
-	)
 	slog.Info(asciiArt)
 	slog.Info(fmt.Sprintf("Version: %s", version.CURRENT))
 	slog.Debug("starting generation...")
@@ -114,56 +121,71 @@ func main() {
 		slog.Bool("insensitive", config.Insensitive),
 		slog.Bool("verbose", config.Verbose))
 
-	ext := filepath.Ext(filename)
+	var (
+		parser enum.Parser
+		writer enum.Writer
+	)
 
-	switch ext {
+	inExt := filepath.Ext(filename)
+	switch inExt {
 	case ".go":
-		slog.Debug("initializing gofile parser and writer")
+		slog.Debug("initializing go parser")
 		parser = gofile.NewParser(config,
-			source.NewFileSource(filename))
-		writer = gofile.NewGenerator(config)
+			source.FromFile(filename))
 	default:
 		slog.Error("error: only .go files are supported")
 		return
 	}
+
+	switch config.Output {
+	case "", "go":
+		slog.Debug("initializing gofile writer")
+		writer = gofile.NewWriter(config)
+	default:
+		slog.Error("error: only outputting to go files is supported")
+		return
+	}
+
 	slog.Debug("initializing producer")
-	producer := producer.NewProducer(config, parser, writer)
+	gen := generator.New(config, parser, writer)
 	slog.Info("starting parsing and generation")
-	if err = producer.ParseAndWrite(context.Background()); err != nil {
-		slog.Error("failed to generate enums:",
-			slog.String("filename", filename),
-			slog.String("error", err.Error()))
+	if err = gen.ParseAndWrite(context.Background()); err != nil {
+		slog.Error("failed to generate enums")
+		if errors.Is(err, producer.ErrParserFailedToParse) {
+			slog.Error("failed to parse file", slog.String("filename", filename))
+			slog.Error("please ensure that the file is a valid input file")
+			slog.Error("for the selected parser")
+		}
+		if errors.Is(err, producer.ErrParserNoEnumsFound) {
+			slog.Error("no enums found in file", slog.String("filename", filename))
+			slog.Error("please ensure that the file contains enum definitions")
+		}
+		if errors.Is(err, producer.ErrGeneratorFailedToGenerate) {
+			slog.Error("failed to generate enums")
+			slog.Error("please ensure that the output directory is writable")
+			slog.Error("and that input enums contain only valid characters")
+		}
+		slog.Error("exiting")
 		os.Exit(1)
 	}
 	slog.Info("successfully generated enums")
 }
 
 // printHelp displays usage instructions and command-line options
-// to assist users in understanding how to use the tool.
 func printHelp() {
-	printTitle()
+	logo()
 	fmt.Println("Usage: goenums [options] filename")
 	fmt.Println("Options:")
 	flag.PrintDefaults()
 }
 
 // printVersion displays the current version of the goenums tool.
-// This is useful for troubleshooting and ensuring compatibility.
 func printVersion() {
-	printTitle()
+	logo()
 	fmt.Printf("\t\tversion: %s\n", version.CURRENT)
 }
 
-// printTitle displays the ASCII art logo for the goenums tool.
-// This provides visual branding for the command-line interface.
-func printTitle() {
+// logo displays the ASCII art logo for the goenums tool.
+func logo() {
 	fmt.Println(asciiArt)
 }
-
-// asciiArt is the graphical logo displayed in the terminal when
-// the tool is run, providing visual identification.
-const asciiArt = `   ____ _____  ___  ____  __  ______ ___  _____
-  / __ '/ __ \/ _ \/ __ \/ / / / __ '__ \/ ___/
- / /_/ / /_/ /  __/ / / / /_/ / / / / / (__  ) 
- \__, /\____/\___/_/ /_/\__,_/_/ /_/ /_/____/  
-/____/ `

@@ -1,10 +1,19 @@
 package source
 
-import "io"
+import (
+	"errors"
+	"fmt"
+	"io"
+)
 
-// NewReaderSource creates a new reader-based Source implementation that
+var (
+	// ErrReadReaderSource is returned when there is an error reading the source reader.
+	ErrReadReaderSource = errors.New("failed to read reader source")
+)
+
+// FromReader creates a new reader-based Source implementation that
 // obtains content from the provided io.Reader.
-func NewReaderSource(reader io.Reader) *ReaderSource {
+func FromReader(reader io.Reader) *ReaderSource {
 	return &ReaderSource{reader: reader}
 }
 
@@ -20,7 +29,11 @@ type ReaderSource struct {
 // and returns it as a byte slice. This method consumes the reader,
 // so the reader cannot be read from again.
 func (rs *ReaderSource) Content() ([]byte, error) {
-	return io.ReadAll(rs.reader)
+	b, err := io.ReadAll(rs.reader)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrReadReaderSource, err)
+	}
+	return b, nil
 }
 
 // Filename returns a generic identifier for this source.

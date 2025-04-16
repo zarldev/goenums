@@ -1,27 +1,21 @@
-// The enum pkg defines the core interfaces and data structures for enum representation.
+// Package enum defines the core interfaces and data structures for enum representation.
 //
-// This package forms the foundation of the goenums system by defining:
+// This package forms the foundation of the goenums system by defining the domain model
+// for enum types and values, along with the interfaces that components must implement
+// to participate in the enum generation pipeline.
 //
-// 1. Domain models that represent enum types and values
-// 2. Abstract interfaces for the system components
+// The interfaces follow a clear separation of concerns:
+//   - Parser: Extracts enum definitions from source content
+//   - Writer: Generates output artifacts from enum representations
+//   - Source: Provides raw content for parsing
 //
-// # Key Interfaces
-//
-//   - Parser: Converts source content into enum representations
-//   - Writer: Transforms enum representations into output
-//   - Source: Abstracts the origin of input content
-//
-// # Domain Model
-//
-// The Representation struct encapsulates all information needed to generate
-// an enum implementation, independent of input format or output target.
-//
-// This package acts as the common language between different components,
-// allowing them to interact without direct dependencies.
+// This design enables a modular system where different input formats and output targets
+// can be supported without modifying the core workflow.
 package enum
 
 import (
 	"context"
+	"time"
 )
 
 // Parser defines the contract for components that convert source content into
@@ -31,15 +25,14 @@ import (
 // producing the same standardized Representation output.
 type Parser interface {
 	// Parse analyzes the content from a source and returns structured enum representations.
-	// It transforms raw source code into a format-agnostic model that can be used
+	// It transforms input data into a format-agnostic model that can be used
 	// for code generation. The context allows for cancellation and timeout control.
 	Parse(ctx context.Context) ([]Representation, error)
 }
 
 // Source abstracts the origin of input content to be parsed for enum definitions.
 // This interface decouples the parsing logic from the specific location or format
-// of the input, allowing parsers to work with content from files, memory, network,
-// or other sources without modification.
+// of the input data, allowing for flexible input sources.
 type Source interface {
 	// Content returns the raw bytes to be parsed for enum definitions.
 	// This method retrieves the complete content from whatever backing store
@@ -47,8 +40,7 @@ type Source interface {
 	Content() ([]byte, error)
 
 	// Filename returns an identifier for the source, typically a file path.
-	// Even for non-file sources, this provides a meaningful name that can be
-	// referenced in error messages and generated code comments.
+	// Even for non-file sources, this should return a meaningful identifier
 	Filename() string
 }
 
@@ -63,11 +55,16 @@ type Writer interface {
 	Write(ctx context.Context, enums []Representation) error
 }
 
-// Representation is a comprehensive model that encapsulates all information needed to generate
-// an enum implementation. It contains metadata about the package, configuration options,
-// type information, and the collection of enum values. This structure serves as the central
-// data model passed between parsers and writers in the generation pipeline.
+// Representation is a comprehensive model that encapsulates all information needed
+// to generate an enum implementation.
+//
+// A Representation serves as the central data transfer object in the generation pipeline,
+// containing everything a Writer needs to generate output artifacts without having to
+// refer back to the original source.
 type Representation struct {
+	Version        string
+	GenerationTime time.Time
+
 	PackageName     string
 	Failfast        bool
 	Legacy          bool
@@ -88,8 +85,7 @@ type Enum struct {
 }
 
 // Raw contains the unprocessed textual content associated with an enum.
-// It preserves the original comments and documentation from the source code
-// to used as part of generation.
+// It preserves the original comments and documentation from the input source.
 type Raw struct {
 	// Comment is the raw comment associated with the enum constant
 	Comment string
@@ -104,8 +100,8 @@ type Raw struct {
 type Info struct {
 	// Name is the original identifier for the enum constant
 	Name string
-	// AlternateName provides an optional alternative name for the enum
-	AlternateName string
+	// Alias provides an optional alternative name for the enum
+	Alias string
 	// Camel is the camel-case representation of the name
 	Camel string
 	// Lower is the lowercase representation of the name
@@ -139,13 +135,12 @@ type TypeInfo struct {
 	Plural string
 	// PluralCamel is the camel-case representation of the pluralized type name
 	PluralCamel string
-	// NameTypePairs contains information about enum values that don't use iota identifer
-	NameTypePairs []NameTypePair
+	// NameTypePair contains information about enum values that don't use iota identifer
+	NameTypePair []NameTypePair
 }
 
 // NameTypePair represents a non-iota identified enum constant with explicit type and value.
-// This structure captures constants that are defined outside the incremental iota pattern
-// but are still part of the enum type.
+// This structure captures constants that are defined as part of the incremental iota pattern.
 type NameTypePair struct {
 	// Name is the identifier of the enum constant
 	Name string

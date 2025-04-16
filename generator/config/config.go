@@ -34,4 +34,7 @@ type Configuration struct {
 	// When true, additional information about parsing and generation steps will
 	// be logged, which is useful for debugging.
 	Verbose bool
+
+	// Output is the format of the output file.
+	Output string
 }

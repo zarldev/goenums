@@ -5,6 +5,7 @@ package gofile
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -12,15 +13,23 @@ import (
 	"log/slog"
 	"slices"
 	"strconv"
+	"time"
 
 	"github.com/zarldev/goenums/enum"
-	"github.com/zarldev/goenums/producer"
-	"github.com/zarldev/goenums/producer/config"
+	"github.com/zarldev/goenums/generator/config"
+	"github.com/zarldev/goenums/internal/version"
 	"github.com/zarldev/goenums/strings"
 )
 
 // Compile-time check that Parser implements enum.Parser
 var _ enum.Parser = (*Parser)(nil)
+
+var (
+	// ErrReadSource indicates an error occurred while reading the source file.
+	ErrReadSource = errors.New("failed to read source content")
+	// ErrParseGoFile indicates an error occurred while parsing the source file.
+	ErrParseGoFile = errors.New("failed to parse Go file")
+)
 
 // Parser implements the enum.Parser interface for Go source files.
 // It analyzes Go constant declarations to identify and extract enum patterns,
@@ -45,7 +54,7 @@ func NewParser(configuration config.Configuration, source enum.Source) *Parser {
 func (p *Parser) Parse(ctx context.Context) ([]enum.Representation, error) {
 	content, err := p.source.Content()
 	if err != nil {
-		return nil, fmt.Errorf("failed to read source content: %w", err)
+		return nil, fmt.Errorf("%w: %w", ErrReadSource, err)
 	}
 	slog.Debug("parsing source content")
 	filename := p.source.Filename()
@@ -53,15 +62,13 @@ func (p *Parser) Parse(ctx context.Context) ([]enum.Representation, error) {
 	slog.Debug("parsing file", "filename", filename)
 	node, err := parser.ParseFile(fset, filename, content, parser.ParseComments)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse Go file %s: %w", filename, err)
+		return nil, fmt.Errorf("%w: %w", ErrParseGoFile, err)
 	}
 	slog.Debug("collecting all enum representations")
 	typeComments := p.getTypeComments(node)
-	reps := p.collectAllEnumRepresentations(node, filename, typeComments,
+	reps := p.collectRepresentations(node, filename, typeComments,
 		p.Configuration)
-	if len(reps) == 0 {
-		return nil, fmt.Errorf("%w: %w", producer.ErrParserNoEnumsFound, err)
-	}
+	slog.Debug("collected all enum representations", "count", len(reps))
 	return reps, nil
 }
 
@@ -74,10 +81,10 @@ type tempHolder struct {
 	nameTPairs []enum.NameTypePair
 }
 
-// collectAllEnumRepresentations analyzes an AST to identify enum-like declarations.
+// collectRepresentations analyzes an AST to identify enum-like declarations.
 // It extracts type information, constant values, and associated metadata to build
 // complete enum representations for code generation.
-func (p *Parser) collectAllEnumRepresentations(node *ast.File,
+func (p *Parser) collectRepresentations(node *ast.File,
 	filename string, typeComments map[string]string,
 	cfg config.Configuration) []enum.Representation {
 	packageName := p.getPackageName(node)
@@ -123,24 +130,24 @@ func (p *Parser) collectAllEnumRepresentations(node *ast.File,
 				for _, name := range vs.Names {
 					comment := p.getComment(vs)
 					valid := !strings.Contains(comment, "invalid")
-					comment, alternate := p.getAlternateName(comment, name, currNTPs)
+					comment, alias := p.getAliasName(comment, name, currNTPs)
 					nameTPairsCopy := p.copyNameTPairs(currNTPs, p.getValues(comment))
 					entry.enums = append(entry.enums, enum.Enum{
 						Info: enum.Info{
-							Name:          name.Name,
-							Camel:         strings.CamelCase(name.Name),
-							Lower:         strings.ToLower(name.Name),
-							Upper:         strings.ToUpper(name.Name),
-							AlternateName: alternate,
-							Value:         i,
-							Valid:         valid,
+							Name:  name.Name,
+							Camel: strings.CamelCase(name.Name),
+							Lower: strings.ToLower(name.Name),
+							Upper: strings.ToUpper(name.Name),
+							Alias: alias,
+							Value: i,
+							Valid: valid,
 						},
 						TypeInfo: enum.TypeInfo{
-							Name:          currIotaType,
-							Camel:         strings.CamelCase(currIotaType),
-							Lower:         strings.ToLower(currIotaType),
-							Upper:         strings.ToUpper(currIotaType),
-							NameTypePairs: nameTPairsCopy,
+							Name:         currIotaType,
+							Camel:        strings.CamelCase(currIotaType),
+							Lower:        strings.ToLower(currIotaType),
+							Upper:        strings.ToUpper(currIotaType),
+							NameTypePair: nameTPairsCopy,
 						},
 						Raw: enum.Raw{
 							Comment:     comment,
@@ -164,21 +171,24 @@ func (p *Parser) collectAllEnumRepresentations(node *ast.File,
 		}
 		typeLower, plural := strings.GetPlural(iotaType)
 		rep := enum.Representation{
+			Version:        version.CURRENT,
+			GenerationTime: time.Now(),
+
 			PackageName:     packageName,
 			Failfast:        cfg.Failfast,
 			Legacy:          cfg.Legacy,
 			CaseInsensitive: cfg.Insensitive,
 			SourceFilename:  filename,
 			TypeInfo: enum.TypeInfo{
-				Filename:      packageName,
-				Index:         info.iotaIdx,
-				Name:          info.iotaType,
-				Camel:         strings.CamelCase(info.iotaType),
-				Lower:         typeLower,
-				Upper:         strings.ToUpper(info.iotaType),
-				Plural:        plural,
-				PluralCamel:   strings.CamelCase(plural),
-				NameTypePairs: info.nameTPairs,
+				Filename:     packageName,
+				Index:        info.iotaIdx,
+				Name:         info.iotaType,
+				Camel:        strings.CamelCase(info.iotaType),
+				Lower:        typeLower,
+				Upper:        strings.ToUpper(info.iotaType),
+				Plural:       plural,
+				PluralCamel:  strings.CamelCase(plural),
+				NameTypePair: info.nameTPairs,
 			},
 			Enums: info.enums,
 		}
@@ -280,9 +290,9 @@ func (p *Parser) copyNameTPairs(nameTPairs []enum.NameTypePair, values []string)
 	return nameTPairsCopy
 }
 
-// getAlternateName extracts alternate name information from comments.
+// getAliasName extracts alias name information from comments.
 // This allows for separate string representations of enum values.
-func (p *Parser) getAlternateName(comment string, n *ast.Ident, nameTPairs []enum.NameTypePair) (string, string) {
+func (p *Parser) getAliasName(comment string, n *ast.Ident, nameTPairs []enum.NameTypePair) (string, string) {
 	comment = strings.TrimLeft(comment, " ")
 	if strings.HasPrefix(comment, `"`) {
 		endQI := strings.Index(comment[1:], `"`)
