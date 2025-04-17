@@ -7,8 +7,8 @@ import (
 )
 
 var (
-	// ErrReadReaderSource is returned when there is an error reading the source reader.
-	ErrReadReaderSource = errors.New("failed to read reader source")
+	// ErrReadSource is returned when there is an error reading the source reader.
+	ErrReadSource = errors.New("failed to read from source")
 )
 
 // FromReader creates a new reader-based Source implementation that
@@ -31,7 +31,7 @@ type ReaderSource struct {
 func (rs *ReaderSource) Content() ([]byte, error) {
 	b, err := io.ReadAll(rs.reader)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrReadReaderSource, err)
+		return nil, fmt.Errorf("%w: %w", ErrReadSource, err)
 	}
 	return b, nil
 }

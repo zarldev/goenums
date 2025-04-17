@@ -4,6 +4,7 @@
 package gofile
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -52,6 +53,24 @@ func NewParser(configuration config.Configuration, source enum.Source) *Parser {
 // It returns a slice of enum representations or an error if parsing fails.
 // The implementation uses Go's standard AST parsing to analyze the source code structure.
 func (p *Parser) Parse(ctx context.Context) ([]enum.Representation, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("unexpected panic in parser",
+				"version", version.CURRENT,
+				"build", version.BUILD,
+				"commit", version.COMMIT,
+				"recovered", true,
+				"error", fmt.Sprintf("%v", r),
+				"file", p.source.Filename())
+		}
+	}()
+	return p.doParse(ctx)
+}
+
+func (p *Parser) doParse(ctx context.Context) ([]enum.Representation, error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	content, err := p.source.Content()
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrReadSource, err)
@@ -60,6 +79,9 @@ func (p *Parser) Parse(ctx context.Context) ([]enum.Representation, error) {
 	filename := p.source.Filename()
 	fset := token.NewFileSet()
 	slog.Debug("parsing file", "filename", filename)
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	node, err := parser.ParseFile(fset, filename, content, parser.ParseComments)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrParseGoFile, err)
@@ -131,7 +153,8 @@ func (p *Parser) collectRepresentations(node *ast.File,
 					comment := p.getComment(vs)
 					valid := !strings.Contains(comment, "invalid")
 					comment, alias := p.getAliasName(comment, name, currNTPs)
-					nameTPairsCopy := p.copyNameTPairs(currNTPs, p.getValues(comment))
+					values := p.getValues(comment)
+					nameTPairsCopy := p.copyNameTPairs(currNTPs, values)
 					entry.enums = append(entry.enums, enum.Enum{
 						Info: enum.Info{
 							Name:  name.Name,
@@ -169,7 +192,7 @@ func (p *Parser) collectRepresentations(node *ast.File,
 		for _, v := range info.enums {
 			slog.Debug("enum information", "enum", v.Info.Name)
 		}
-		typeLower, plural := strings.GetPlural(iotaType)
+		lowerPlural, camelPlural := strings.PluralAndCamelPlural(iotaType)
 		rep := enum.Representation{
 			Version:        version.CURRENT,
 			GenerationTime: time.Now(),
@@ -184,10 +207,10 @@ func (p *Parser) collectRepresentations(node *ast.File,
 				Index:        info.iotaIdx,
 				Name:         info.iotaType,
 				Camel:        strings.CamelCase(info.iotaType),
-				Lower:        typeLower,
+				Lower:        lowerPlural,
 				Upper:        strings.ToUpper(info.iotaType),
-				Plural:       plural,
-				PluralCamel:  strings.CamelCase(plural),
+				Plural:       lowerPlural,
+				PluralCamel:  camelPlural,
 				NameTypePair: info.nameTPairs,
 			},
 			Enums: info.enums,
@@ -230,13 +253,11 @@ func (p *Parser) getTypeComments(node *ast.File) map[string]string {
 		}
 		for _, spec := range decl.Specs {
 			typeSpec, ok := spec.(*ast.TypeSpec)
-			if !ok {
+			if !ok || typeSpec.Comment == nil || len(typeSpec.Comment.List) == 0 {
 				continue
 			}
-			if typeSpec.Comment != nil && len(typeSpec.Comment.List) > 0 {
-				comment := strings.TrimSpace(typeSpec.Comment.List[0].Text[2:])
-				typeComments[typeSpec.Name.Name] = comment
-			}
+			comment := strings.TrimSpace(typeSpec.Comment.List[0].Text[2:])
+			typeComments[typeSpec.Name.Name] = comment
 		}
 		return true
 	})
@@ -247,47 +268,53 @@ func (p *Parser) getTypeComments(node *ast.File) map[string]string {
 // This is used to parse comma-separated values in enum comments.
 func (p *Parser) getValues(comment string) []string {
 	values := strings.Split(comment, ",")
-	if len(values) > 1 {
-		for i, v := range values {
-			v = strings.TrimSpace(v)
-			if strings.HasPrefix(v, `"`) && strings.HasSuffix(v, `"`) {
-				values[i] = v[1 : len(v)-1]
-				continue
-			}
-			values[i] = v
+	result := make([]string, 0, len(values))
+	for _, v := range values {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			continue
 		}
+		if strings.HasPrefix(v, `"`) && strings.HasSuffix(v, `"`) {
+			v = v[1 : len(v)-1]
+		}
+		result = append(result, v)
 	}
-	return values
+	return result
 }
 
 // copyNameTPairs creates a copy of name-type pairs with updated values.
 // This ensures that each enum representation has its own isolated metadata.
 func (p *Parser) copyNameTPairs(nameTPairs []enum.NameTypePair, values []string) []enum.NameTypePair {
 	nameTPairsCopy := slices.Clone(nameTPairs)
-	if len(values) == len(nameTPairsCopy) {
-		for i, v := range values {
-			v = strings.TrimSpace(v)
-			ntp := nameTPairsCopy[i]
-			switch ntp.Type {
-			case "float64":
-				val := parseOrDefault(v, 0.0, func(s string) (float64, error) {
-					return strconv.ParseFloat(s, 64)
-				})
-				ntp.Value = fmt.Sprintf("%g", val)
-			case "int":
-				val := parseOrDefault(v, 0, func(s string) (int, error) {
-					return strconv.Atoi(s)
-				})
-				ntp.Value = fmt.Sprintf("%d", val)
-			case "bool":
-				val := parseOrDefault(v, false, strconv.ParseBool)
-				ntp.Value = fmt.Sprintf("%t", val)
-			default:
-				ntp.Value = formatValue(v)
-			}
+	for i, pair := range nameTPairsCopy {
+		if i >= len(values) {
+			break
 		}
+		v := strings.TrimSpace(values[i])
+		pair.Value = formatValueByType(v, pair.Type)
+		nameTPairsCopy[i] = pair
 	}
 	return nameTPairsCopy
+}
+
+func formatValueByType(v, typeName string) string {
+	switch typeName {
+	case "float64":
+		val := parseOrDefault(v, 0.0, func(s string) (float64, error) {
+			return strconv.ParseFloat(s, 64)
+		})
+		return fmt.Sprintf("%g", val)
+	case "int":
+		val := parseOrDefault(v, 0, func(s string) (int, error) {
+			return strconv.Atoi(s)
+		})
+		return fmt.Sprintf("%d", val)
+	case "bool":
+		val := parseOrDefault(v, false, strconv.ParseBool)
+		return fmt.Sprintf("%t", val)
+	default:
+		return formatValue(v)
+	}
 }
 
 // getAliasName extracts alias name information from comments.
@@ -445,10 +472,7 @@ func (p *Parser) iotaInfo(valueSpec *ast.ValueSpec, typeComments map[string]stri
 // Ordered is a constraint that permits any ordered type: any type
 // that supports the operators < <= >= >.
 type Ordered interface {
-	~int | ~int8 | ~int16 | ~int32 | ~int64 |
-		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr |
-		~float32 | ~float64 |
-		~string | bool
+	cmp.Ordered | bool
 }
 
 // parseOrDefault is a generic function that attempts to parse a string as type T,

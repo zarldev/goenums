@@ -1,4 +1,4 @@
-// The source packge provides implementations of the enum.Source interface.
+// The source package provides implementations of the enum.Source interface.
 //
 // These implementations abstract the origin of input content, allowing the system
 // to process enums from various sources without changing the core logic. By
@@ -6,7 +6,7 @@
 // flexible and extensible architecture.
 //
 // Current implementations include:
-//   - FileSource: Retrieves content from the local filesystem
+//   - FileSource: Retrieves content from the provided filesystem
 //   - ReaderSource: Obtains content from an io.Reader
 //
 // Using this abstraction, parsers can focus solely on the transformation of

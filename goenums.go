@@ -34,11 +34,13 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	"github.com/zarldev/goenums/enum"
+
 	"github.com/zarldev/goenums/generator"
-	producer "github.com/zarldev/goenums/generator"
 	"github.com/zarldev/goenums/generator/config"
 	"github.com/zarldev/goenums/generator/gofile"
 	"github.com/zarldev/goenums/internal/version"
@@ -53,60 +55,80 @@ const asciiArt = `   ____ _____  ___  ____  __  ______ ___  _____
  \__, /\____/\___/_/ /_/\__,_/_/ /_/ /_/____/  
 /____/ `
 
-func main() {
-	var (
-		help, vers, failfast, legacy, insensitive, verbose bool
-		err                                                error
-		output                                             string
-	)
-	flag.BoolVar(&help, "help", false,
+// Define flag groups
+type flags struct {
+	help, version, failfast, legacy, insensitive, verbose bool
+	output                                                string
+}
+
+func parseFlags() (flags, []string) {
+	var f flags
+	flag.BoolVar(&f.help, "help", false,
 		"Print help information")
-	flag.BoolVar(&help, "h", false, "")
-	flag.BoolVar(&vers, "version", false,
+	flag.BoolVar(&f.help, "h", false, "")
+	flag.BoolVar(&f.version, "version", false,
 		"Print version information")
-	flag.BoolVar(&vers, "v", false, "")
-	flag.BoolVar(&failfast, "failfast", false,
+	flag.BoolVar(&f.version, "v", false, "")
+	flag.BoolVar(&f.failfast, "failfast", false,
 		"Enable failfast mode - fail on generation of invalid enum while parsing (default: false)")
-	flag.BoolVar(&failfast, "f", false, "")
-	flag.BoolVar(&legacy, "legacy", false,
+	flag.BoolVar(&f.failfast, "f", false, "")
+	flag.BoolVar(&f.legacy, "legacy", false,
 		"Generate legacy code without Go 1.23+ iterator support (default: false)")
-	flag.BoolVar(&legacy, "l", false, "")
-	flag.BoolVar(&insensitive, "insensitive", false,
+	flag.BoolVar(&f.legacy, "l", false, "")
+	flag.BoolVar(&f.insensitive, "insensitive", false,
 		"Generate case insensitive string parsing (default: false)")
-	flag.BoolVar(&insensitive, "i", false, "")
-	flag.BoolVar(&verbose, "verbose", false,
+	flag.BoolVar(&f.insensitive, "i", false, "")
+	flag.BoolVar(&f.verbose, "verbose", false,
 		"Enable verbose mode - prints out the generated code (default: false)")
-	flag.BoolVar(&verbose, "vv", false, "")
-	flag.StringVar(&output, "output", "",
+	flag.BoolVar(&f.verbose, "vv", false, "")
+	flag.StringVar(&f.output, "output", "",
 		"Specify the output format (default: go)")
-	flag.StringVar(&output, "o", "", "")
+	flag.StringVar(&f.output, "o", "", "")
 	flag.Parse()
+	return f, flag.Args()
+}
 
-	args := flag.Args()
+func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	if help {
+	// Setup signal handling for graceful shutdown
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		cancel()
+	}()
+	f, args := parseFlags()
+
+	if f.help {
 		printHelp()
 		return
 	}
 
-	if vers {
+	if f.version {
 		printVersion()
 		return
 	}
 
 	if len(args) < 1 {
 		slog.Error("error: you must provide a filename")
-		return
+		os.Exit(1)
 	}
 
-	filename := flag.Arg(0)
+	filename := args[0]
+
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		slog.Error("input file does not exist", slog.String("filename", filename))
+		os.Exit(1)
+	}
 
 	config := config.Configuration{
-		Failfast:    failfast,
-		Insensitive: insensitive,
-		Legacy:      legacy,
-		Verbose:     verbose,
-		Output:      output,
+		Failfast:    f.failfast,
+		Insensitive: f.insensitive,
+		Legacy:      f.legacy,
+		Verbose:     f.verbose,
+		Output:      f.output,
 	}
 
 	logging.Configure(config.Verbose)
@@ -149,22 +171,22 @@ func main() {
 	slog.Debug("initializing producer")
 	gen := generator.New(config, parser, writer)
 	slog.Info("starting parsing and generation")
-	if err = gen.ParseAndWrite(context.Background()); err != nil {
-		slog.Error("failed to generate enums")
-		if errors.Is(err, producer.ErrParserFailedToParse) {
+	if err := gen.ParseAndWrite(ctx); err != nil {
+		if errors.Is(err, generator.ErrFailedToParse) {
 			slog.Error("failed to parse file", slog.String("filename", filename))
 			slog.Error("please ensure that the file is a valid input file")
 			slog.Error("for the selected parser")
 		}
-		if errors.Is(err, producer.ErrParserNoEnumsFound) {
+		if errors.Is(err, generator.ErrNoEnumsFound) {
 			slog.Error("no enums found in file", slog.String("filename", filename))
 			slog.Error("please ensure that the file contains enum definitions")
 		}
-		if errors.Is(err, producer.ErrGeneratorFailedToGenerate) {
-			slog.Error("failed to generate enums")
-			slog.Error("please ensure that the output directory is writable")
+		if errors.Is(err, generator.ErrGeneratorFailedToGenerate) {
+			slog.Error("failed to generate output")
+			slog.Error("please ensure that the output destination is writable")
 			slog.Error("and that input enums contain only valid characters")
 		}
+		slog.Error("failed to generate enums", slog.String("error", err.Error()))
 		slog.Error("exiting")
 		os.Exit(1)
 	}
@@ -183,6 +205,12 @@ func printHelp() {
 func printVersion() {
 	logo()
 	fmt.Printf("\t\tversion: %s\n", version.CURRENT)
+	if version.BUILD != "" {
+		fmt.Printf("\t\tbuild: %s\n", version.BUILD)
+	}
+	if version.COMMIT != "" {
+		fmt.Printf("\t\tcommit: %s\n", version.COMMIT)
+	}
 }
 
 // logo displays the ASCII art logo for the goenums tool.

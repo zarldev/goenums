@@ -17,10 +17,9 @@ func TestWriteToFileAndFormatFS(t *testing.T) {
 		err      error
 	}{
 		{
-			name:    "empty path",
-			path:    "",
-			content: "package main",
-			err:     ErrWriteFile,
+			name: "empty path",
+			path: "",
+			err:  ErrCreateFile,
 		},
 		{
 			name: "nil write func",
@@ -37,7 +36,7 @@ func TestWriteToFileAndFormatFS(t *testing.T) {
 		{
 			name:     "valid go file with formatting",
 			path:     "test.go",
-			content:  "package main\nfunc main() {fmt.Println(\"hello\")}\n",
+			content:  `package main func main() {fmt.Println("hello")}`,
 			format:   true,
 			expected: "package main\n\nfunc main() {\n\tfmt.Println(\"hello\")\n}\n",
 		},
@@ -54,11 +53,6 @@ func TestWriteToFileAndFormatFS(t *testing.T) {
 			content:  "this is not valid go code",
 			expected: "this is not valid go code",
 			format:   false,
-		},
-		{
-			name: "empty path",
-			path: "",
-			err:  ErrWriteFile,
 		},
 		{
 			name:    "empty content",
@@ -91,8 +85,6 @@ func TestWriteToFileAndFormatFS(t *testing.T) {
 			}
 			gotContent := string(got)
 			if tt.format {
-				// When formatting is enabled, we only check if the content contains
-				// the essential parts since formatting might vary
 				if !strings.Contains(gotContent, "package main") {
 					t.Errorf(`formatted content missing expected text:
 					got: %q
@@ -106,13 +98,5 @@ func TestWriteToFileAndFormatFS(t *testing.T) {
 					want: %q`, gotContent, tt.expected)
 			}
 		})
-	}
-}
-
-func TestOSReadWriteFileFS(t *testing.T) {
-	fs := &OSReadWriteFileFS{}
-	// Just verify that we can create the type
-	if fs == nil {
-		t.Error("failed to create OSReadWriteFileFS")
 	}
 }

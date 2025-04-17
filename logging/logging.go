@@ -1,4 +1,4 @@
-// The logging package provides customized structured logging functionality.
+// Package logging provides customized structured logging functionality.
 // It configures slog with custom formatting to produce cleaner, more readable log output
 // by removing standard prefixes as the output is to a cli, and we can also have verbose
 // output with a lower log level.
@@ -10,14 +10,25 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"slices"
 	"strings"
+)
+
+var (
+	// ErrLogging is a sentinel error used to identify logging-related errors.
+	ErrLogging = fmt.Errorf("logging error")
 )
 
 // Configure sets up the default slog logger with appropriate settings.
 // When verbose is true, the log level is set to Debug; otherwise, it defaults to Info.
 // This function configures a custom text handler that writes to stdout.
 func Configure(verbose bool) {
-	w := os.Stdout
+	ConfigureWithWriter(os.Stdout, verbose)
+}
+
+// ConfigureWithWriter sets up the default slog logger with a custom writer.
+// This allows redirecting logs to different destinations (files, buffers, etc.)
+func ConfigureWithWriter(w io.Writer, verbose bool) {
 	level := slog.LevelInfo
 	if verbose {
 		level = slog.LevelDebug
@@ -33,53 +44,80 @@ func NewCustomTextHandler(w io.Writer, opts *slog.HandlerOptions) slog.Handler {
 	if opts == nil {
 		opts = &slog.HandlerOptions{}
 	}
-	h := slog.NewTextHandler(w, opts)
-	return &simpleHandler{h: h, w: w, opts: opts}
+	return &logger{
+		w:     w,
+		level: opts.Level.Level(),
+		group: "",
+	}
 }
 
-// simpleHandler implements slog.Handler with modified output formatting.
-// It wraps a standard text handler but simplifies the output.
-type simpleHandler struct {
-	h    slog.Handler
-	w    io.Writer
-	opts *slog.HandlerOptions
+// logger implements slog.Handler with very direct, simple handling
+type logger struct {
+	w     io.Writer
+	level slog.Level
+	attrs []slog.Attr
+	group string
 }
 
 // Enabled reports whether the handler handles records at the given level.
-// It delegates to the underlying handler's Enabled method.
-func (h *simpleHandler) Enabled(ctx context.Context, level slog.Level) bool {
-	return h.h.Enabled(ctx, level)
+func (h *logger) Enabled(ctx context.Context, level slog.Level) bool {
+	return level >= h.level
 }
 
 // WithAttrs returns a new Handler whose attributes include both
 // the receiver's attributes and the arguments.
-func (h *simpleHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return &simpleHandler{h: h.h.WithAttrs(attrs), w: h.w, opts: h.opts}
+func (h *logger) WithAttrs(attrs []slog.Attr) slog.Handler {
+	newHandler := &logger{
+		w:     h.w,
+		level: h.level,
+		group: h.group,
+	}
+	newHandler.attrs = slices.Clone(h.attrs)
+	newHandler.attrs = append(newHandler.attrs, attrs...)
+	return newHandler
 }
 
 // WithGroup returns a new Handler with the given group name added to
 // the receiver's existing groups.
-func (h *simpleHandler) WithGroup(name string) slog.Handler {
-	return &simpleHandler{h: h.h.WithGroup(name), w: h.w, opts: h.opts}
+func (h *logger) WithGroup(name string) slog.Handler {
+	return &logger{
+		w:     h.w,
+		level: h.level,
+		attrs: h.attrs,
+		group: name,
+	}
 }
 
-// Handle formats the log record, omitting the standard msg= prefix
-// and filtering out system attributes like time and level.
-func (h *simpleHandler) Handle(ctx context.Context, r slog.Record) error {
-	var attrs []string
+// formatAttr formats a single attribute
+func formatAttr(a slog.Attr) string {
+	if a.Value.Kind() == slog.KindString {
+		return fmt.Sprintf("%s=%q", a.Key, a.Value.String())
+	}
+	return fmt.Sprintf("%s=%v", a.Key, a.Value.Any())
+}
+
+// Handle formats and outputs the log record
+func (h *logger) Handle(ctx context.Context, r slog.Record) error {
+	var allAttrs []string
+	for _, attr := range h.attrs {
+		allAttrs = append(allAttrs, formatAttr(attr))
+	}
 	r.Attrs(func(a slog.Attr) bool {
-		if a.Key == "" || a.Key == slog.TimeKey || a.Key == slog.LevelKey || a.Key == slog.SourceKey {
+		if a.Key == slog.TimeKey || a.Key == slog.LevelKey || a.Key == slog.SourceKey {
 			return true
 		}
-		attrs = append(attrs, fmt.Sprintf("%s=%s", a.Key, a.Value.String()))
+		allAttrs = append(allAttrs, formatAttr(a))
 		return true
 	})
-	format := "%s\n"
-	args := []any{r.Message}
-	if len(attrs) > 0 {
-		format = "%s %s\n"
-		args = append(args, strings.Join(attrs, " "))
+	var builder strings.Builder
+	_, _ = builder.WriteString(r.Message)
+	if len(allAttrs) > 0 {
+		_, _ = builder.WriteString(" ")
+		_, _ = builder.WriteString(strings.Join(allAttrs, " "))
 	}
-	fmt.Fprintf(h.w, format, args...)
+	_, _ = builder.WriteString("\n")
+	if _, err := fmt.Fprint(h.w, builder.String()); err != nil {
+		return fmt.Errorf("%w: %s: %w", ErrLogging, "printing log message", err)
+	}
 	return nil
 }

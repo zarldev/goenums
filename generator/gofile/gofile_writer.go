@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -18,8 +19,6 @@ import (
 var _ enum.Writer = &Writer{}
 
 var (
-	// ErrInvalidOutputFilename is returned when the output filename is invalid.
-	ErrInvalidOutputFilename = errors.New("invalid output filename")
 	// ErrWriteGoFile is returned when an error occurs while writing the go file.
 	ErrWriteGoFile = errors.New("error writing go file")
 )
@@ -27,25 +26,43 @@ var (
 type Writer struct {
 	Configuration config.Configuration
 	w             io.Writer
+	fs            file.ReadWriteCreateFileFS
 }
 
-func NewWriter(cfg config.Configuration) *Writer {
-	return &Writer{
-		Configuration: cfg,
+type WriterOption func(*Writer)
+
+func WithFileSystem(fs file.ReadWriteCreateFileFS) func(*Writer) {
+	return func(w *Writer) {
+		w.fs = fs
 	}
+}
+
+func NewWriter(cfg config.Configuration, opts ...WriterOption) *Writer {
+	w := Writer{
+		Configuration: cfg,
+		fs:            &file.OSReadWriteFileFS{},
+		w:             os.Stdout,
+	}
+	for _, opt := range opts {
+		opt(&w)
+	}
+	return &w
 }
 
 // Write implements enum.RepresentationWriter.
 func (g *Writer) Write(ctx context.Context,
 	enums []enum.Representation) error {
 	for _, enumRep := range enums {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		dirPath := filepath.Dir(enumRep.SourceFilename)
-		outFilename := enumRep.TypeInfo.Lower + "_enums.go"
+		outFilename := fmt.Sprintf("%s_enums.go", enumRep.TypeInfo.Lower)
 		if strings.Contains(outFilename, " ") || strings.Contains(outFilename, "/") {
-			return fmt.Errorf("%w: %s", ErrInvalidOutputFilename, outFilename)
+			return fmt.Errorf("%w: '%s' contains invalid characters", ErrWriteGoFile, outFilename)
 		}
 		fullPath := filepath.Join(dirPath, outFilename)
-		err := file.WriteToFileAndFormat(ctx, fullPath, true,
+		err := file.WriteToFileAndFormatFS(ctx, g.fs, fullPath, true,
 			func(w io.Writer) error {
 				g.w = w
 				g.writeEnumFile(enumRep)
