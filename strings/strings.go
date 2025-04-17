@@ -253,3 +253,28 @@ func Join(s1 []string, s2 string) string {
 func SplitN(s, sep string, n int) []string {
 	return strings.SplitN(s, sep, n)
 }
+
+type Builder struct {
+	b *strings.Builder
+}
+
+func (b *Builder) WriteString(s string) {
+	if b.b == nil {
+		b.b = &strings.Builder{}
+	}
+	_, _ = b.b.WriteString(s)
+}
+
+func (b *Builder) String() string {
+	if b.b == nil {
+		return ""
+	}
+	return b.b.String()
+}
+
+func (b *Builder) Len() int {
+	if b.b == nil {
+		return 0
+	}
+	return b.b.Len()
+}

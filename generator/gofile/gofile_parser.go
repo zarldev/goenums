@@ -477,11 +477,11 @@ type Ordered interface {
 
 // parseOrDefault is a generic function that attempts to parse a string as type T,
 // returning the parsed value if successful or the default value if not.
-func parseOrDefault[T Ordered](s string, defaultVal T, parser func(string) (T, error)) T {
+func parseOrDefault[T Ordered](s string, def T, parser func(string) (T, error)) T {
 	if val, err := parser(s); err == nil {
 		return val
 	}
-	return defaultVal
+	return def
 }
 
 // formatValue formats values for code generation according to their type.

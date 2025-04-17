@@ -1,13 +1,13 @@
-// The producer package coordinates the workflow of enum parsing and generation.
+// The generator package coordinates the workflow of enum parsing and generation.
 //
-// The producer package serves as the orchestration layer that connects the
+// The generator package serves as the orchestration layer that connects the
 // core components of the enum generation system:
 //
 // - Sources that provide input content
 // - Parsers that extract enum representations
 // - Writers that generate output artifacts
 //
-// By implementing a mediator pattern, the producer maintains separation
+// By implementing a mediator pattern, the generator maintains separation
 // between components while coordinating their interaction in a cohesive
 // workflow. This allows each component to focus on its specialized task
 // without needing to know about the others.
@@ -55,8 +55,8 @@ type Generator struct {
 	writer        enum.Writer
 }
 
-// New creates a Producer with the specified configuration and components.
-// The producer will use the given parser to extract enum definitions and the
+// New creates a Generator with the specified configuration and components.
+// The generator will use the given parser to extract enum definitions and the
 // writer to generate output artifacts.
 func New(configuration config.Configuration,
 	parser enum.Parser,

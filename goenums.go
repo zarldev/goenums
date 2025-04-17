@@ -46,6 +46,7 @@ import (
 	"github.com/zarldev/goenums/internal/version"
 	"github.com/zarldev/goenums/logging"
 	"github.com/zarldev/goenums/source"
+	"github.com/zarldev/goenums/strings"
 )
 
 // asciiArt is the goenums logo
@@ -112,15 +113,32 @@ func main() {
 	}
 
 	if len(args) < 1 {
-		slog.Error("error: you must provide a filename")
+		slog.Error("you must provide a filename")
 		os.Exit(1)
 	}
 
-	filename := args[0]
+	// Process file input - now supports comma-separated lists
+	filenames := args
 
-	if _, err := os.Stat(filename); os.IsNotExist(err) {
-		slog.Error("input file does not exist", slog.String("filename", filename))
-		os.Exit(1)
+	// Validate that all files exist
+	for _, filename := range filenames {
+		if _, err := os.Stat(filename); os.IsNotExist(err) {
+			slog.Error("input file does not exist", slog.String("filename", filename))
+			os.Exit(1)
+		}
+	}
+
+	// Validate that all files exist
+	for _, filename := range filenames {
+		filename = strings.TrimSpace(filename)
+		if filename == "" {
+			continue
+		}
+
+		if _, err := os.Stat(filename); os.IsNotExist(err) {
+			slog.Error("input file does not exist", slog.String("filename", filename))
+			os.Exit(1)
+		}
 	}
 
 	config := config.Configuration{
@@ -134,69 +152,78 @@ func main() {
 	logging.Configure(config.Verbose)
 
 	slog.Info(asciiArt)
-	slog.Info(fmt.Sprintf("Version: %s", version.CURRENT))
+	slog.Info(fmt.Sprintf("\t\tversion: %s", version.CURRENT))
 	slog.Debug("starting generation...")
 	slog.Debug("config settings",
-		slog.String("filename", filename),
+		slog.Int("file_count", len(filenames)),
+		slog.String("files", buildFileList(filenames)),
+		slog.String("output", config.Output),
 		slog.Bool("failfast", config.Failfast),
 		slog.Bool("legacy", config.Legacy),
 		slog.Bool("insensitive", config.Insensitive),
 		slog.Bool("verbose", config.Verbose))
 
-	var (
-		parser enum.Parser
-		writer enum.Writer
-	)
-
-	inExt := filepath.Ext(filename)
-	switch inExt {
-	case ".go":
-		slog.Debug("initializing go parser")
-		parser = gofile.NewParser(config,
-			source.FromFile(filename))
-	default:
-		slog.Error("error: only .go files are supported")
-		return
-	}
-
-	switch config.Output {
-	case "", "go":
-		slog.Debug("initializing gofile writer")
-		writer = gofile.NewWriter(config)
-	default:
-		slog.Error("error: only outputting to go files is supported")
-		return
-	}
-
-	slog.Debug("initializing producer")
-	gen := generator.New(config, parser, writer)
-	slog.Info("starting parsing and generation")
-	if err := gen.ParseAndWrite(ctx); err != nil {
-		if errors.Is(err, generator.ErrFailedToParse) {
-			slog.Error("failed to parse file", slog.String("filename", filename))
-			slog.Error("please ensure that the file is a valid input file")
-			slog.Error("for the selected parser")
+	for _, filename := range filenames {
+		filename = strings.TrimSpace(filename)
+		if filename == "" {
+			continue
 		}
-		if errors.Is(err, generator.ErrNoEnumsFound) {
-			slog.Error("no enums found in file", slog.String("filename", filename))
-			slog.Error("please ensure that the file contains enum definitions")
+		slog.Info("processing file", slog.String("filename", filename))
+		var (
+			parser enum.Parser
+			writer enum.Writer
+		)
+
+		inExt := filepath.Ext(filename)
+		switch inExt {
+		case ".go":
+			slog.Debug("initializing go parser")
+			parser = gofile.NewParser(config,
+				source.FromFile(filename))
+		default:
+			slog.Error("only .go files are supported")
+			return
 		}
-		if errors.Is(err, generator.ErrGeneratorFailedToGenerate) {
-			slog.Error("failed to generate output")
-			slog.Error("please ensure that the output destination is writable")
-			slog.Error("and that input enums contain only valid characters")
+
+		switch config.Output {
+		case "", "go":
+			slog.Debug("initializing gofile writer")
+			writer = gofile.NewWriter(config)
+		default:
+			slog.Error("only outputting to go files is supported")
+			return
 		}
-		slog.Error("failed to generate enums", slog.String("error", err.Error()))
-		slog.Error("exiting")
-		os.Exit(1)
+
+		slog.Debug("initializing generator")
+		gen := generator.New(config, parser, writer)
+		slog.Info("starting parsing and generation")
+		if err := gen.ParseAndWrite(ctx); err != nil {
+			if errors.Is(err, generator.ErrFailedToParse) {
+				slog.Error("unable to parse file", slog.String("filename", filename))
+				slog.Error("please ensure that the file is a valid input file")
+				slog.Error("for the selected parser")
+			}
+			if errors.Is(err, generator.ErrNoEnumsFound) {
+				slog.Error("no enums found in file", slog.String("filename", filename))
+				slog.Error("please ensure that the file contains enum definitions")
+			}
+			if errors.Is(err, generator.ErrGeneratorFailedToGenerate) {
+				slog.Error("could not generate output")
+				slog.Error("please ensure that the output destination is writable")
+				slog.Error("and that input enums contain only valid characters")
+			}
+			slog.Error("could not generate enums", slog.String("error", err.Error()))
+			slog.Error("exiting")
+			os.Exit(1)
+		}
+		slog.Info("successfully generated enums")
 	}
-	slog.Info("successfully generated enums")
 }
 
 // printHelp displays usage instructions and command-line options
 func printHelp() {
 	logo()
-	fmt.Println("Usage: goenums [options] filename")
+	fmt.Println("Usage: goenums [options] file.go[,file2.go,...]")
 	fmt.Println("Options:")
 	flag.PrintDefaults()
 }
@@ -216,4 +243,17 @@ func printVersion() {
 // logo displays the ASCII art logo for the goenums tool.
 func logo() {
 	fmt.Println(asciiArt)
+}
+
+func buildFileList(filenames []string) string {
+	if len(filenames) == 0 {
+		return ""
+	}
+	var builder strings.Builder
+	builder.WriteString(filenames[0])
+	for _, filename := range filenames[1:] {
+		builder.WriteString(", ")
+		builder.WriteString(filename)
+	}
+	return builder.String()
 }

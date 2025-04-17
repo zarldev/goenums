@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/zarldev/goenums/enum"
-	producer "github.com/zarldev/goenums/generator"
+	"github.com/zarldev/goenums/generator"
 	"github.com/zarldev/goenums/generator/config"
 	"github.com/zarldev/goenums/generator/gofile"
 	"github.com/zarldev/goenums/source"
@@ -146,7 +146,7 @@ func TestGenerator(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			parser := gofile.NewParser(tc.Config, tc.Source)
 			wri := gofile.NewWriter(tc.Config)
-			p := producer.New(tc.Config, parser, wri)
+			p := generator.New(tc.Config, parser, wri)
 			// Run
 			err := p.ParseAndWrite(t.Context())
 			if err != nil {

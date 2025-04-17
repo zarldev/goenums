@@ -1,26 +1,30 @@
-.PHONY: build install test help clean build-all build-linux build-darwin build-windows
-
 # Build variables
-VERSION := $(shell grep -o '".*"' internal/version/version.go | tr -d '"')
+VERSION := v0.3.6
 BUILD_TIME := $(shell date +%Y%m%d-%H:%M:%S)
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 GIT_DIRTY := $(shell git status --porcelain 2>/dev/null | wc -l | sed -e 's/^ *//' | xargs test 0 -eq || echo "-dirty")
 
-LDFLAGS := -ldflags "\
--X github.com/zarldev/goenums/internal/version.CURRENT=$(VERSION) \
--X github.com/zarldev/goenums/internal/version.BUILD=$(BUILD_TIME) \
--X github.com/zarldev/goenums/internal/version.COMMIT=$(GIT_COMMIT)$(GIT_DIRTY)"
+# Properly formatted LDFLAGS
+LDFLAGS := -ldflags "-X github.com/zarldev/goenums/internal/version.CURRENT='$(VERSION)' -X github.com/zarldev/goenums/internal/version.BUILD='$(BUILD_TIME)' -X github.com/zarldev/goenums/internal/version.COMMIT='$(GIT_COMMIT)$(GIT_DIRTY)'"
 
-default: help
+# Debug target to verify variable values
+debug-version:
+	@echo "VERSION: $(VERSION)"
+	@echo "BUILD_TIME: $(BUILD_TIME)"
+	@echo "GIT_COMMIT: $(GIT_COMMIT)"
+	@echo "GIT_DIRTY: $(GIT_DIRTY)"
+	@echo "LDFLAGS: $(LDFLAGS)"
+
+# Build with clear output
+build: deps test
+	@echo "Building with version $(VERSION) ($(BUILD_TIME), $(GIT_COMMIT)$(GIT_DIRTY))"
+	mkdir -p bin
+	go build $(LDFLAGS) -o bin/goenums goenums.go
 
 deps:
-    go mod tidy
-    go mod verify
-
-# Update build target to depend on deps
-build: deps generate test
-    mkdir -p bin
-    go build $(LDFLAGS) -o bin/goenums goenums.go
+	go mod tidy
+	go mod verify
+	
 
 # Build for all platforms
 build-all: generate test $(PLATFORMS)
@@ -39,14 +43,14 @@ build-darwin: generate test darwin/amd64 darwin/arm64
 build-windows: generate test windows/amd64
 
 install:
-    chmod +x bin/goenums
-    @echo "Installing to /usr/local/bin/goenums"
-    @if [ -w /usr/local/bin ]; then \
-        cp bin/goenums /usr/local/bin/goenums; \
-    else \
-        echo "Need sudo permission to install"; \
-        sudo cp bin/goenums /usr/local/bin/goenums; \
-    fi
+	chmod +x bin/goenums
+	@echo "Installing to /usr/local/bin/goenums"
+	@if [ -w /usr/local/bin ]; then \
+		cp bin/goenums /usr/local/bin/goenums; \
+	else \
+		echo "Need sudo permission to install"; \
+		sudo cp bin/goenums /usr/local/bin/goenums; \
+	fi
 
 test:
 	go test -v ./...
@@ -63,12 +67,12 @@ clean:
 	rm -rf bin/
 
 version: logo
-    @echo "              version: $(VERSION)"
-    @echo "              built:   $(BUILD_TIME)"
-    @echo "              commit:  $(GIT_COMMIT)$(GIT_DIRTY)"
+	@echo "              version: $(VERSION)"
+	@echo "              built:   $(BUILD_TIME)"
+	@echo "              commit:  $(GIT_COMMIT)$(GIT_DIRTY)"
 
 lint:
-    golangci-lint run ./...
+	golangci-lint run ./...
 
 
 logo:
