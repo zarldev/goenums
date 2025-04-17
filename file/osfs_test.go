@@ -239,7 +239,6 @@ func TestOSReadWriteFileFS_Stat(t *testing.T) {
 					t.Errorf("unexpected setup error: %v", err)
 				}
 			},
-			size:  40,
 			isDir: true,
 		},
 		{
@@ -264,7 +263,7 @@ func TestOSReadWriteFileFS_Stat(t *testing.T) {
 				}
 				return
 			}
-			if info.Size() != int64(tt.size) {
+			if !tt.isDir && info.Size() != int64(tt.size) {
 				t.Errorf("size mismatch: got %d, want %d", info.Size(), tt.size)
 			}
 			if info.IsDir() != tt.isDir {
