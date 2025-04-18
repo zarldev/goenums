@@ -2,128 +2,41 @@ package gofile_test
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/zarldev/goenums/enum"
 	"github.com/zarldev/goenums/generator/config"
 	"github.com/zarldev/goenums/generator/gofile"
+	"github.com/zarldev/goenums/internal/testdata"
 	"github.com/zarldev/goenums/source"
 )
 
-var (
-	testCases = []struct {
-		name        string
-		source      enum.Source
-		config      config.Configuration
-		expectError bool
-		typeCount   int
-	}{
-		{
-			name:      "Status-Strings-Validation",
-			source:    source.FromFile("../../internal/testdata/validation-strings/status.go"),
-			config:    config.Configuration{},
-			typeCount: 1,
-		},
-		{
-			name:      "Status-Validation",
-			source:    source.FromFile("../../internal/testdata/validation/status.go"),
-			config:    config.Configuration{},
-			typeCount: 1,
-		},
-		{
-			name:      "Planets",
-			source:    source.FromFile("../../internal/testdata/planets/planets.go"),
-			config:    config.Configuration{},
-			typeCount: 1,
-		},
-		{
-			name:      "Planets-Gravity-Only",
-			source:    source.FromFile("../../internal/testdata/planets_gravity_only/planets.go"),
-			config:    config.Configuration{},
-			typeCount: 1,
-		},
-		{
-			name:      "Planets-Simple",
-			source:    source.FromFile("../../internal/testdata/planets_simple/planets.go"),
-			config:    config.Configuration{},
-			typeCount: 1,
-		},
-		{
-			name:      "Discount-Types",
-			source:    source.FromFile("../../internal/testdata/sale/discount.go"),
-			config:    config.Configuration{},
-			typeCount: 1,
-		},
-		{
-			name:      "Order-Types",
-			source:    source.FromFile("../../internal/testdata/orders/orders.go"),
-			config:    config.Configuration{},
-			typeCount: 1,
-		},
-		{
-			name:      "Multiple-Types",
-			source:    source.FromFile("../../internal/testdata/multiple/multiple.go"),
-			config:    config.Configuration{},
-			typeCount: 2,
-		},
-		{
-			name:      "Ticket-Statuses-With-Spaces",
-			source:    source.FromFile("../../internal/testdata/spaces/tickets.go"),
-			config:    config.Configuration{},
-			typeCount: 1,
-		},
-		{
-			name:        "Non-Existent-File",
-			source:      source.FromFile("../../internal/testdata/non_existent_file.go"),
-			config:      config.Configuration{},
-			expectError: true,
-		},
-	}
-)
-
 func TestParse(t *testing.T) {
-	for _, tc := range testCases {
-		if !tc.expectError {
-			if _, err := os.Stat(tc.source.Filename()); err != nil {
-				t.Fatalf("test file %s doesn't exist. make sure testdata is properly set up", tc.source.Filename())
-			}
-		}
-	}
-
-	for _, tc := range testCases {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
+	t.Parallel()
+	for _, tc := range testdata.InputOutputTestCases {
+		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-
-			parser := gofile.NewParser(tc.config, tc.source)
+			parser := gofile.NewParser(tc.Config, gofile.WithSource(tc.Source))
 			representations, err := parser.Parse(context.Background())
-
-			if tc.expectError {
-				if err == nil {
-					t.Errorf("expected error but got none for %s", tc.name)
-				}
+			if tc.Err != nil && !errors.Is(err, tc.Err) {
+				t.Errorf("unexpected error: %v", err)
 				return
 			}
-
-			if err != nil {
-				t.Fatalf("parse error: %v", err)
+			if len(representations) != tc.RepresentationCount {
+				t.Errorf("expected %d enum types, got %d", tc.RepresentationCount, len(representations))
 			}
-
-			if len(representations) != tc.typeCount {
-				t.Errorf("expected %d enum types, got %d", tc.typeCount, len(representations))
-			}
-
 			for _, rep := range representations {
 				if rep.PackageName == "" {
-					t.Errorf("missing package name in %s", tc.name)
+					t.Errorf("missing package name in %s", tc.Name)
 				}
 
 				validateTypeInfo(t, rep.TypeInfo)
 
 				if len(rep.Enums) == 0 {
-					t.Errorf("no enum values in %s for type %s", tc.name, rep.TypeInfo.Name)
+					t.Errorf("no enum values in %s for type %s", tc.Name, rep.TypeInfo.Name)
 					continue
 				}
 
@@ -136,26 +49,32 @@ func TestParse(t *testing.T) {
 }
 
 func TestParseWithDifferentConfigs(t *testing.T) {
-	configs := []config.Configuration{
-		{Failfast: true},
-		{Legacy: true},
-		{Insensitive: true},
-		{Failfast: true, Legacy: true, Insensitive: true},
+	t.Parallel()
+	configs := []struct {
+		name   string
+		config config.Configuration
+	}{
+		{name: "failfast", config: config.Configuration{Failfast: true}},
+		{name: "legacy", config: config.Configuration{Legacy: true}},
+		{name: "insensitive", config: config.Configuration{Insensitive: true}},
+		{name: "all", config: config.Configuration{Failfast: true, Legacy: true, Insensitive: true}},
 	}
 
-	sources := []enum.Source{
-		source.FromFile("../../internal/testdata/planets/planets.go"),
-		source.FromFile("../../internal/testdata/validation/status.go"),
-		source.FromFile("../../internal/testdata/multiple/multiple.go"),
+	sources := []struct {
+		name   string
+		source enum.Source
+	}{
+		{name: "planets", source: source.FromFileSystem(testdata.FS, "planets/planets.go")},
+		{name: "status", source: source.FromFileSystem(testdata.FS, "status/status.go")},
+		{name: "multiple", source: source.FromFileSystem(testdata.FS, "multiple/multiple.go")},
 	}
 
 	for _, src := range sources {
-		for i, cfg := range configs {
-			t.Run(strings.TrimSuffix(strings.TrimPrefix(src.Filename(), "../../internal/testdata/"), ".go")+
-				"-config-"+string(rune('A'+i)), func(t *testing.T) {
+		for _, cfg := range configs {
+			tname := fmt.Sprintf("%s_%s", src.name, cfg.name)
+			t.Run(tname, func(t *testing.T) {
 				t.Parallel()
-
-				parser := gofile.NewParser(cfg, src)
+				parser := gofile.NewParser(cfg.config, gofile.WithSource(src.source))
 				representations, err := parser.Parse(context.Background())
 				if err != nil {
 					t.Fatalf("parse error with config %+v: %v", cfg, err)
@@ -166,14 +85,14 @@ func TestParseWithDifferentConfigs(t *testing.T) {
 				}
 
 				for _, rep := range representations {
-					if rep.Failfast != cfg.Failfast {
-						t.Errorf("failfast config not propagated: expected %v, got %v", cfg.Failfast, rep.Failfast)
+					if rep.Failfast != cfg.config.Failfast {
+						t.Errorf("failfast config not propagated: expected %v, got %v", cfg.config.Failfast, rep.Failfast)
 					}
-					if rep.Legacy != cfg.Legacy {
-						t.Errorf("legacy config not propagated: expected %v, got %v", cfg.Legacy, rep.Legacy)
+					if rep.Legacy != cfg.config.Legacy {
+						t.Errorf("legacy config not propagated: expected %v, got %v", cfg.config.Legacy, rep.Legacy)
 					}
-					if rep.CaseInsensitive != cfg.Insensitive {
-						t.Errorf("insensitive config not propagated: expected %v, got %v", cfg.Insensitive, rep.CaseInsensitive)
+					if rep.CaseInsensitive != cfg.config.Insensitive {
+						t.Errorf("insensitive config not propagated: expected %v, got %v", cfg.config.Insensitive, rep.CaseInsensitive)
 					}
 				}
 			})
@@ -185,7 +104,8 @@ func TestParseWithCancelledContext(t *testing.T) {
 	t.Parallel()
 
 	parser := gofile.NewParser(config.Configuration{},
-		source.FromFile("../../internal/testdata/planets/planets.go"))
+		gofile.WithSource(
+			source.FromFile("../../internal/testdata/planets/planets.go")))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -329,7 +249,8 @@ const (
 			}
 			tempFile.Close()
 
-			parser := gofile.NewParser(config.Configuration{}, source.FromFile(tempFile.Name()))
+			parser := gofile.NewParser(config.Configuration{},
+				gofile.WithSource(source.FromFile(tempFile.Name())))
 			reps, err := parser.Parse(context.Background())
 			if err != nil {
 				t.Fatalf("failed to parse: %v", err)
@@ -427,7 +348,8 @@ const (
 			}
 			tempFile.Close()
 
-			parser := gofile.NewParser(config.Configuration{}, source.FromFile(tempFile.Name()))
+			parser := gofile.NewParser(config.Configuration{},
+				gofile.WithSource(source.FromFile(tempFile.Name())))
 			reps, err := parser.Parse(context.Background())
 			if err != nil {
 				t.Fatalf("failed to parse: %v", err)

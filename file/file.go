@@ -22,29 +22,34 @@ var (
 	ErrReadFile = errors.New("failed to read file")
 )
 
-// ReadWriteCreateFileFS is an interface that combines file reading, writing, and creation operations.
-// Implementations should provide thread-safe access to the filesystem and handle permissions appropriately.
-type ReadWriteCreateFileFS interface {
+type ReadStatFS interface {
 	// ReadFile reads the entire file named by path and returns its contents.
 	fs.ReadFileFS
 
 	// Stat returns file information for the specified path.
 	fs.StatFS
+}
 
+type CreateWriteFileFS interface {
 	// Create creates or truncates the named file and returns a writer to it.
-	// If the file already exists, it is truncated.
 	Create(name string) (io.WriteCloser, error)
-
 	// WriteFile writes data to the named file, creating it if necessary.
 	// If the file exists, it is truncated. Permissions are set according to perm.
 	WriteFile(name string, data []byte, perm fs.FileMode) error
 }
 
-var _ ReadWriteCreateFileFS = (*OSReadWriteFileFS)(nil)
+// ReadCreateWriteFileFS is an interface that combines file reading, writing, and creation operations.
+// Implementations should provide thread-safe access to the filesystem and handle permissions appropriately.
+type ReadCreateWriteFileFS interface {
+	ReadStatFS
+	CreateWriteFileFS
+}
+
+var _ ReadCreateWriteFileFS = (*OSReadWriteFileFS)(nil)
 
 // WriteToFileAndFormatFS creates a file at the specified path and writes content to it
 // reading and writing from the provided filesystem.
-func WriteToFileAndFormatFS(ctx context.Context, fs ReadWriteCreateFileFS, fullPath string, format bool, writeFunc func(io.Writer) error) error {
+func WriteToFileAndFormatFS(ctx context.Context, fs ReadCreateWriteFileFS, fullPath string, format bool, writeFunc func(io.Writer) error) error {
 	if fullPath == "" {
 		return fmt.Errorf("%w: %s", ErrCreateFile, "path cannot be empty")
 	}
@@ -77,7 +82,7 @@ func WriteToFileAndFormatFS(ctx context.Context, fs ReadWriteCreateFileFS, fullP
 // It reads the file content, formats it using go/format, and writes the
 // formatted content back to the file using the provided filesystem. This
 // ensures generated Go code follows standard formatting conventions.
-func formatFile(fs ReadWriteCreateFileFS, filename string) error {
+func formatFile(fs ReadCreateWriteFileFS, filename string) error {
 	f, err := fs.ReadFile(filename)
 	if err != nil {
 		return fmt.Errorf("%w: %s: %w", ErrReadFile, filename, err)

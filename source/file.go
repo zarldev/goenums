@@ -26,7 +26,7 @@ func FromFile(path string) *FileSource {
 
 // FromFileSystem creates a new file-based Source implementation that reads
 // enum definitions from a file at the specified path from the provided filesystem.
-func FromFileSystem(fs file.ReadWriteCreateFileFS, path string) *FileSource {
+func FromFileSystem(fs file.ReadStatFS, path string) *FileSource {
 	return &FileSource{
 		Path: path,
 		FS:   fs,
@@ -38,7 +38,7 @@ func FromFileSystem(fs file.ReadWriteCreateFileFS, path string) *FileSource {
 type FileSource struct {
 	// Path is the filesystem path to the source file
 	Path string
-	FS   file.ReadWriteCreateFileFS
+	FS   file.ReadStatFS
 }
 
 // Content reads and returns the file's contents as a byte slice.
@@ -50,7 +50,6 @@ func (fs *FileSource) Content() ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s (stat): %w", ErrReadFileSource, fs.Path, err)
 	}
-
 	if fileInfo.Size() > MaxFileSize {
 		return nil, fmt.Errorf("%w: %s exceeds maximum allowed size of %d bytes",
 			ErrReadFileSource, fs.Path, MaxFileSize)

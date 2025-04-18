@@ -179,7 +179,7 @@ func main() {
 		case ".go":
 			slog.Debug("initializing go parser")
 			parser = gofile.NewParser(config,
-				source.FromFile(filename))
+				gofile.WithSource(source.FromFile(filename)))
 		default:
 			slog.Error("only .go files are supported")
 			return

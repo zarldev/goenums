@@ -254,6 +254,41 @@ func SplitN(s, sep string, n int) []string {
 	return strings.SplitN(s, sep, n)
 }
 
+// Fields splits the string s around each instance of one or more consecutive white space
+// characters, as defined by unicode.IsSpace, returning a slice of substrings.
+// This is a wrapper around strings.Fields.
+func Fields(s string) []string {
+	return strings.Fields(s)
+}
+
+// Trim returns a slice of the string s with all leading and trailing Unicode
+// code points contained in cutset removed.
+// This is a wrapper around strings.Trim.
+func Trim(s, cutset string) string {
+	return strings.Trim(s, s)
+}
+
+// TrimPrefix returns s without the provided leading prefix string.
+// If s doesn't start with prefix, s is returned unchanged.
+// This is a wrapper around strings.TrimPrefix.
+func TrimPrefix(s, prefix string) string {
+	return strings.TrimPrefix(s, prefix)
+}
+
+// LastIndex returns the index of the last instance of sep in s, or -1 if sep is not present in s.
+// This is a wrapper around strings.LastIndex.
+func LastIndex(s, sep string) int {
+	return strings.LastIndex(s, sep)
+}
+
+// ReplaceAll returns a copy of the string s with all non-overlapping instances of old replaced by new.
+// If old is empty, it matches at the beginning of the string and after each UTF-8 sequence, yielding up to k+1 replacements for a len(s) = k string.
+// If new is empty, it removes all instances of old from s.
+// This is a wrapper around strings.ReplaceAll.
+func ReplaceAll(s, old, new string) string {
+	return strings.ReplaceAll(s, old, new)
+}
+
 type Builder struct {
 	b *strings.Builder
 }
@@ -277,4 +312,18 @@ func (b *Builder) Len() int {
 		return 0
 	}
 	return b.b.Len()
+}
+
+func (b *Builder) Reset() {
+	if b.b == nil {
+		return
+	}
+	b.b.Reset()
+}
+
+func (b *Builder) WriteByte(c byte) error {
+	if b.b == nil {
+		b.b = &strings.Builder{}
+	}
+	return b.b.WriteByte(c)
 }

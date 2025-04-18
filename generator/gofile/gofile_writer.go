@@ -27,12 +27,12 @@ var (
 type Writer struct {
 	Configuration config.Configuration
 	w             io.Writer
-	fs            file.ReadWriteCreateFileFS
+	fs            file.ReadCreateWriteFileFS
 }
 
 type WriterOption func(*Writer)
 
-func WithFileSystem(fs file.ReadWriteCreateFileFS) func(*Writer) {
+func WithFileSystem(fs file.ReadCreateWriteFileFS) func(*Writer) {
 	return func(w *Writer) {
 		w.fs = fs
 	}
@@ -189,7 +189,8 @@ func (g *Writer) writeParseFunction(rep enum.Representation) {
 	g.write(b.String())
 }
 
-// Change from setupStringToTypeMethod to writeStringParsingMethod
+// writeStringParsingMethod creates a function that maps strings to enum values
+// It now handles both primary aliases and additional aliases for each enum value
 func (g *Writer) writeStringParsingMethod(rep enum.Representation) {
 	var b strings.Builder
 	b.WriteString("// stringTo" + rep.TypeInfo.Camel + " is an internal function that converts a string to a " + rep.TypeInfo.Camel + " value.\n")
@@ -197,26 +198,84 @@ func (g *Writer) writeStringParsingMethod(rep enum.Representation) {
 	if rep.CaseInsensitive {
 		b.WriteString("// This implementation is case-insensitive.\n")
 	}
+
+	// Start generating the name mapping
 	b.WriteString("var (\n")
 	b.WriteString(fmt.Sprintf("\t_%sNameMap = map[string]%s{\n", rep.TypeInfo.Lower, rep.TypeInfo.Camel))
+
+	// Track which strings we've already mapped to avoid duplicates
 	seen := make(map[string]bool)
+
+	// Add all the primary aliases and additional aliases to the map
 	for _, info := range rep.Enums {
-		original := info.Info.Alias
-		lowercase := strings.ToLower(original)
-		b.WriteString(fmt.Sprintf("\t\t%q: %s.%s,\n",
-			original, rep.TypeInfo.PluralCamel, info.Info.Upper))
-		if rep.CaseInsensitive && lowercase != original && !seen[lowercase] {
-			b.WriteString(fmt.Sprintf("\t\t%q: %s.%s,\n",
-				lowercase, rep.TypeInfo.PluralCamel, info.Info.Upper))
-			seen[lowercase] = true
+		// Add the primary alias
+		primaryAlias := info.Info.Alias
+		if primaryAlias != "" {
+			b.WriteString(fmt.Sprintf("\t\t%q: %s.%s, // Primary alias\n",
+				primaryAlias, rep.TypeInfo.PluralCamel, info.Info.Upper))
+			seen[primaryAlias] = true
+
+			// Add lowercase version if case-insensitive
+			if rep.CaseInsensitive {
+				lowercase := strings.ToLower(primaryAlias)
+				if lowercase != primaryAlias && !seen[lowercase] {
+					b.WriteString(fmt.Sprintf("\t\t%q: %s.%s, // Case-insensitive primary\n",
+						lowercase, rep.TypeInfo.PluralCamel, info.Info.Upper))
+					seen[lowercase] = true
+				}
+			}
+		}
+
+		// Add all additional aliases if available
+		if len(info.Info.Aliases) > 0 {
+			for _, alias := range info.Info.Aliases {
+				if alias != "" && !seen[alias] {
+					b.WriteString(fmt.Sprintf("\t\t%q: %s.%s, // Additional alias\n",
+						alias, rep.TypeInfo.PluralCamel, info.Info.Upper))
+					seen[alias] = true
+
+					// Add lowercase version if case-insensitive
+					if rep.CaseInsensitive {
+						lowercase := strings.ToLower(alias)
+						if lowercase != alias && !seen[lowercase] {
+							b.WriteString(fmt.Sprintf("\t\t%q: %s.%s, // Case-insensitive alias\n",
+								lowercase, rep.TypeInfo.PluralCamel, info.Info.Upper))
+							seen[lowercase] = true
+						}
+					}
+				}
+			}
+		}
+
+		// Also add the actual enum name as an alias if it's not already in the map
+		// This ensures enum.CONSTANT_NAME works as a string too
+		if !seen[info.Info.Name] {
+			b.WriteString(fmt.Sprintf("\t\t%q: %s.%s, // Enum name\n",
+				info.Info.Name, rep.TypeInfo.PluralCamel, info.Info.Upper))
+			seen[info.Info.Name] = true
+
+			// Add lowercase version if case-insensitive
+			if rep.CaseInsensitive {
+				lowercase := strings.ToLower(info.Info.Name)
+				if lowercase != info.Info.Name && !seen[lowercase] {
+					b.WriteString(fmt.Sprintf("\t\t%q: %s.%s, // Case-insensitive name\n",
+						lowercase, rep.TypeInfo.PluralCamel, info.Info.Upper))
+					seen[lowercase] = true
+				}
+			}
 		}
 	}
+
 	b.WriteString("\t}\n")
 	b.WriteString(")\n\n")
+
+	// Generate the actual string-to-enum function
 	b.WriteString("func stringTo" + rep.TypeInfo.Camel + "(s string) " + rep.TypeInfo.Camel + " {\n")
 	b.WriteString(fmt.Sprintf("\tif v, ok := _%sNameMap[s]; ok {\n", rep.TypeInfo.Lower))
 	b.WriteString("\t\treturn v\n")
 	b.WriteString("\t}\n")
+
+	// Handle case-insensitive lookup if enabled
 	if rep.CaseInsensitive {
 		b.WriteString("\tlwr := strings.ToLower(s)\n")
 		b.WriteString("\tif lwr != s {\n")
@@ -225,6 +284,7 @@ func (g *Writer) writeStringParsingMethod(rep enum.Representation) {
 		b.WriteString("\t\t}\n")
 		b.WriteString("\t}\n")
 	}
+
 	b.WriteString("\treturn invalid" + rep.TypeInfo.Camel + "\n")
 	b.WriteString("}\n\n")
 	g.write(b.String())
@@ -385,19 +445,20 @@ func (g *Writer) writeIsValidMethod(rep enum.Representation) {
 }
 
 func (g *Writer) writeExhaustiveMethod(rep enum.Representation) {
+	l := len(rep.Enums)
 	var b strings.Builder
-	b.WriteString("// Exhaustive" + rep.TypeInfo.Camel + "s calls the provided function once for each valid " + rep.TypeInfo.Camel + " value.\n")
+	b.WriteString("// Exhaustive" + rep.TypeInfo.PluralCamel + " calls the provided function once for each valid " + rep.TypeInfo.PluralCamel + " value.\n")
 	b.WriteString("// This is useful for switch statement exhaustiveness checking and for processing all enum values.\n")
 	b.WriteString("// Example usage:\n")
 	b.WriteString("// ```\n")
-	b.WriteString("// Exhaustive" + rep.TypeInfo.Camel + "s(func(x " + rep.TypeInfo.Camel + ") {\n")
+	b.WriteString("// Exhaustive" + rep.TypeInfo.PluralCamel + "(func(x " + rep.TypeInfo.Camel + ") {\n")
 	b.WriteString("//     switch x {\n")
-	b.WriteString("//     case " + rep.TypeInfo.PluralCamel + ".VALUE1:\n")
-	b.WriteString("//         // handle VALUE1\n")
+	b.WriteString("//     case " + rep.TypeInfo.PluralCamel + "." + rep.Enums[l-1].Info.Camel + ":\n")
+	b.WriteString("//         // handle " + rep.Enums[l-1].Info.Camel + "\n")
 	b.WriteString("//     }\n")
 	b.WriteString("// })\n")
 	b.WriteString("// ```\n")
-	b.WriteString("func Exhaustive" + rep.TypeInfo.Camel + "s(f func(" + rep.TypeInfo.Camel + ")) {\n")
+	b.WriteString("func Exhaustive" + rep.TypeInfo.PluralCamel + "(f func(" + rep.TypeInfo.Camel + ")) {\n")
 	b.WriteString("\tfor _, p := range " + rep.TypeInfo.PluralCamel + ".allSlice() {\n")
 	b.WriteString("\t\tf(p)\n")
 	b.WriteString("\t}\n")

@@ -12,7 +12,7 @@ import (
 const DefaultFilePerms fs.FileMode = 0644
 
 // Compile time check to ensure MemFS implements ReadWriteCreateFileFS
-var _ ReadWriteCreateFileFS = (*MemFS)(nil)
+var _ ReadCreateWriteFileFS = (*MemFS)(nil)
 
 // MemFS is a simple in-memory filesystem implementation
 // used for testing purposes. It provides thread-safe access

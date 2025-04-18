@@ -19,6 +19,7 @@ import (
 	"github.com/zarldev/goenums/enum"
 	"github.com/zarldev/goenums/generator/config"
 	"github.com/zarldev/goenums/internal/version"
+	"github.com/zarldev/goenums/source"
 	"github.com/zarldev/goenums/strings"
 )
 
@@ -40,13 +41,25 @@ type Parser struct {
 	source        enum.Source
 }
 
+type ParserOption func(*Parser)
+
+func WithSource(source enum.Source) ParserOption {
+	return func(p *Parser) {
+		p.source = source
+	}
+}
+
 // NewParser creates a new Go file parser with the specified configuration and source.
 // The parser will analyze the source according to the configuration settings.
-func NewParser(configuration config.Configuration, source enum.Source) *Parser {
-	return &Parser{
+func NewParser(configuration config.Configuration, opts ...ParserOption) *Parser {
+	p := Parser{
 		Configuration: configuration,
-		source:        source,
+		source:        source.FromFile(""),
 	}
+	for _, opt := range opts {
+		opt(&p)
+	}
+	return &p
 }
 
 // Parse analyzes Go source code to identify and extract enum-like constant declarations.
@@ -152,18 +165,22 @@ func (p *Parser) collectRepresentations(node *ast.File,
 				for _, name := range vs.Names {
 					comment := p.getComment(vs)
 					valid := !strings.Contains(comment, "invalid")
-					comment, alias := p.getAliasName(comment, name, currNTPs)
+					if !valid {
+						comment = strings.ReplaceAll(comment, "invalid", "")
+					}
+					comment, primaryAlias, additionalAliases := p.getAliasNames(comment, name)
 					values := p.getValues(comment)
 					nameTPairsCopy := p.copyNameTPairs(currNTPs, values)
 					entry.enums = append(entry.enums, enum.Enum{
 						Info: enum.Info{
-							Name:  name.Name,
-							Camel: strings.CamelCase(name.Name),
-							Lower: strings.ToLower(name.Name),
-							Upper: strings.ToUpper(name.Name),
-							Alias: alias,
-							Value: i,
-							Valid: valid,
+							Name:    name.Name,
+							Camel:   strings.CamelCase(name.Name),
+							Lower:   strings.ToLower(name.Name),
+							Upper:   strings.ToUpper(name.Name),
+							Alias:   primaryAlias,
+							Aliases: append([]string{primaryAlias}, additionalAliases...),
+							Value:   i,
+							Valid:   valid,
 						},
 						TypeInfo: enum.TypeInfo{
 							Name:         currIotaType,
@@ -299,11 +316,7 @@ func (p *Parser) copyNameTPairs(nameTPairs []enum.NameTypePair, values []string)
 
 func formatValueByType(v, typeName string) string {
 	switch typeName {
-	case "float64":
-		val := parseOrDefault(v, 0.0, func(s string) (float64, error) {
-			return strconv.ParseFloat(s, 64)
-		})
-		return fmt.Sprintf("%g", val)
+
 	case "int":
 		val := parseOrDefault(v, 0, func(s string) (int, error) {
 			return strconv.Atoi(s)
@@ -312,46 +325,168 @@ func formatValueByType(v, typeName string) string {
 	case "bool":
 		val := parseOrDefault(v, false, strconv.ParseBool)
 		return fmt.Sprintf("%t", val)
+	case "string":
+		return fmt.Sprintf("%q", v)
+	case "uint", "uint32", "uint16", "uint8", "uint64":
+		val := parseOrDefault(v, 0, func(s string) (uint64, error) {
+			return strconv.ParseUint(s, 10, 64)
+		})
+		return fmt.Sprintf("%d", val)
+	case "int64", "int32", "int16", "int8":
+		val := parseOrDefault(v, 0, func(s string) (int64, error) {
+			return strconv.ParseInt(s, 10, 64)
+		})
+		return fmt.Sprintf("%d", val)
+	case "float32":
+		val := parseOrDefault(v, 0.0, func(s string) (float64, error) {
+			return strconv.ParseFloat(s, 32)
+		})
+		return fmt.Sprintf("%g", val)
+	case "float64":
+		val := parseOrDefault(v, 0.0, func(s string) (float64, error) {
+			return strconv.ParseFloat(s, 64)
+		})
+		return fmt.Sprintf("%g", val)
+	case "time.Duration":
+		val := parseOrDefault(v, 0, func(s string) (time.Duration, error) {
+			return time.ParseDuration(s)
+		})
+		return fmt.Sprintf("%d", val)
 	default:
 		return formatValue(v)
 	}
 }
 
-// getAliasName extracts alias name information from comments.
-// This allows for separate string representations of enum values.
-func (p *Parser) getAliasName(comment string, n *ast.Ident, nameTPairs []enum.NameTypePair) (string, string) {
+// getAliasNames extracts primary alias and additional aliases from comments.
+// This allows for separate string representations of enum values, including comma-separated aliases.
+// It returns the updated comment string, the primary alias, and a slice of additional aliases.
+func (p *Parser) getAliasNames(comment string, n *ast.Ident) (string, string, []string) {
+	if strings.LastIndex(comment, " ") < 1 {
+		comment = strings.TrimLeft(comment, " ")
+		return comment, n.Name, nil
+	}
 	comment = strings.TrimLeft(comment, " ")
-	if strings.HasPrefix(comment, `"`) {
-		endQI := strings.Index(comment[1:], `"`)
+	// Initialize the primary alias to the enum name by default
+	primaryAlias := n.Name
+	var additionalAliases []string
+
+	// Handle empty comments
+	if comment == "" {
+		return "", primaryAlias, nil
+	}
+	aliasesStr := comment
+	// Check for quoted values first
+	if strings.HasPrefix(aliasesStr, `"`) {
+		endQI := strings.Index(aliasesStr[1:], `"`)
 		if endQI != -1 {
-			quotedValue := comment[1 : endQI+1]
-			return comment, quotedValue
+			// Extract the main quoted value as the primary alias
+			primaryAlias = aliasesStr[1 : endQI+1]
+
+			// Look for comma-separated aliases after the quoted part
+			restOfComment := aliasesStr[endQI+2:]
+			commaIdx := strings.Index(restOfComment, ",")
+			if commaIdx != -1 {
+				aliasPart := restOfComment[commaIdx+1:]
+				idx := strings.Index(aliasPart, " \"")
+				comment = aliasPart[idx+1:]
+				aliasPart = aliasPart[:idx]
+				additionalAliases = p.parseCommaList(aliasPart)
+			}
+			return comment, primaryAlias, additionalAliases
 		}
+	}
+	if strings.Count(aliasesStr, " ") >= 1 {
+		comment = aliasesStr[strings.Index(comment, " ")+1:]
+		aliasesStr = aliasesStr[:strings.Index(aliasesStr, " ")]
+	}
+	// Check for comma-separated values in the comment
+	if strings.Contains(aliasesStr, ",") {
+		parts := strings.Split(aliasesStr, ",")
+		firstPart := strings.TrimSpace(parts[0])
+
+		// The first part may be a single alias or a comment with spaces
+		if strings.Count(firstPart, " ") == 0 {
+			// If first part is a single word, use it as the primary alias
+			primaryAlias = firstPart
+		} else if strings.Count(firstPart, " ") == 1 {
+			// If it's two words, the first might be an alias
+			words := strings.Split(firstPart, " ")
+			if !strings.Contains(words[0], "invalid") {
+				primaryAlias = words[0]
+			}
+		}
+
+		// Process the remaining parts as additional aliases
+		for i := 1; i < len(parts); i++ {
+			alias := strings.TrimSpace(parts[i])
+			if alias != "" {
+				// Remove any quotes from aliases
+				if strings.HasPrefix(alias, `"`) && strings.HasSuffix(alias, `"`) {
+					alias = alias[1 : len(alias)-1]
+				}
+				additionalAliases = append(additionalAliases, alias)
+			}
+		}
+
+		return comment, primaryAlias, additionalAliases
 	}
 
-	count := strings.Count(comment, " ")
-	switch count {
-	case 0:
-		if comment == "" {
-			return "", n.Name
+	// Handle single-word comments (no commas, no spaces)
+	if strings.Count(aliasesStr, " ") == 0 {
+		// If comment is just a single word and not "invalid", use it as the alias
+		if !strings.Contains(aliasesStr, "invalid") {
+			primaryAlias = aliasesStr
 		}
-		if strings.Contains(comment, ",") ||
-			strings.Contains(comment, "invalid") ||
-			len(nameTPairs) == 1 {
-			return comment, n.Name
-		}
-		return comment, comment
-	case 1:
-		split := strings.Split(comment, " ")
-		if len(split) == 2 {
-			if strings.Contains(split[0], "invalid") {
-				return split[1], split[1]
-			}
-			return split[1], split[0]
-		}
-		return comment, n.Name
+		return comment, primaryAlias, nil
 	}
-	return comment, n.Name
+
+	// Handle two-word comments (like "ALIAS description")
+	if strings.Count(comment, " ") == 1 {
+		parts := strings.Split(comment, " ")
+		if len(parts) == 2 {
+			if strings.Contains(parts[0], "invalid") {
+				// If first word contains "invalid", use the second word
+				primaryAlias = parts[1]
+			} else {
+				// Otherwise, first word is likely the alias
+				primaryAlias = parts[0]
+			}
+		}
+		return comment, primaryAlias, nil
+	}
+
+	// For more complex comments, just return the original
+	return comment, primaryAlias, nil
+}
+
+// parseCommaList parses a comma-separated string into a slice of trimmed, non-empty strings.
+// It handles quoted values and removes the quotes.
+func (p *Parser) parseCommaList(s string) []string {
+	var result []string
+	parts := strings.Split(s, ",")
+
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+
+		// Remove quotes if present
+		if strings.HasPrefix(part, `"`) && strings.HasSuffix(part, `"`) {
+			part = part[1 : len(part)-1]
+		}
+
+		result = append(result, part)
+	}
+
+	return result
+}
+
+// Keep the original getAliasName for backward compatibility
+// but make it use the new implementation
+func (p *Parser) getAliasName(comment string, n *ast.Ident, nameTPairs []enum.NameTypePair) (string, string) {
+	updatedComment, primaryAlias, _ := p.getAliasNames(comment, n)
+	return updatedComment, primaryAlias
 }
 
 // getComment retrieves the comment associated with a value specification.
@@ -369,7 +504,7 @@ func (p *Parser) getComment(valueSpec *ast.ValueSpec) string {
 // This allows for metadata extraction from type documentation.
 func (p *Parser) nameTPairsFromComments(iotaTypeComment string, nameTPairs []enum.NameTypePair) []enum.NameTypePair {
 	typeValues := strings.Split(iotaTypeComment, ",")
-	for i, v := range typeValues {
+	for _, v := range typeValues {
 		if len(v) == 0 {
 			continue
 		}
@@ -411,7 +546,7 @@ func (p *Parser) nameTPairsFromComments(iotaTypeComment string, nameTPairs []enu
 		nameTypePair := enum.NameTypePair{
 			Name:  name,
 			Type:  typeName,
-			Value: fmt.Sprintf("%d", i),
+			Value: fmt.Sprintf("%s%s%s", openR, typeName, closeR),
 		}
 		nameTPairs = append(nameTPairs, nameTypePair)
 	}
@@ -477,11 +612,11 @@ type Ordered interface {
 
 // parseOrDefault is a generic function that attempts to parse a string as type T,
 // returning the parsed value if successful or the default value if not.
-func parseOrDefault[T Ordered](s string, def T, parser func(string) (T, error)) T {
+func parseOrDefault[T Ordered](s string, defaultVal T, parser func(string) (T, error)) T {
 	if val, err := parser(s); err == nil {
 		return val
 	}
-	return def
+	return defaultVal
 }
 
 // formatValue formats values for code generation according to their type.

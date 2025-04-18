@@ -102,6 +102,8 @@ type Info struct {
 	Name string
 	// Alias provides an optional alternative name for the enum
 	Alias string
+	// Aliases provides a list of alternative names for the enum
+	Aliases []string
 	// Camel is the camel-case representation of the name
 	Camel string
 	// Lower is the lowercase representation of the name

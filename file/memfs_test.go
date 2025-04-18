@@ -65,14 +65,14 @@ func TestMemFS_ReadFile(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name     string
-		fs       file.ReadWriteCreateFileFS
+		fs       file.ReadCreateWriteFileFS
 		filename string
 		content  string
 		err      error
 	}{
 		{
 			name: "successfully write and read a file",
-			fs: func() file.ReadWriteCreateFileFS {
+			fs: func() file.ReadCreateWriteFileFS {
 				fs := file.NewMemFS()
 				err := fs.WriteFile("test", []byte("test content"), 0644)
 				if err != nil {
@@ -86,7 +86,7 @@ func TestMemFS_ReadFile(t *testing.T) {
 		},
 		{
 			name:     "read non-existent file",
-			fs:       func() file.ReadWriteCreateFileFS { return file.NewMemFS() }(),
+			fs:       func() file.ReadCreateWriteFileFS { return file.NewMemFS() }(),
 			filename: "",
 			content:  "",
 			err:      fs.ErrInvalid,
