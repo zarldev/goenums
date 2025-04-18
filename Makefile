@@ -6,7 +6,7 @@ GIT_DIRTY := $(shell git status --porcelain 2>/dev/null | wc -l | sed -e 's/^ */
 
 # Properly formatted LDFLAGS
 LDFLAGS := -ldflags "-X github.com/zarldev/goenums/internal/version.CURRENT='$(VERSION)' -X github.com/zarldev/goenums/internal/version.BUILD='$(BUILD_TIME)' -X github.com/zarldev/goenums/internal/version.COMMIT='$(GIT_COMMIT)$(GIT_DIRTY)'"
-
+PRODLDFLAGS := -ldflags "-s -w -X github.com/zarldev/goenums/internal/version.CURRENT='$(VERSION)' -X github.com/zarldev/goenums/internal/version.BUILD='$(BUILD_TIME)' -X github.com/zarldev/goenums/internal/version.COMMIT='$(GIT_COMMIT)$(GIT_DIRTY)'"
 # Debug target to verify variable values
 debug-version:
 	@echo "VERSION: $(VERSION)"
@@ -17,22 +17,17 @@ debug-version:
 
 # Build with clear output
 build: deps test
-	@echo "Building with version $(VERSION) ($(BUILD_TIME), $(GIT_COMMIT)$(GIT_DIRTY))"
 	mkdir -p bin
 	go build $(LDFLAGS) -o bin/goenums goenums.go
+	@echo "Build with version $(VERSION) ($(BUILD_TIME), $(GIT_COMMIT)$(GIT_DIRTY))"
 
 deps:
 	go mod tidy
 	go mod verify
-	
-
-# Regular build command - no test data embedded
-build:
-	go build $(LDFLAGS) -o bin/goenums goenums.go
 
 # Production build command - explicitly uses the prod tag
 build-prod:
-	go build -tags=prod $(LDFLAGS) -o bin/goenums goenums.go
+	go build -tags=prod $(PRODLDFLAGS) -o bin/goenums goenums.go
 
 # Other platform-specific builds
 build-linux: generate test

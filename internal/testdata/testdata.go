@@ -2,7 +2,7 @@ package testdata
 
 import (
 	"embed"
-	_ "embed"
+
 	"io"
 	"io/fs"
 	"testing"
