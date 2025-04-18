@@ -26,20 +26,17 @@ func TestParse(t *testing.T) {
 				return
 			}
 			if len(representations) != tc.RepresentationCount {
-				t.Errorf("expected %d enum types, got %d", tc.RepresentationCount, len(representations))
+				t.Errorf("expected %d enum representations, got %d", tc.RepresentationCount, len(representations))
 			}
 			for _, rep := range representations {
 				if rep.PackageName == "" {
 					t.Errorf("missing package name in %s", tc.Name)
 				}
-
 				validateTypeInfo(t, rep.TypeInfo)
-
 				if len(rep.Enums) == 0 {
 					t.Errorf("no enum values in %s for type %s", tc.Name, rep.TypeInfo.Name)
 					continue
 				}
-
 				for _, enum := range rep.Enums {
 					validateEnum(t, enum, rep.TypeInfo.Name)
 				}
