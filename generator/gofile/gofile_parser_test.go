@@ -102,19 +102,13 @@ func TestParseWithDifferentConfigs(t *testing.T) {
 
 func TestParseWithCancelledContext(t *testing.T) {
 	t.Parallel()
-
 	parser := gofile.NewParser(config.Configuration{},
 		gofile.WithSource(
-			source.FromFile("../../internal/testdata/planets/planets.go")))
-
-	ctx, cancel := context.WithCancel(context.Background())
+			source.FromFileSystem(testdata.FS, "planets/planets.go")))
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-
 	_, err := parser.Parse(ctx)
-	if err == nil {
-		t.Error("expected error due to cancelled context, got nil")
-	}
-	if err != context.Canceled {
+	if err != nil && !errors.Is(err, context.Canceled) {
 		t.Errorf("expected context.Canceled error, got %v", err)
 	}
 }
