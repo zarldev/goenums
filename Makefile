@@ -26,21 +26,25 @@ deps:
 	go mod verify
 	
 
-# Build for all platforms
-build-all: generate test $(PLATFORMS)
+# Regular build command - no test data embedded
+build:
+	go build $(LDFLAGS) -o bin/goenums goenums.go
 
-# Pattern rule for platform-specific builds
-$(PLATFORMS):
-	@echo "Building for $@"
-	@mkdir -p bin/$@
-	GOOS=$(word 1,$(subst /, ,$@)) GOARCH=$(word 2,$(subst /, ,$@)) go build $(LDFLAGS) -o bin/$@/goenums$(if $(findstring windows,$(word 1,$(subst /, ,$@))),.exe,) goenums.go
+# Production build command - explicitly uses the prod tag
+build-prod:
+	go build -tags=prod $(LDFLAGS) -o bin/goenums goenums.go
 
-# Convenience targets for specific platforms
-build-linux: generate test linux/amd64 linux/arm64
+# Other platform-specific builds
+build-linux: generate test
+	GOOS=linux GOARCH=amd64 go build -tags=prod $(LDFLAGS) -o bin/linux/amd64/goenums goenums.go
+	GOOS=linux GOARCH=arm64 go build -tags=prod $(LDFLAGS) -o bin/linux/arm64/goenums goenums.go
 
-build-darwin: generate test darwin/amd64 darwin/arm64
+build-darwin: generate test
+	GOOS=darwin GOARCH=amd64 go build -tags=prod $(LDFLAGS) -o bin/darwin/amd64/goenums goenums.go
+	GOOS=darwin GOARCH=arm64 go build -tags=prod $(LDFLAGS) -o bin/darwin/arm64/goenums goenums.go
 
-build-windows: generate test windows/amd64
+build-windows: generate test
+	GOOS=windows GOARCH=amd64 go build -tags=prod $(LDFLAGS) -o bin/windows/amd64/goenums.exe goenums.go
 
 install:
 	chmod +x bin/goenums
