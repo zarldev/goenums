@@ -142,7 +142,7 @@ func TestWriter_Write(t *testing.T) {
 				// Check if the expected file exists
 				content, err := fs.ReadFile("color_enums.go")
 				if err != nil {
-					t.Fatalf("failed to read generated file: %v", err)
+					t.Errorf("failed to read generated file: %v", err)
 				}
 
 				// Basic validation of content
@@ -214,10 +214,8 @@ func TestWriter_Write(t *testing.T) {
 			validate: func(t *testing.T, fs *file.MemFS) {
 				content, err := fs.ReadFile("day_enums.go")
 				if err != nil {
-					t.Fatalf("failed to read generated file: %v", err)
+					t.Errorf("failed to read generated file: %v", err)
 				}
-
-				// Verify that case insensitive code is generated
 				if !strings.Contains(string(content), "strings") {
 					t.Error("expected strings import for case insensitive enum")
 				}
@@ -249,7 +247,9 @@ func TestWriter_Write(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			memfs := file.NewMemFS()
-			writer := gofile.NewWriter(tt.config, gofile.WithFileSystem(memfs))
+			writer := gofile.NewWriter(
+				gofile.WithWriterConfig(tt.config),
+				gofile.WithFileSystem(memfs))
 			err := writer.Write(t.Context(), tt.representations)
 			if err != nil && !errors.Is(err, tt.err) {
 				t.Errorf("unexpected error: %v", err)

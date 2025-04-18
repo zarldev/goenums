@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"testing"
 
 	"github.com/zarldev/goenums/enum"
@@ -14,28 +15,42 @@ import (
 	"github.com/zarldev/goenums/source"
 )
 
-func TestParse(t *testing.T) {
+func TestGoFileParser_Parse(t *testing.T) {
 	t.Parallel()
-	for _, tc := range testdata.InputOutputTestCases {
+	testcases := slices.Clone(testdata.InputOutputTestCases)
+	testcases = append(testcases, testdata.InputOutputTest{
+		Name:   "invalid file",
+		Source: source.FromFileSystem(testdata.FS, "invalid/invalid.go"),
+		Config: testdata.DefaultConfig,
+		Err:    gofile.ErrParseGoFile,
+	})
+	for _, tc := range testcases {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			parser := gofile.NewParser(tc.Config, gofile.WithSource(tc.Source))
-			representations, err := parser.Parse(context.Background())
+
+			parser := gofile.NewParser(
+				gofile.WithParserConfig(tc.Config),
+				gofile.WithSource(tc.Source))
+
+			representations, err := parser.Parse(t.Context())
 			if tc.Err != nil && !errors.Is(err, tc.Err) {
 				t.Errorf("unexpected error: %v", err)
 				return
 			}
-			if len(representations) != tc.RepresentationCount {
-				t.Errorf("expected %d enum representations, got %d", tc.RepresentationCount, len(representations))
+			if len(representations) != len(tc.Representations) {
+				t.Errorf("expected %d enum representations, got %d", len(tc.Representations), len(representations))
+				return
 			}
+
 			for _, rep := range representations {
 				if rep.PackageName == "" {
 					t.Errorf("missing package name in %s", tc.Name)
+					return
 				}
 				validateTypeInfo(t, rep.TypeInfo)
 				if len(rep.Enums) == 0 {
 					t.Errorf("no enum values in %s for type %s", tc.Name, rep.TypeInfo.Name)
-					continue
+					return
 				}
 				for _, enum := range rep.Enums {
 					validateEnum(t, enum, rep.TypeInfo.Name)
@@ -71,16 +86,16 @@ func TestParseWithDifferentConfigs(t *testing.T) {
 			tname := fmt.Sprintf("%s_%s", src.name, cfg.name)
 			t.Run(tname, func(t *testing.T) {
 				t.Parallel()
-				parser := gofile.NewParser(cfg.config, gofile.WithSource(src.source))
-				representations, err := parser.Parse(context.Background())
+				parser := gofile.NewParser(
+					gofile.WithParserConfig(cfg.config),
+					gofile.WithSource(src.source))
+				representations, err := parser.Parse(t.Context())
 				if err != nil {
-					t.Fatalf("parse error with config %+v: %v", cfg, err)
+					t.Errorf("parse error with config %+v: %v", cfg, err)
 				}
-
 				if len(representations) == 0 {
 					t.Errorf("no representations found with config %+v", cfg)
 				}
-
 				for _, rep := range representations {
 					if rep.Failfast != cfg.config.Failfast {
 						t.Errorf("failfast config not propagated: expected %v, got %v", cfg.config.Failfast, rep.Failfast)
@@ -99,9 +114,8 @@ func TestParseWithDifferentConfigs(t *testing.T) {
 
 func TestParseWithCancelledContext(t *testing.T) {
 	t.Parallel()
-	parser := gofile.NewParser(config.Configuration{},
-		gofile.WithSource(
-			source.FromFileSystem(testdata.FS, "planets/planets.go")))
+	parser := gofile.NewParser(gofile.WithSource(
+		source.FromFileSystem(testdata.FS, "planets/planets.go")))
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	_, err := parser.Parse(ctx)
@@ -140,23 +154,18 @@ func validateTypeInfo(t *testing.T, info enum.TypeInfo) {
 
 func validateEnum(t *testing.T, e enum.Enum, typeName string) {
 	t.Helper()
-
 	if e.Info.Name == "" {
 		t.Error("enum name is empty")
 	}
-
 	if e.Info.Lower == "" {
 		t.Errorf("enum lower name is empty for %s", e.Info.Name)
 	}
-
 	if e.Info.Upper == "" {
 		t.Errorf("enum upper name is empty for %s", e.Info.Name)
 	}
-
 	if e.Info.Camel == "" {
 		t.Errorf("enum camel name is empty for %s", e.Info.Name)
 	}
-
 	if e.TypeInfo.Name != typeName {
 		t.Errorf("type name mismatch in enum: got %s, expected %s", e.TypeInfo.Name, typeName)
 	}
@@ -227,28 +236,26 @@ const (
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-
-			tempFile, err := os.CreateTemp("", "gofile_parser_test_*.go")
+			tempDir := t.TempDir()
+			tempFile, err := os.CreateTemp(tempDir, "gofile_parser_test_*.go")
 			if err != nil {
-				t.Fatalf("failed to create temp file: %v", err)
+				t.Errorf("failed to create temp file: %v", err)
+				return
 			}
-			defer os.Remove(tempFile.Name())
-
 			_, err = tempFile.WriteString(tc.source)
 			if err != nil {
-				t.Fatalf("failed to write to temp file: %v", err)
+				t.Errorf("failed to write to temp file: %v", err)
 			}
 			tempFile.Close()
 
-			parser := gofile.NewParser(config.Configuration{},
-				gofile.WithSource(source.FromFile(tempFile.Name())))
+			parser := gofile.NewParser(gofile.WithSource(source.FromFile(tempFile.Name())))
 			reps, err := parser.Parse(context.Background())
 			if err != nil {
-				t.Fatalf("failed to parse: %v", err)
+				t.Errorf("failed to parse: %v", err)
 			}
 
 			if len(reps) == 0 || len(reps[0].Enums) == 0 {
-				t.Fatalf("no enums found in test source")
+				t.Errorf("no enums found in test source")
 			}
 
 			enum := reps[0].Enums[0]
@@ -329,24 +336,23 @@ const (
 
 			tempFile, err := os.CreateTemp("", "gofile_parser_test_*.go")
 			if err != nil {
-				t.Fatalf("failed to create temp file: %v", err)
+				t.Errorf("failed to create temp file: %v", err)
 			}
 			defer os.Remove(tempFile.Name())
 
 			_, err = tempFile.WriteString(tc.source)
 			if err != nil {
-				t.Fatalf("failed to write to temp file: %v", err)
+				t.Errorf("failed to write to temp file: %v", err)
 			}
 			tempFile.Close()
 
-			parser := gofile.NewParser(config.Configuration{},
-				gofile.WithSource(source.FromFile(tempFile.Name())))
+			parser := gofile.NewParser(gofile.WithSource(source.FromFile(tempFile.Name())))
 			reps, err := parser.Parse(context.Background())
 			if err != nil {
-				t.Fatalf("failed to parse: %v", err)
+				t.Errorf("failed to parse: %v", err)
 			}
 			if len(reps) == 0 {
-				t.Fatalf("no representations found in test source")
+				t.Errorf("no representations found in test source")
 			}
 			pairs := reps[0].TypeInfo.NameTypePair
 			if len(pairs) != tc.pairCount {

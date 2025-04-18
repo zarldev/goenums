@@ -142,11 +142,11 @@ func main() {
 	}
 
 	config := config.Configuration{
-		Failfast:    f.failfast,
-		Insensitive: f.insensitive,
-		Legacy:      f.legacy,
-		Verbose:     f.verbose,
-		Output:      f.output,
+		Failfast:     f.failfast,
+		Insensitive:  f.insensitive,
+		Legacy:       f.legacy,
+		Verbose:      f.verbose,
+		OutputFormat: f.output,
 	}
 
 	logging.Configure(config.Verbose)
@@ -157,7 +157,7 @@ func main() {
 	slog.Debug("config settings",
 		slog.Int("file_count", len(filenames)),
 		slog.String("files", buildFileList(filenames)),
-		slog.String("output", config.Output),
+		slog.String("output", config.OutputFormat),
 		slog.Bool("failfast", config.Failfast),
 		slog.Bool("legacy", config.Legacy),
 		slog.Bool("insensitive", config.Insensitive),
@@ -178,24 +178,28 @@ func main() {
 		switch inExt {
 		case ".go":
 			slog.Debug("initializing go parser")
-			parser = gofile.NewParser(config,
+			parser = gofile.NewParser(
+				gofile.WithParserConfig(config),
 				gofile.WithSource(source.FromFile(filename)))
 		default:
 			slog.Error("only .go files are supported")
 			return
 		}
 
-		switch config.Output {
+		switch config.OutputFormat {
 		case "", "go":
 			slog.Debug("initializing gofile writer")
-			writer = gofile.NewWriter(config)
+			writer = gofile.NewWriter(gofile.WithWriterConfig(config))
 		default:
 			slog.Error("only outputting to go files is supported")
 			return
 		}
 
 		slog.Debug("initializing generator")
-		gen := generator.New(config, parser, writer)
+		gen := generator.New(
+			generator.WithConfig(config),
+			generator.WithParser(parser),
+			generator.WithWriter(writer))
 		slog.Info("starting parsing and generation")
 		if err := gen.ParseAndWrite(ctx); err != nil {
 			if errors.Is(err, generator.ErrFailedToParse) {

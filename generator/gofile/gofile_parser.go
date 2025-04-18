@@ -27,10 +27,10 @@ import (
 var _ enum.Parser = (*Parser)(nil)
 
 var (
-	// ErrReadSource indicates an error occurred while reading the source file.
-	ErrReadSource = errors.New("failed to read source content")
 	// ErrParseGoFile indicates an error occurred while parsing the source file.
 	ErrParseGoFile = errors.New("failed to parse Go file")
+	// ErrReadSource indicates an error occurred while reading the source file.
+	ErrReadGoFile = errors.New("failed to read Go file")
 )
 
 // Parser implements the enum.Parser interface for Go source files.
@@ -41,19 +41,28 @@ type Parser struct {
 	source        enum.Source
 }
 
+// ParserOption is a function that configures a Parser.
 type ParserOption func(*Parser)
 
+// WithSource sets the source for the parser.
 func WithSource(source enum.Source) ParserOption {
 	return func(p *Parser) {
 		p.source = source
 	}
 }
 
+// WiithConfiguration sets the configuration for the parser.
+func WithParserConfig(configuration config.Configuration) ParserOption {
+	return func(p *Parser) {
+		p.Configuration = configuration
+	}
+}
+
 // NewParser creates a new Go file parser with the specified configuration and source.
 // The parser will analyze the source according to the configuration settings.
-func NewParser(configuration config.Configuration, opts ...ParserOption) *Parser {
+func NewParser(opts ...ParserOption) *Parser {
 	p := Parser{
-		Configuration: configuration,
+		Configuration: config.Configuration{},
 		source:        source.FromFile(""),
 	}
 	for _, opt := range opts {
@@ -86,7 +95,7 @@ func (p *Parser) doParse(ctx context.Context) ([]enum.Representation, error) {
 	}
 	content, err := p.source.Content()
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrReadSource, err)
+		return nil, fmt.Errorf("%w: %w", ErrReadGoFile, err)
 	}
 	slog.Debug("parsing source content")
 	filename := p.source.Filename()

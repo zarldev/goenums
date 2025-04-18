@@ -24,6 +24,7 @@ import (
 
 	"github.com/zarldev/goenums/enum"
 	"github.com/zarldev/goenums/generator/config"
+	"github.com/zarldev/goenums/generator/gofile"
 )
 
 var (
@@ -55,17 +56,38 @@ type Generator struct {
 	writer        enum.Writer
 }
 
+type GeneratorOption func(*Generator)
+
+func WithConfig(configuration config.Configuration) func(*Generator) {
+	return func(g *Generator) {
+		g.Configuration = configuration
+	}
+}
+
+func WithParser(parser enum.Parser) func(*Generator) {
+	return func(g *Generator) {
+		g.parser = parser
+	}
+}
+func WithWriter(writer enum.Writer) func(*Generator) {
+	return func(g *Generator) {
+		g.writer = writer
+	}
+}
+
 // New creates a Generator with the specified configuration and components.
 // The generator will use the given parser to extract enum definitions and the
 // writer to generate output artifacts.
-func New(configuration config.Configuration,
-	parser enum.Parser,
-	writer enum.Writer) *Generator {
-	return &Generator{
-		Configuration: configuration,
-		parser:        parser,
-		writer:        writer,
+func New(opts ...GeneratorOption) *Generator {
+	g := Generator{
+		Configuration: config.Configuration{},
+		parser:        gofile.NewParser(),
+		writer:        gofile.NewWriter(),
 	}
+	for _, opt := range opts {
+		opt(&g)
+	}
+	return &g
 }
 
 // ParseAndWrite executes the complete enum generation workflow:
@@ -74,17 +96,17 @@ func New(configuration config.Configuration,
 // It returns an error if either step fails.
 func (g *Generator) ParseAndWrite(ctx context.Context) error {
 	if ctx.Err() != nil {
-		return ctx.Err()
+		return fmt.Errorf("%w: %w", ErrFailedToParse, ctx.Err())
 	}
 	enums, err := g.parser.Parse(ctx)
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrFailedToParse, err)
 	}
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
 	if len(enums) == 0 {
 		return ErrNoEnumsFound
+	}
+	if ctx.Err() != nil {
+		return fmt.Errorf("%w: %w", ErrGeneratorFailedToGenerate, ctx.Err())
 	}
 	if err = g.writer.Write(ctx, enums); err != nil {
 		return fmt.Errorf("%w: %w", ErrGeneratorFailedToGenerate, err)

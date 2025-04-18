@@ -24,23 +24,38 @@ var (
 	ErrWriteGoFile = errors.New("error writing go file")
 )
 
+// Writer implements enum.Writer for go source files.
+// It writes enum definitions to a file on provided filesystem,
+// with the specified configuration.
 type Writer struct {
 	Configuration config.Configuration
 	w             io.Writer
 	fs            file.ReadCreateWriteFileFS
 }
 
+// WriterOption is a function that configures a Writer.
 type WriterOption func(*Writer)
 
+// WithFileSystem sets the filesystem to use for writing files.
 func WithFileSystem(fs file.ReadCreateWriteFileFS) func(*Writer) {
 	return func(w *Writer) {
 		w.fs = fs
 	}
 }
 
-func NewWriter(cfg config.Configuration, opts ...WriterOption) *Writer {
+// WithWriterConfig sets the configuration for the writer.
+func WithWriterConfig(configuration config.Configuration) func(*Writer) {
+	return func(w *Writer) {
+		w.Configuration = configuration
+	}
+}
+
+// NewWriter creates a new go file writer with the specified configuration and filesystem.
+// The writer will write enum definitions to the provided filesystem.
+// When no options are provided, it will write to stdout.
+func NewWriter(opts ...WriterOption) *Writer {
 	w := Writer{
-		Configuration: cfg,
+		Configuration: config.Configuration{},
 		fs:            &file.OSReadWriteFileFS{},
 		w:             os.Stdout,
 	}

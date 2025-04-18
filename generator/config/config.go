@@ -35,6 +35,6 @@ type Configuration struct {
 	// be logged, which is useful for debugging.
 	Verbose bool
 
-	// Output is the format of the output file.
-	Output string
+	// OutputFormat is the format of the output file.
+	OutputFormat string
 }
