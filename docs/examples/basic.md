@@ -3,8 +3,6 @@ layout: default
 title: Basic Examples
 ---
 
-# Basic Examples
-
 Learn how to use the core functionality of goenums with simple examples.
 
 ## Simple Enum Definition

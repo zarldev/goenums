@@ -3,8 +3,6 @@ layout: default
 title: Advanced Examples
 ---
 
-# Advanced Examples
-
 Explore more powerful features and use cases for goenums.
 
 ## Extended Enum Types with Custom Fields
