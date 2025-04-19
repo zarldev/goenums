@@ -12,13 +12,14 @@
 - [Usage](#usage)
 - [Features Expanded](#features-expanded)
   - [Custom String Representations](#custom-string-representations)
+    - [Standard Name Comment](#standard-name-comment)
+    - [Name Comment with spaces](#name-comment-with-spaces)
   - [Extended Enum Types with Custom Fields](#extended-enum-types-with-custom-fields)
-  - [Strict Validation](#strict-validation)
   - [Case Insensitive String Parsing](#case-insensitive-string-parsing)
   - [JSON & Database Storage](#json--database-storage)
   - [Exhaustive Handling](#exhaustive-handling)
   - [Iterator Support (Go 1.21+)](#iterator-support-go-121)
-  - [Failfast Mode](#failfast-mode)
+  - [Failfast Mode / Strict Mode](#failfast-mode--strict-mode)
   - [Legacy Mode](#legacy-mode)
   - [Verbose Mode](#verbose-mode)
   - [Output Format](#output-format)
@@ -141,19 +142,6 @@ fmt.Printf("Weight on %s: %.2f kg\n",
     earthWeight * solarsystem.Planets.MARS.Gravity)
 ```
 
-## Strict Validation
-Use the -f flag to enable strict validation that returns errors for invalid enum values:
-
-```go
-//go:generate goenums -f status.go
-
-// Generated code will return errors for invalid values
-status, err := validation.ParseStatus("INVALID_STATUS")
-if err != nil {
-    fmt.Println("error:", err)
-}
-```
-
 ## Case Insensitive String Parsing
 Use the -i flag to enable case insensitive string parsing:
 
@@ -258,8 +246,17 @@ for _, status := range validation.Statuses.All() {
 }
 ```
 
-## Failfast Mode
+## Failfast Mode / Strict Mode
 You can enable failfast mode by using the `-failfast` flag. This will cause the generator to fail on the first invalid enum it encounters while parsing.
+```go
+//go:generate goenums -f status.go
+
+// Generated code will return errors for invalid values
+status, err := validation.ParseStatus("INVALID_STATUS")
+if err != nil {
+    fmt.Println("error:", err)
+}
+```
 
 ## Legacy Mode
 You can enable legacy mode by using the `-legacy` flag. This will generate code that is compatible with Go versions before 1.23.
