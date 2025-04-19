@@ -1,0 +1,28 @@
+# Site settings
+title: goenums
+description: Type-safe enum generation for Go
+url: "https://zarldev.github.io/goenums"
+baseurl: "/goenums"
+repository: "zarldev/goenums"
+version: "0.3.6"
+
+# Build settings
+markdown: kramdown
+highlighter: rouge
+
+# Rouge syntax highlighting settings
+kramdown:
+  syntax_highlighter: rouge
+
+# Navigation
+navigation:
+  - title: Home
+    url: /
+  - title: Installation
+    url: /installation
+  - title: Usage
+    url: /usage
+  - title: Examples
+    url: /examples
+
+

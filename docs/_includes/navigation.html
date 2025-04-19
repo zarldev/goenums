@@ -1,0 +1,18 @@
+<nav class="main-nav">
+    <ul>
+      {% for item in site.navigation %}
+        <li class="nav-item {% if page.url == item.url %}active{% endif %}">
+          <a href="{{ item.url | relative_url }}">{{ item.title }}</a>
+          {% if item.subitems %}
+            <ul class="subnav">
+              {% for subitem in item.subitems %}
+                <li class="subnav-item {% if page.url == subitem.url %}active{% endif %}">
+                  <a href="{{ subitem.url | relative_url }}">{{ subitem.title }}</a>
+                </li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  </nav>
