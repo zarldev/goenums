@@ -79,13 +79,13 @@ func (c ticketsContainer) allSlice() []Ticket {
 }
 
 // AllSlice returns all valid Ticket values as a slice.
-// Deprecated: Use All() with Go 1.23+ range over function types instead.
+// Deprecated: Use All() with Go 1.21+ range over function types instead.
 func (c ticketsContainer) AllSlice() []Ticket {
 	return c.allSlice()
 }
 
 // All returns all valid Ticket values.
-// In Go 1.23+, this can be used with range-over-function iteration:
+// In Go 1.21+, this can be used with range-over-function iteration:
 // ```
 //
 //	for v := range Tickets.All() {

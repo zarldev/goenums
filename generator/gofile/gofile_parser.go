@@ -12,6 +12,7 @@ import (
 	"go/parser"
 	"go/token"
 	"log/slog"
+	"math"
 	"slices"
 	"strconv"
 	"time"
@@ -140,74 +141,65 @@ func (p *Parser) collectRepresentations(node *ast.File,
 		if !ok || decl.Tok != token.CONST {
 			return true
 		}
-		var (
-			currIotaType string
-			currIotaIdx  int
-		)
-		currNTPs := make([]enum.NameTypePair, 0)
-		if len(decl.Specs) > 0 {
-			if valueSpec, ok := decl.Specs[0].(*ast.ValueSpec); ok && len(valueSpec.Values) == 1 {
-				iotaName, iotaType, iotaTypeComment, iotaIdx := p.iotaInfo(valueSpec, typeComments)
-				if iotaName != "" && iotaType != "" {
-					currIotaType = iotaType
-					currIotaIdx = iotaIdx
-					if iotaTypeComment != "" {
-						currNTPs = p.nameTPairsFromComments(iotaTypeComment, currNTPs)
-					}
-				}
+		currNTPs, currIotaType, idx := p.parseEnumNameTypePairs(decl, typeComments)
+		if currIotaType == "" {
+			return true
+		}
+		entry, exists := enumsByType[currIotaType]
+		if !exists {
+			entry = tempHolder{
+				iotaType:   currIotaType,
+				iotaIdx:    idx,
+				nameTPairs: currNTPs,
 			}
 		}
-		if currIotaType != "" {
-			entry, exists := enumsByType[currIotaType]
-			if !exists {
-				entry = tempHolder{
-					iotaType:   currIotaType,
-					iotaIdx:    currIotaIdx,
-					nameTPairs: currNTPs,
-				}
+		for _, spec := range decl.Specs {
+			vs, ok := spec.(*ast.ValueSpec)
+			if !ok {
+				continue
 			}
-			for i, spec := range decl.Specs {
-				vs, ok := spec.(*ast.ValueSpec)
-				if !ok {
+			for _, name := range vs.Names {
+				if name.Name == "_" {
+					entry.iotaIdx++
 					continue
 				}
-				for _, name := range vs.Names {
-					comment := p.getComment(vs)
-					valid := !strings.Contains(comment, "invalid")
-					if !valid {
-						comment = strings.ReplaceAll(comment, "invalid", "")
-					}
-					comment, primaryAlias, additionalAliases := p.getAliasNames(comment, name)
-					values := p.getValues(comment)
-					nameTPairsCopy := p.copyNameTPairs(currNTPs, values)
-					entry.enums = append(entry.enums, enum.Enum{
-						Info: enum.Info{
-							Name:    name.Name,
-							Camel:   strings.CamelCase(name.Name),
-							Lower:   strings.ToLower(name.Name),
-							Upper:   strings.ToUpper(name.Name),
-							Alias:   primaryAlias,
-							Aliases: append([]string{primaryAlias}, additionalAliases...),
-							Value:   i,
-							Valid:   valid,
-						},
-						TypeInfo: enum.TypeInfo{
-							Name:         currIotaType,
-							Camel:        strings.CamelCase(currIotaType),
-							Lower:        strings.ToLower(currIotaType),
-							Upper:        strings.ToUpper(currIotaType),
-							NameTypePair: nameTPairsCopy,
-						},
-						Raw: enum.Raw{
-							Comment:     comment,
-							TypeComment: p.getTypeComment(vs, typeComments),
-						},
-					})
+				enumValue := p.getEnumValue(idx, vs, decl)
+				comment := p.getComment(vs)
+				valid := !strings.Contains(comment, "invalid")
+				if !valid {
+					comment = strings.ReplaceAll(comment, "invalid", "")
 				}
+				comment, alias, addAliases := p.getAliasNames(comment, name)
+				values := p.getValues(comment)
+				ntps := p.copyNameTPairs(currNTPs, values)
+				entry.enums = append(entry.enums, enum.Enum{
+					Info: enum.Info{
+						Name:    name.Name,
+						Camel:   strings.CamelCase(name.Name),
+						Lower:   strings.ToLower(name.Name),
+						Upper:   strings.ToUpper(name.Name),
+						Alias:   alias,
+						Aliases: append([]string{alias}, addAliases...),
+						Value:   enumValue,
+						Valid:   valid,
+					},
+					TypeInfo: enum.TypeInfo{
+						Name:         currIotaType,
+						Camel:        strings.CamelCase(currIotaType),
+						Lower:        strings.ToLower(currIotaType),
+						Upper:        strings.ToUpper(currIotaType),
+						NameTypePair: ntps,
+						Index:        entry.iotaIdx,
+					},
+					Raw: enum.Raw{
+						Comment:     comment,
+						TypeComment: p.getTypeComment(vs, typeComments),
+					},
+				})
 			}
 			enumsByType[currIotaType] = entry
 		}
-		return true
+		return false
 	})
 	if len(enumsByType) == 0 {
 		return nil
@@ -229,7 +221,6 @@ func (p *Parser) collectRepresentations(node *ast.File,
 			CaseInsensitive: cfg.Insensitive,
 			SourceFilename:  filename,
 			TypeInfo: enum.TypeInfo{
-				Filename:     packageName,
 				Index:        info.iotaIdx,
 				Name:         info.iotaType,
 				Camel:        strings.CamelCase(info.iotaType),
@@ -244,6 +235,76 @@ func (p *Parser) collectRepresentations(node *ast.File,
 		representations = append(representations, rep)
 	}
 	return representations
+}
+
+func (p *Parser) parseEnumNameTypePairs(decl *ast.GenDecl, typeComments map[string]string) ([]enum.NameTypePair, string, int) {
+	var (
+		currNTPs     = make([]enum.NameTypePair, 0)
+		currIotaType = ""
+		idx          = 0
+	)
+	if len(decl.Specs) > 0 {
+		if valueSpec, ok := decl.Specs[0].(*ast.ValueSpec); ok && len(valueSpec.Values) == 1 {
+			name, iType, iTypeComm, iIdx := p.iotaInfo(valueSpec, typeComments)
+			if (name == "" || name == "_") || iType == "" {
+				return currNTPs, currIotaType, idx
+			}
+			currIotaType = iType
+			idx = iIdx
+			if iTypeComm != "" {
+				currNTPs = p.nameTPairsFromComments(iTypeComm, currNTPs)
+			}
+		}
+	}
+	return currNTPs, currIotaType, idx
+}
+
+// getEnumValue returns the value of the enum at the given index.
+// If the value is not specified or calculated, it returns the index.
+func (p *Parser) getEnumValue(idx int, vs *ast.ValueSpec, decl *ast.GenDecl) int {
+	specIndex := 0
+	for i, s := range decl.Specs {
+		if s == vs {
+			specIndex = i
+			break
+		}
+	}
+	if specIndex == 0 && len(vs.Values) > 0 {
+		if binExpr, ok := vs.Values[0].(*ast.BinaryExpr); ok {
+			return p.specIndex(binExpr, specIndex, idx)
+		}
+	}
+	if specIndex == 0 {
+		return idx
+	}
+	if len(decl.Specs) > 0 && len(decl.Specs[0].(*ast.ValueSpec).Values) > 0 {
+		if binExpr, ok := decl.Specs[0].(*ast.ValueSpec).Values[0].(*ast.BinaryExpr); ok {
+			return p.specIndex(binExpr, specIndex, idx)
+		}
+	}
+	return specIndex
+}
+
+// specIndex returns the index of the enum value in the declaration.
+// handles cases where the enum value is defined as an expression.
+func (*Parser) specIndex(expr *ast.BinaryExpr, specIdx int, idx int) int {
+	if x, ok := expr.X.(*ast.Ident); ok && x.Name == iotaIdentifier {
+		if lit, ok := expr.Y.(*ast.BasicLit); ok {
+			if num, err := strconv.Atoi(lit.Value); err == nil {
+				switch expr.Op {
+				case token.ADD:
+					return specIdx + (num - idx)
+				case token.SUB:
+					return specIdx - (num - idx)
+				case token.MUL:
+					return specIdx * (num - idx)
+				case token.QUO:
+					return specIdx / (num - idx)
+				}
+			}
+		}
+	}
+	return 0
 }
 
 // getTypeComment retrieves the documentation comment associated with a type.
@@ -325,44 +386,155 @@ func (p *Parser) copyNameTPairs(nameTPairs []enum.NameTypePair, values []string)
 
 func formatValueByType(v, typeName string) string {
 	switch typeName {
-
-	case "int":
-		val := parseOrDefault(v, 0, func(s string) (int, error) {
-			return strconv.Atoi(s)
+	case "uint":
+		val := parseOrDefault(v, uint(0), func(s string) (uint, error) {
+			parsed, err := strconv.ParseUint(s, 10, strconv.IntSize)
+			return uint(parsed), err
 		})
 		return fmt.Sprintf("%d", val)
-	case "bool":
-		val := parseOrDefault(v, false, strconv.ParseBool)
-		return fmt.Sprintf("%t", val)
-	case "string":
-		return fmt.Sprintf("%q", v)
-	case "uint", "uint32", "uint16", "uint8", "uint64":
-		val := parseOrDefault(v, 0, func(s string) (uint64, error) {
+	case "uint8":
+		val := parseOrDefault(v, uint8(0), func(s string) (uint8, error) {
+			parsed, err := strconv.ParseUint(s, 10, 8)
+			if err != nil {
+				return 0, err
+			}
+			return uint8(parsed), nil
+		})
+		return fmt.Sprintf("%d", val)
+	case "uint16":
+		val := parseOrDefault(v, uint16(0), func(s string) (uint16, error) {
+			parsed, err := strconv.ParseUint(s, 10, 16)
+			if err != nil {
+				return 0, err
+			}
+			return uint16(parsed), nil
+		})
+		return fmt.Sprintf("%d", val)
+	case "uint32":
+		val := parseOrDefault(v, uint32(0), func(s string) (uint32, error) {
+			parsed, err := strconv.ParseUint(s, 10, 32)
+			if err != nil {
+				return 0, err
+			}
+			return uint32(parsed), nil
+		})
+		return fmt.Sprintf("%d", val)
+	case "uint64":
+		val := parseOrDefault(v, uint64(0), func(s string) (uint64, error) {
 			return strconv.ParseUint(s, 10, 64)
 		})
 		return fmt.Sprintf("%d", val)
-	case "int64", "int32", "int16", "int8":
-		val := parseOrDefault(v, 0, func(s string) (int64, error) {
+	case "int":
+		val := parseOrDefault(v, int(0), func(s string) (int, error) {
+			return strconv.Atoi(s)
+		})
+		return fmt.Sprintf("%d", val)
+	case "int8":
+		val := parseOrDefault(v, int8(0), func(s string) (int8, error) {
+			parsed, err := strconv.ParseInt(s, 10, 8)
+			if err != nil {
+				return 0, err
+			}
+			return int8(parsed), nil
+		})
+		return fmt.Sprintf("%d", val)
+	case "int16":
+		val := parseOrDefault(v, int16(0), func(s string) (int16, error) {
+			parsed, err := strconv.ParseInt(s, 10, 16)
+			if err != nil {
+				return 0, err
+			}
+			return int16(parsed), nil
+		})
+		return fmt.Sprintf("%d", val)
+	case "int32":
+		val := parseOrDefault(v, int32(0), func(s string) (int32, error) {
+			parsed, err := strconv.ParseInt(s, 10, 32)
+			if err != nil {
+				return 0, err
+			}
+			return int32(parsed), nil
+		})
+		return fmt.Sprintf("%d", val)
+	case "int64":
+		val := parseOrDefault(v, int64(0), func(s string) (int64, error) {
 			return strconv.ParseInt(s, 10, 64)
 		})
 		return fmt.Sprintf("%d", val)
 	case "float32":
-		val := parseOrDefault(v, 0.0, func(s string) (float64, error) {
-			return strconv.ParseFloat(s, 32)
+		val := parseOrDefault(v, float32(0), func(s string) (float32, error) {
+			parsed, err := strconv.ParseFloat(s, 32)
+			if err != nil {
+				return 0, err
+			}
+			return float32(parsed), nil
 		})
-		return fmt.Sprintf("%g", val)
+		return fmt.Sprintf("%f", val)
 	case "float64":
-		val := parseOrDefault(v, 0.0, func(s string) (float64, error) {
+		val := parseOrDefault(v, float64(0), func(s string) (float64, error) {
 			return strconv.ParseFloat(s, 64)
 		})
-		return fmt.Sprintf("%g", val)
+		return fmt.Sprintf("%f", val)
+	case "bool":
+		val := parseOrDefault(v, false, func(s string) (bool, error) {
+			return strconv.ParseBool(s)
+		})
+		return fmt.Sprintf("%t", val)
+	case "string":
+		return fmt.Sprintf("%q", v)
 	case "time.Duration":
 		val := parseOrDefault(v, 0, func(s string) (time.Duration, error) {
 			return time.ParseDuration(s)
 		})
-		return fmt.Sprintf("%d", val)
+		hours := val.Hours()
+		str := fmt.Sprintf("%q", val)
+		if hours == math.Floor(hours) {
+			str = fmt.Sprintf("time.Hour * %d", int(hours))
+		} else if val.Minutes() == math.Floor(val.Minutes()) {
+			str = fmt.Sprintf("time.Minute * %d", int(val.Minutes()))
+		} else if val.Seconds() == math.Floor(val.Seconds()) {
+			str = fmt.Sprintf("time.Second * %d", int(val.Seconds()))
+		}
+		return str
+	case "time.Time":
+		val := parseOrDefault(v, time.Time{}, func(s string) (time.Time, error) {
+			t, err := time.Parse(time.RFC3339, s)
+			if err == nil {
+				return t, nil
+			}
+			t, err = time.Parse(time.DateOnly, s)
+			if err == nil {
+				return t, nil
+			}
+			t, err = time.Parse(time.RFC3339Nano, s)
+			if err == nil {
+				return t, nil
+			}
+			t, err = time.Parse(time.RFC1123, s)
+			if err == nil {
+				return t, nil
+			}
+			t, err = time.Parse(time.RFC1123Z, s)
+			if err == nil {
+				return t, nil
+			}
+			t, err = time.Parse(time.RFC822, s)
+			if err == nil {
+				return t, nil
+			}
+			t, err = time.Parse(time.RFC822Z, s)
+			if err == nil {
+				return t, nil
+			}
+			t, err = time.Parse(time.RFC850, s)
+			if err == nil {
+				return t, nil
+			}
+			return time.Time{}, err
+		})
+		return val.Format(time.RFC3339)
 	default:
-		return formatValue(v)
+		return fmt.Sprintf("%v", v)
 	}
 }
 
@@ -375,23 +547,18 @@ func (p *Parser) getAliasNames(comment string, n *ast.Ident) (string, string, []
 		return comment, n.Name, nil
 	}
 	comment = strings.TrimLeft(comment, " ")
-	// Initialize the primary alias to the enum name by default
+
 	primaryAlias := n.Name
 	var additionalAliases []string
 
-	// Handle empty comments
 	if comment == "" {
 		return "", primaryAlias, nil
 	}
 	aliasesStr := comment
-	// Check for quoted values first
 	if strings.HasPrefix(aliasesStr, `"`) {
 		endQI := strings.Index(aliasesStr[1:], `"`)
 		if endQI != -1 {
-			// Extract the main quoted value as the primary alias
 			primaryAlias = aliasesStr[1 : endQI+1]
-
-			// Look for comma-separated aliases after the quoted part
 			restOfComment := aliasesStr[endQI+2:]
 			commaIdx := strings.Index(restOfComment, ",")
 			if commaIdx != -1 {
@@ -408,39 +575,6 @@ func (p *Parser) getAliasNames(comment string, n *ast.Ident) (string, string, []
 		comment = aliasesStr[strings.Index(comment, " ")+1:]
 		aliasesStr = aliasesStr[:strings.Index(aliasesStr, " ")]
 	}
-	// Check for comma-separated values in the comment
-	if strings.Contains(aliasesStr, ",") {
-		parts := strings.Split(aliasesStr, ",")
-		firstPart := strings.TrimSpace(parts[0])
-
-		// The first part may be a single alias or a comment with spaces
-		if strings.Count(firstPart, " ") == 0 {
-			// If first part is a single word, use it as the primary alias
-			primaryAlias = firstPart
-		} else if strings.Count(firstPart, " ") == 1 {
-			// If it's two words, the first might be an alias
-			words := strings.Split(firstPart, " ")
-			if !strings.Contains(words[0], "invalid") {
-				primaryAlias = words[0]
-			}
-		}
-
-		// Process the remaining parts as additional aliases
-		for i := 1; i < len(parts); i++ {
-			alias := strings.TrimSpace(parts[i])
-			if alias != "" {
-				// Remove any quotes from aliases
-				if strings.HasPrefix(alias, `"`) && strings.HasSuffix(alias, `"`) {
-					alias = alias[1 : len(alias)-1]
-				}
-				additionalAliases = append(additionalAliases, alias)
-			}
-		}
-
-		return comment, primaryAlias, additionalAliases
-	}
-
-	// Handle single-word comments (no commas, no spaces)
 	if strings.Count(aliasesStr, " ") == 0 {
 		// If comment is just a single word and not "invalid", use it as the alias
 		if !strings.Contains(aliasesStr, "invalid") {
@@ -448,23 +582,6 @@ func (p *Parser) getAliasNames(comment string, n *ast.Ident) (string, string, []
 		}
 		return comment, primaryAlias, nil
 	}
-
-	// Handle two-word comments (like "ALIAS description")
-	if strings.Count(comment, " ") == 1 {
-		parts := strings.Split(comment, " ")
-		if len(parts) == 2 {
-			if strings.Contains(parts[0], "invalid") {
-				// If first word contains "invalid", use the second word
-				primaryAlias = parts[1]
-			} else {
-				// Otherwise, first word is likely the alias
-				primaryAlias = parts[0]
-			}
-		}
-		return comment, primaryAlias, nil
-	}
-
-	// For more complex comments, just return the original
 	return comment, primaryAlias, nil
 }
 
@@ -473,21 +590,16 @@ func (p *Parser) getAliasNames(comment string, n *ast.Ident) (string, string, []
 func (p *Parser) parseCommaList(s string) []string {
 	var result []string
 	parts := strings.Split(s, ",")
-
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
 		if part == "" {
 			continue
 		}
-
-		// Remove quotes if present
 		if strings.HasPrefix(part, `"`) && strings.HasSuffix(part, `"`) {
 			part = part[1 : len(part)-1]
 		}
-
 		result = append(result, part)
 	}
-
 	return result
 }
 
@@ -613,15 +725,15 @@ func (p *Parser) iotaInfo(valueSpec *ast.ValueSpec, typeComments map[string]stri
 	return iotaName, iotaType, iotaTypeComment, iotaIdx
 }
 
-// Ordered is a constraint that permits any ordered type: any type
+// Parsable is a constraint that permits any ordered type: any type
 // that supports the operators < <= >= >.
-type Ordered interface {
-	cmp.Ordered | bool
+type Parsable interface {
+	cmp.Ordered | bool | time.Time
 }
 
 // parseOrDefault is a generic function that attempts to parse a string as type T,
 // returning the parsed value if successful or the default value if not.
-func parseOrDefault[T Ordered](s string, defaultVal T, parser func(string) (T, error)) T {
+func parseOrDefault[T Parsable](s string, defaultVal T, parser func(string) (T, error)) T {
 	if val, err := parser(s); err == nil {
 		return val
 	}

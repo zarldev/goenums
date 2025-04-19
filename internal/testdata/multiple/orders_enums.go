@@ -69,13 +69,13 @@ func (c ordersContainer) allSlice() []Order {
 }
 
 // AllSlice returns all valid Order values as a slice.
-// Deprecated: Use All() with Go 1.23+ range over function types instead.
+// Deprecated: Use All() with Go 1.21+ range over function types instead.
 func (c ordersContainer) AllSlice() []Order {
 	return c.allSlice()
 }
 
 // All returns all valid Order values.
-// In Go 1.23+, this can be used with range-over-function iteration:
+// In Go 1.21+, this can be used with range-over-function iteration:
 // ```
 //
 //	for v := range Orders.All() {

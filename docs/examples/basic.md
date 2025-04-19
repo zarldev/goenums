@@ -103,7 +103,7 @@ func (c statusesContainer) allSlice() []Status {
 }
 
 // AllSlice returns all valid Status values as a slice.
-// Deprecated: Use All() with Go 1.23+ range over function types instead.
+// Deprecated: Use All() with Go 1.21+ range over function types instead.
 func (c statusesContainer) AllSlice() []Status {
 	return c.allSlice()
 }

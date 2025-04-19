@@ -149,7 +149,7 @@ validation.ExhaustiveStatuses(func(status validation.Status) {
     }
 })
 
-// Iterate using modern Go 1.23+ range-over-func
+// Iterate using modern Go 1.21+ range-over-func
 for status := range validation.Statuses.All() {
     fmt.Printf("Status: %s\n", status)
 }

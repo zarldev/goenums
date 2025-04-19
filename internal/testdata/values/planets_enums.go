@@ -83,13 +83,13 @@ func (c planetsContainer) allSlice() []Planet {
 }
 
 // AllSlice returns all valid Planet values as a slice.
-// Deprecated: Use All() with Go 1.23+ range over function types instead.
+// Deprecated: Use All() with Go 1.21+ range over function types instead.
 func (c planetsContainer) AllSlice() []Planet {
 	return c.allSlice()
 }
 
 // All returns all valid Planet values.
-// In Go 1.23+, this can be used with range-over-function iteration:
+// In Go 1.21+, this can be used with range-over-function iteration:
 // ```
 //
 //	for v := range Planets.All() {

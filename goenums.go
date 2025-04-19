@@ -74,7 +74,7 @@ func parseFlags() (flags, []string) {
 		"Enable failfast mode - fail on generation of invalid enum while parsing (default: false)")
 	flag.BoolVar(&f.failfast, "f", false, "")
 	flag.BoolVar(&f.legacy, "legacy", false,
-		"Generate legacy code without Go 1.23+ iterator support (default: false)")
+		"Generate legacy code without Go 1.21+ iterator support (default: false)")
 	flag.BoolVar(&f.legacy, "l", false, "")
 	flag.BoolVar(&f.insensitive, "insensitive", false,
 		"Generate case insensitive string parsing (default: false)")
@@ -253,7 +253,7 @@ func buildFileList(filenames []string) string {
 	if len(filenames) == 0 {
 		return ""
 	}
-	var builder strings.Builder
+	var builder strings.EnumBuilder
 	builder.WriteString(filenames[0])
 	for _, filename := range filenames[1:] {
 		builder.WriteString(", ")

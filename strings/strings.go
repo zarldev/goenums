@@ -11,7 +11,11 @@
 // collisions with the standard library.
 package strings
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/zarldev/goenums/enum"
+)
 
 // irregular contains mappings for words that don't follow standard English
 // pluralization rules, ensuring correct pluralization for special cases.
@@ -289,39 +293,79 @@ func ReplaceAll(s, old, new string) string {
 	return strings.ReplaceAll(s, old, new)
 }
 
-type Builder struct {
+const (
+	initialBufferSize = 512
+	enumExtraBuffer   = 100
+)
+
+// NewEnumBuilder creates a new EnumBuilder with an initial allocated buffer size
+// based on the number of enums and their alias lengths.
+func NewEnumBuilder(reps enum.Representation) *EnumBuilder {
+	var b strings.Builder
+	growSize := initialBufferSize
+	for _, enum := range reps.Enums {
+		growSize += len(enum.Info.Alias) + len(enum.Info.Upper) + enumExtraBuffer
+	}
+	b.Grow(growSize)
+	return &EnumBuilder{
+		b: &b,
+	}
+}
+
+// EnumBuilder is a wrapper around strings.Builder with preallocated buffer size.
+// It is used to build the enum string representation.
+type EnumBuilder struct {
 	b *strings.Builder
 }
 
-func (b *Builder) WriteString(s string) {
+// WriteString writes the string s to the EnumBuilder
+// It is a wrapper around strings.Builder.WriteString.
+func (b *EnumBuilder) WriteString(s string) {
 	if b.b == nil {
 		b.b = &strings.Builder{}
 	}
 	_, _ = b.b.WriteString(s)
 }
 
-func (b *Builder) String() string {
+// String returns the accumulated string.
+// It is a wrapper around strings.Builder.String.
+func (b *EnumBuilder) String() string {
 	if b.b == nil {
 		return ""
 	}
 	return b.b.String()
 }
 
-func (b *Builder) Len() int {
+// Len returns the number of accumulated bytes.
+// It is a wrapper around strings.Builder.Len.
+func (b *EnumBuilder) Len() int {
 	if b.b == nil {
 		return 0
 	}
 	return b.b.Len()
 }
 
-func (b *Builder) Reset() {
+// Reset resets the EnumBuilder to be empty.
+// It is a wrapper around strings.Builder.Reset.
+func (b *EnumBuilder) Reset() {
 	if b.b == nil {
 		return
 	}
 	b.b.Reset()
 }
 
-func (b *Builder) WriteByte(c byte) error {
+// Grow grows the EnumBuilder's capacity, if necessary, to guarantee space for
+// another n bytes. It is a wrapper around strings.Builder.Grow.
+func (b *EnumBuilder) Grow(n int) {
+	if b.b == nil {
+		b.b = &strings.Builder{}
+	}
+	b.b.Grow(n)
+}
+
+// WriteByte appends the byte c to the EnumBuilder.
+// It is a wrapper around strings.Builder.WriteByte.
+func (b *EnumBuilder) WriteByte(c byte) error {
 	if b.b == nil {
 		b.b = &strings.Builder{}
 	}

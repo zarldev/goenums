@@ -62,16 +62,20 @@ type Writer interface {
 // containing everything a Writer needs to generate output artifacts without having to
 // refer back to the original source.
 type Representation struct {
+	// Metadata about the generation process and the source of the enum definitions.
 	Version        string
 	GenerationTime time.Time
 
-	PackageName     string
+	// Configuration options for the generation process.
 	Failfast        bool
 	Legacy          bool
 	CaseInsensitive bool
-	TypeInfo        TypeInfo
-	Enums           []Enum
-	SourceFilename  string
+
+	// Information about the enum type being generated.
+	PackageName    string
+	TypeInfo       TypeInfo
+	Enums          []Enum
+	SourceFilename string
 }
 
 // Enum represents a single enum value within an enum type representation. It combines the
@@ -121,8 +125,6 @@ type Info struct {
 // details about any non-iota enum values. This information is essential for generating
 // type declarations and shared enum functionality.
 type TypeInfo struct {
-	// Filename is the source file where the enum type is defined
-	Filename string
 	// Index is the starting offset value for the enum constants
 	Index int
 	// Name is the original type name

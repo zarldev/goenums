@@ -27,7 +27,7 @@ type Configuration struct {
 
 	// Legacy enables compatibility with Go versions before 1.23.
 	// When true, the generated code will not use features like range-over-func
-	// that are only available in Go 1.23+.
+	// that are only available in Go 1.21+.
 	Legacy bool
 
 	// Verbose enables detailed logging throughout the enum generation process.
