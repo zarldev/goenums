@@ -1,7 +1,3 @@
-
-## Updated `docs/examples/advanced.md`
-
-```markdown
 ---
 layout: default
 title: Advanced Examples
