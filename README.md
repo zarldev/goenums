@@ -703,7 +703,7 @@ func (i planet) String() string {
 }
 ```
 
-For more examples, see the [examples](https://github.com/zarldev/goenums/tree/main/examples) directory.
+For more examples, see those used for testing in the [testdata](https://github.com/zarldev/goenums/tree/main/internal/testdata) directory.
 
 
 ### Mentions
