@@ -9,6 +9,30 @@ Using goenums involves a simple workflow:
 2. Add a `go:generate` directive to invoke goenums
 3. Run `go generate` to create the enum implementation
 4. Use the generated code in your project
+```
+$ goenums -h
+   ____ _____  ___  ____  __  ______ ___  _____
+  / __ '/ __ \/ _ \/ __ \/ / / / __ '__ \/ ___/
+ / /_/ / /_/ /  __/ / / / /_/ / / / / / (__  ) 
+ \__, /\____/\___/_/ /_/\__,_/_/ /_/ /_/____/  
+/____/
+Usage: goenums [options] filename
+Options:
+  -help, -h
+        Print help information
+  -version, -v
+        Print version information
+  -failfast, -f
+        Enable failfast mode - fail on generation of invalid enum while parsing (default: false)
+  -legacy, -l
+        Generate legacy code without Go 1.23+ iterator support (default: false)
+  -insensitive, -i
+        Generate case insensitive string parsing (default: false)
+  -verbose, -vv
+        Enable verbose mode - prints out the generated code (default: false)
+  -output, -o string
+        Specify the output format (default: go)
+```
 
 ## Quick Start
 
