@@ -3,8 +3,6 @@ layout: default
 title: Examples
 ---
 
-# Examples
-
 Explore different usage patterns and features with practical examples:
 
 - [Basic Examples]({{ '/examples/basic' | relative_url }}) → Core functionality examples
