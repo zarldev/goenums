@@ -1,7 +1,4 @@
 
-## Updated `docs/examples/basic.md`
-
-```markdown
 ---
 layout: default
 title: Basic Examples
