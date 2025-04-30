@@ -85,7 +85,7 @@ func TestCustomHandler(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	var buf bytes.Buffer
-	handler := logging.NewCustomTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})
+	handler := logging.NewCustomTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelInfo})
 	logger := slog.New(handler)
 	buf.Reset()
 	attrLogger := logger.With("component", "test")

@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Default file permissions
+// DefaultFilePerms are the default permissions
 const DefaultFilePerms fs.FileMode = 0644
 
 // Compile time check to ensure MemFS implements ReadWriteCreateFileFS
@@ -171,14 +171,14 @@ func (f *memFile) Stat() (fs.FileInfo, error) {
 	}, nil
 }
 
-func (f *memFile) Write(p []byte) (n int, err error) {
+func (f *memFile) Write(p []byte) (int, error) {
 	if f.Buffer == nil {
 		return 0, fs.ErrInvalid
 	}
 	return f.Buffer.Write(p)
 }
 
-func (f *memFile) Read(p []byte) (n int, err error) {
+func (f *memFile) Read(p []byte) (int, error) {
 	if f.Reader == nil {
 		return 0, fs.ErrInvalid
 	}
