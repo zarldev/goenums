@@ -92,7 +92,7 @@ func parseFlags() (flags, []string) {
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
+	logging.Configure(false)
 	// Setup signal handling for graceful shutdown
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -100,7 +100,6 @@ func main() {
 		<-c
 		cancel()
 	}()
-	logging.Configure(false)
 	config, err := configuration(ctx)
 	if err != nil {
 		return

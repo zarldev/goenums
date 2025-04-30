@@ -89,42 +89,42 @@ func (h *logger) WithGroup(name string) slog.Handler {
 	}
 }
 
-// formatAttr formats a single attribute with proper alignment
-func formatAttr(a slog.Attr, maxKeyLen int) string {
-	// Calculate exact number of spaces needed
-	// Add 4 base spaces, then add any additional spaces needed to align with longest key
-	spaces := 4 + (maxKeyLen - len(a.Key))
-	padding := strings.Repeat(" ", spaces)
+// formatAttr formats a single attribute with consistent, fixed-width spacing
+func formatAttr(a slog.Attr) string {
+	const (
+		fixedWidth = 12
+		halfWidth  = fixedWidth / 2
+	)
 
+	if a.Key == "" {
+		padding := strings.Repeat(" ", halfWidth)
+		return fmt.Sprintf("%s%v", padding, a.Value.Any())
+	}
+	spaces := fixedWidth - len(a.Key)
+	if spaces < 0 {
+		spaces = 0
+	}
+	padding := strings.Repeat(" ", spaces)
 	return fmt.Sprintf("%s:%s%v", a.Key, padding, a.Value.Any())
 }
 
 // Handle formats and outputs the log record
 func (h *logger) Handle(ctx context.Context, r slog.Record) error {
-	var attrs []slog.Attr
+	var allAttrs []string
 
-	// Collect all attributes first to find longest key
-	attrs = append(attrs, h.attrs...)
+	// Process existing attributes
+	for _, attr := range h.attrs {
+		allAttrs = append(allAttrs, formatAttr(attr))
+	}
+
+	// Process record attributes
 	r.Attrs(func(a slog.Attr) bool {
 		if a.Key == slog.TimeKey || a.Key == slog.LevelKey || a.Key == slog.SourceKey {
 			return true
 		}
-		attrs = append(attrs, a)
+		allAttrs = append(allAttrs, formatAttr(a))
 		return true
 	})
-
-	// Find longest key
-	maxKeyLen := 0
-	for _, attr := range attrs {
-		if len(attr.Key) > maxKeyLen {
-			maxKeyLen = len(attr.Key)
-		}
-	}
-
-	var allAttrs []string
-	for _, attr := range attrs {
-		allAttrs = append(allAttrs, formatAttr(attr, maxKeyLen))
-	}
 
 	var builder strings.Builder
 	if r.Message != "" {
