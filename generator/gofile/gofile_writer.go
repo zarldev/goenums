@@ -394,7 +394,7 @@ func (g *Writer) writeCompileCheck(rep enum.Representation) {
 	b.WriteString("\t// Does not identify newly added constant values unless order changes\n")
 	b.WriteString("\tvar x [1]struct{}\n")
 	for _, v := range rep.Enums {
-		b.WriteString(fmt.Sprintf("\t_ = x[%s - %d]\n", v.Info.Name, v.Info.Value+rep.TypeInfo.Index))
+		b.WriteString(fmt.Sprintf("\t_ = x[%s - %d]\n", v.Info.Name, v.TypeInfo.Index))
 	}
 	b.WriteString("}\n")
 	g.write(b.String())

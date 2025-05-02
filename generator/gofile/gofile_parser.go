@@ -179,7 +179,7 @@ func (p *Parser) collectRepresentations(node *ast.File,
 				if s1 == "" && s2 == "" {
 					hasAliases = false
 				}
-				if s2 != "" && len(currNTPs) > 1 {
+				if s2 != "" && len(currNTPs) >= 1 {
 					hasAliases = true
 					aliases = strings.Split(strings.TrimSpace(s1), ",")
 					vsr := strings.Split(strings.TrimSpace(s2), ",")
@@ -218,7 +218,6 @@ func (p *Parser) collectRepresentations(node *ast.File,
 				if len(aliases) > 0 {
 					alias = aliases[0]
 				}
-
 				entry.enums = append(entry.enums, enum.Enum{
 					Info: enum.Info{
 						Name:    name.Name,
@@ -243,8 +242,10 @@ func (p *Parser) collectRepresentations(node *ast.File,
 						TypeComment: p.getTypeComment(vs, typeComments),
 					},
 				})
+				entry.iotaIdx++
 			}
 			enumsByType[currIotaType] = entry
+
 		}
 		return false
 	})
