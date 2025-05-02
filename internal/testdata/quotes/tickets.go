@@ -3,6 +3,7 @@ package tickets
 type ticket int // comment string, validstate bool
 
 //go:generate goenums tickets.go
+
 const (
 	unknown           ticket = iota // invalid "Not Found","Missing" "Ticket not found",false
 	created                         // "Created Successfully","Created" "Ticket created successfully",true

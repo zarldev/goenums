@@ -37,6 +37,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"text/template"
 
 	"github.com/zarldev/goenums/enum"
 
@@ -48,13 +49,6 @@ import (
 	"github.com/zarldev/goenums/source"
 	"github.com/zarldev/goenums/strings"
 )
-
-// asciiArt is the goenums logo
-const asciiArt = `   ____ _____  ___  ____  __  ______ ___  _____
-  / __ '/ __ \/ _ \/ __ \/ / / / __ '__ \/ ___/
- / /_/ / /_/ /  __/ / / / /_/ / / / / / (__  ) 
- \__, /\____/\___/_/ /_/\__,_/_/ /_/ /_/____/  
-/____/ `
 
 // Define flag groups
 type flags struct {
@@ -89,6 +83,58 @@ func parseFlags() (flags, []string) {
 	return f, flag.Args()
 }
 
+const (
+	logoTemplateBody = `
+   ____ _____  ___  ____  __  ______ ___  _____
+  / __ '/ __ \/ _ \/ __ \/ / / / __ '__ \/ ___/
+ / /_/ / /_/ /  __/ / / / /_/ / / / / / (__  ) 
+ \__, /\____/\___/_/ /_/\__,_/_/ /_/ /_/____/  
+/____/ 
+`
+	versionTemplateBody = `
+    https://zarldev.github.io/goenums
+       version :: {{.Version}}
+       build   :: {{.Build}}
+       commit  :: {{.Commit}}
+`
+)
+
+var (
+	logoTemplate    = template.Must(template.New("logo").Parse(logoTemplateBody))
+	versionTemplate = template.Must(template.New("version").Parse(versionTemplateBody))
+)
+
+// logo displays the goenums logo.
+func logo() {
+	err := logoTemplate.Execute(os.Stdout, nil)
+	if err != nil {
+		slog.Default().Error("Error executing logo template", slog.Any("error", err))
+	}
+}
+
+type versionData struct {
+	Version string
+	Build   string
+	Commit  string
+}
+
+// printVersion displays the current version of the goenums tool.
+func printVersion() {
+	data := versionData{
+		Version: strings.ReplaceAll(version.CURRENT, "'", ""),
+		Build:   strings.ReplaceAll(version.BUILD, "'", ""),
+		Commit:  strings.ReplaceAll(version.COMMIT, "'", ""),
+	}
+	err := logoTemplate.Execute(os.Stdout, nil)
+	if err != nil {
+		slog.Default().Error("Error executing logo template", slog.Any("error", err))
+	}
+	err = versionTemplate.Execute(os.Stdout, data)
+	if err != nil {
+		slog.Default().Error("Error executing logo template", slog.Any("error", err))
+	}
+}
+
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -106,7 +152,7 @@ func main() {
 	}
 	logging.Configure(config.Verbose)
 
-	slog.Default().Info(asciiArt)
+	logo()
 	slog.Default().Info(fmt.Sprintf("\t\tversion: %s", version.CURRENT))
 	slog.Default().Debug("starting generation...")
 	slog.Default().Debug("config settings",
@@ -238,25 +284,6 @@ func printHelp() {
 	slog.Default().Info("Usage: goenums [options] file.go[,file2.go,...]")
 	slog.Default().Info("Options:")
 	flag.PrintDefaults()
-}
-
-// printVersion displays the current version of the goenums tool.
-func printVersion() {
-	logo()
-	slog.Default().Info("", slog.String("", "https://www.github.com/zarldev/goenums"))
-	slog.Default().Info("", slog.String("version", strings.ReplaceAll(version.CURRENT, "'", "")))
-	if version.BUILD != "" {
-		slog.Default().Info("", slog.String("build", strings.ReplaceAll(version.BUILD, "'", "")))
-	}
-	if version.COMMIT != "" {
-		slog.Default().Info("", slog.String("commit", strings.ReplaceAll(version.COMMIT, "'", "")))
-	}
-	slog.Default().Info("")
-}
-
-// logo displays the ASCII art logo for the goenums tool.
-func logo() {
-	slog.Default().Info(asciiArt)
 }
 
 func buildFileList(filenames []string) string {

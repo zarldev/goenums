@@ -16,6 +16,7 @@ import (
 	"slices"
 	"strconv"
 	"time"
+	"unicode"
 
 	"github.com/zarldev/goenums/enum"
 	"github.com/zarldev/goenums/generator/config"
@@ -169,9 +170,55 @@ func (p *Parser) collectRepresentations(node *ast.File,
 				if !valid {
 					comment = strings.ReplaceAll(comment, "invalid", "")
 				}
-				comment, alias, addAliases := p.getAliasNames(comment, name)
-				values := p.getValues(comment)
-				ntps := p.copyNameTPairs(currNTPs, values)
+				var (
+					aliases   []string = make([]string, 0)
+					valueStrs []string = make([]string, 0)
+				)
+				s1, s2 := strings.SplitBySpace(strings.TrimLeft(comment, " "))
+				hasAliases := false
+				if s1 == "" && s2 == "" {
+					hasAliases = false
+				}
+				if s2 != "" && len(currNTPs) > 1 {
+					hasAliases = true
+					aliases = strings.Split(strings.TrimSpace(s1), ",")
+					vsr := strings.Split(strings.TrimSpace(s2), ",")
+					for _, v := range vsr {
+						if v != "" {
+							valueStrs = append(valueStrs, v)
+						}
+					}
+				}
+				if s1 != "" && len(currNTPs) == 0 {
+					hasAliases = true
+					aliases = strings.Split(strings.TrimSpace(s1), ",")
+					vsr := strings.Split(strings.TrimSpace(s2), ",")
+					for _, v := range vsr {
+						if v != "" {
+							valueStrs = append(valueStrs, v)
+						}
+					}
+				}
+				if !hasAliases {
+					vsr := strings.Split(strings.TrimSpace(s1), ",")
+					for _, v := range vsr {
+						if v != "" {
+							valueStrs = append(valueStrs, v)
+						}
+					}
+					aliases = []string{}
+				}
+
+				ntps := p.copyNameTPairs(currNTPs, valueStrs)
+				camel := strings.CamelCase(currIotaType)
+				if strings.IsRegularPlural(camel) {
+					camel = strings.Singular(camel)
+				}
+				alias := name.Name
+				if len(aliases) > 0 {
+					alias = aliases[0]
+				}
+
 				entry.enums = append(entry.enums, enum.Enum{
 					Info: enum.Info{
 						Name:    name.Name,
@@ -179,13 +226,13 @@ func (p *Parser) collectRepresentations(node *ast.File,
 						Lower:   strings.ToLower(name.Name),
 						Upper:   strings.ToUpper(name.Name),
 						Alias:   alias,
-						Aliases: append([]string{alias}, addAliases...),
+						Aliases: append([]string{alias}, aliases...),
 						Value:   enumValue,
 						Valid:   valid,
 					},
 					TypeInfo: enum.TypeInfo{
 						Name:         currIotaType,
-						Camel:        strings.CamelCase(currIotaType),
+						Camel:        camel,
 						Lower:        strings.ToLower(currIotaType),
 						Upper:        strings.ToUpper(currIotaType),
 						NameTypePair: ntps,
@@ -210,7 +257,13 @@ func (p *Parser) collectRepresentations(node *ast.File,
 		for _, v := range info.enums {
 			slog.Default().Debug("enum information", "enum", v.Info.Name)
 		}
-		lowerPlural, camelPlural := strings.PluralAndCamelPlural(iotaType)
+		plural := strings.Plural(iotaType)
+		lowerPlural := string(unicode.ToLower(rune(plural[0]))) + plural[1:]
+		camelPlural := strings.CamelCase(lowerPlural)
+		camel := strings.CamelCase(iotaType)
+		if strings.IsRegularPlural(camel) {
+			camel = strings.Singular(camel)
+		}
 		rep := enum.Representation{
 			Version:        version.CURRENT,
 			GenerationTime: time.Now(),
@@ -220,10 +273,11 @@ func (p *Parser) collectRepresentations(node *ast.File,
 			Legacy:          cfg.Legacy,
 			CaseInsensitive: cfg.Insensitive,
 			SourceFilename:  filename,
+			OutputFilename:  strings.ToLower(lowerPlural),
 			TypeInfo: enum.TypeInfo{
 				Index:        info.iotaIdx,
 				Name:         info.iotaType,
-				Camel:        strings.CamelCase(info.iotaType),
+				Camel:        camel,
 				Lower:        lowerPlural,
 				Upper:        strings.ToUpper(info.iotaType),
 				Plural:       lowerPlural,
@@ -265,6 +319,7 @@ func (p *Parser) parseEnumNameTypePairs(decl *ast.GenDecl, typeComms typeComment
 // getEnumValue returns the value of the enum at the given index.
 // If the value is not specified or calculated, it returns the index.
 func (p *Parser) getEnumValue(idx int, vs *ast.ValueSpec, decl *ast.GenDecl) int {
+	// Find the position of this ValueSpec in the declaration
 	specIndex := 0
 	for i, s := range decl.Specs {
 		if s == vs {
@@ -272,29 +327,29 @@ func (p *Parser) getEnumValue(idx int, vs *ast.ValueSpec, decl *ast.GenDecl) int
 			break
 		}
 	}
-	if specIndex == 0 && len(vs.Values) > 0 {
+
+	// For iota-based enums, return the index directly
+	if len(vs.Values) == 0 {
+		return specIndex
+	}
+
+	// Handle explicit values
+	if len(vs.Values) > 0 {
+		// Check for binary expressions (like x + 1)
 		if binExpr, ok := vs.Values[0].(*ast.BinaryExpr); ok {
 			return p.specIndex(binExpr, specIndex, idx)
 		}
-	}
-	if specIndex == 0 {
-		return idx
-	}
-	if len(decl.Specs) > 0 {
-		var (
-			vs *ast.ValueSpec
-			ok bool
-		)
-		if vs, ok = decl.Specs[0].(*ast.ValueSpec); !ok {
-			return idx
-		}
-		if len(vs.Values) > 0 {
-			if binExpr, ok := vs.Values[0].(*ast.BinaryExpr); ok {
-				return p.specIndex(binExpr, specIndex, idx)
+
+		// Handle literal values
+		if lit, ok := vs.Values[0].(*ast.BasicLit); ok {
+			val, err := strconv.Atoi(lit.Value)
+			if err == nil {
+				return val
 			}
 		}
-		return idx
 	}
+
+	// Default to using the spec index
 	return specIndex
 }
 
@@ -313,13 +368,11 @@ func (*Parser) specIndex(expr *ast.BinaryExpr, specIdx int, idx int) int {
 					return specIdx * (num - idx)
 				case token.QUO:
 					return specIdx / (num - idx)
-				default:
-					return idx
 				}
 			}
 		}
 	}
-	return 0
+	return idx
 }
 
 // getTypeComment retrieves the documentation comment associated with a type.
@@ -364,24 +417,6 @@ func (p *Parser) getTypeComments(node *ast.File) typeComments {
 		return true
 	})
 	return typeComms
-}
-
-// getValues extracts value information from a comment string.
-// This is used to parse comma-separated values in enum comments.
-func (p *Parser) getValues(comment string) []string {
-	values := strings.Split(comment, ",")
-	result := make([]string, 0, len(values))
-	for _, v := range values {
-		v = strings.TrimSpace(v)
-		if v == "" {
-			continue
-		}
-		if strings.HasPrefix(v, `"`) && strings.HasSuffix(v, `"`) {
-			v = v[1 : len(v)-1]
-		}
-		result = append(result, v)
-	}
-	return result
 }
 
 // copyNameTPairs creates a copy of name-type pairs with updated values.
@@ -545,80 +580,6 @@ func formatValueByType(v, typeName string) string {
 	default:
 		return v
 	}
-}
-
-// getAliasNames extracts primary alias and additional aliases from comments.
-// This allows for separate string representations of enum values, including comma-separated aliases.
-// It returns the updated comment string, the primary alias, and a slice of additional aliases.
-func (p *Parser) getAliasNames(comment string, n *ast.Ident) (string, string, []string) {
-	if strings.LastIndex(comment, " ") < 1 {
-		comment = strings.TrimLeft(comment, " ")
-		if comment == "" {
-			return "", n.Name, nil
-		}
-		if strings.Contains(comment, ",") {
-			return comment, n.Name, nil
-		}
-		if !strings.Contains(comment, " ") {
-			return "", comment, nil
-		}
-		return comment, n.Name, nil
-	}
-	comment = strings.TrimLeft(comment, " ")
-
-	primaryAlias := n.Name
-	var additionalAliases []string
-
-	if comment == "" {
-		return "", primaryAlias, nil
-	}
-	aliasesStr := comment
-	if strings.HasPrefix(aliasesStr, `"`) {
-		endQI := strings.Index(aliasesStr[1:], `"`)
-		if endQI != -1 {
-			primaryAlias = aliasesStr[1 : endQI+1]
-			restOfComment := aliasesStr[endQI+2:]
-			commaIdx := strings.Index(restOfComment, ",")
-			if commaIdx != -1 {
-				aliasPart := restOfComment[commaIdx+1:]
-				idx := strings.Index(aliasPart, " \"")
-				comment = aliasPart[idx+1:]
-				aliasPart = aliasPart[:idx]
-				additionalAliases = p.parseCommaList(aliasPart)
-			}
-			return comment, primaryAlias, additionalAliases
-		}
-	}
-	if strings.Count(aliasesStr, " ") >= 1 {
-		comment = aliasesStr[strings.Index(comment, " ")+1:]
-		aliasesStr = aliasesStr[:strings.Index(aliasesStr, " ")]
-	}
-	if strings.Count(aliasesStr, " ") == 0 {
-		// If comment is just a single word and not "invalid", use it as the alias
-		if !strings.Contains(aliasesStr, "invalid") {
-			primaryAlias = aliasesStr
-		}
-		return comment, primaryAlias, nil
-	}
-	return comment, primaryAlias, nil
-}
-
-// parseCommaList parses a comma-separated string into a slice of trimmed, non-empty strings.
-// It handles quoted values and removes the quotes.
-func (p *Parser) parseCommaList(s string) []string {
-	var result []string
-	parts := strings.Split(s, ",")
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
-		}
-		if strings.HasPrefix(part, `"`) && strings.HasSuffix(part, `"`) {
-			part = part[1 : len(part)-1]
-		}
-		result = append(result, part)
-	}
-	return result
 }
 
 // getComment retrieves the comment associated with a value specification.

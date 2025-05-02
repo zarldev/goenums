@@ -46,8 +46,8 @@ func TestLoggingOutput(t *testing.T) {
 			logFunc: func(logger *slog.Logger) {
 				logger.Info("With attrs", "user", "admin", "id", 42)
 			},
-			contains: []string{"With attrs", "user=", "admin", "id=", "42"},
-			excludes: []string{"msg=", "level="},
+			contains: []string{"With attrs", "user: ", "admin", "id: ", "42"},
+			excludes: []string{"msg ", "level "},
 		},
 	}
 
@@ -94,7 +94,7 @@ func TestCustomHandler(t *testing.T) {
 	if !strings.Contains(output, "With attributes") {
 		t.Errorf("missing expected message text in output: %q", output)
 	}
-	if !strings.Contains(output, "component=") {
+	if !strings.Contains(output, "component:") {
 		t.Errorf("withattrs not propagating attributes to output: %q", output)
 	}
 	buf.Reset()
@@ -104,7 +104,7 @@ func TestCustomHandler(t *testing.T) {
 	if !strings.Contains(output, "With group") {
 		t.Errorf("missing expected message text in output: %q", output)
 	}
-	if !strings.Contains(output, "status=") {
+	if !strings.Contains(output, "status:") {
 		t.Errorf("withgroup not properly handling attributes in output: %q", output)
 	}
 	if !handler.Enabled(ctx, slog.LevelInfo) {

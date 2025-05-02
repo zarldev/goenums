@@ -95,7 +95,6 @@ func formatAttr(a slog.Attr) string {
 		fixedWidth = 12
 		halfWidth  = fixedWidth / 2
 	)
-
 	if a.Key == "" {
 		padding := strings.Repeat(" ", halfWidth)
 		return fmt.Sprintf("%s%v", padding, a.Value.Any())
@@ -112,28 +111,42 @@ func formatAttr(a slog.Attr) string {
 func (h *logger) Handle(ctx context.Context, r slog.Record) error {
 	var allAttrs []string
 
-	// Process existing attributes
+	// Collect non-empty attributes
 	for _, attr := range h.attrs {
-		allAttrs = append(allAttrs, formatAttr(attr))
+		if formatted := formatAttr(attr); formatted != "" {
+			allAttrs = append(allAttrs, formatted)
+		}
 	}
 
-	// Process record attributes
 	r.Attrs(func(a slog.Attr) bool {
 		if a.Key == slog.TimeKey || a.Key == slog.LevelKey || a.Key == slog.SourceKey {
 			return true
 		}
-		allAttrs = append(allAttrs, formatAttr(a))
+		if formatted := formatAttr(a); formatted != "" {
+			allAttrs = append(allAttrs, formatted)
+		}
 		return true
 	})
 
 	var builder strings.Builder
+
+	// Add message if present
 	if r.Message != "" {
-		_, _ = builder.WriteString(r.Message + "\n")
+		_, _ = builder.WriteString(r.Message)
+		if len(allAttrs) > 0 {
+			_, _ = builder.WriteString("\n")
+		}
 	}
+
+	// Add attributes if present
 	if len(allAttrs) > 0 {
 		_, _ = builder.WriteString(strings.Join(allAttrs, "\n"))
 	}
-	_, _ = builder.WriteString("\n")
+
+	// Only add final newline if we wrote something
+	if builder.Len() > 0 {
+		_, _ = builder.WriteString("\n")
+	}
 
 	if _, err := fmt.Fprint(h.w, builder.String()); err != nil {
 		return fmt.Errorf("%w: %s: %w", ErrLogging, "printing log message", err)

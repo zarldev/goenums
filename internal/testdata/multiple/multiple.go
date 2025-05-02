@@ -1,5 +1,7 @@
 package multipleenums
 
+//go:generate goenums multiple.go
+
 type order int
 
 const (

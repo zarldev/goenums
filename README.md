@@ -162,8 +162,15 @@ if err != nil {
 }
 ```
 
-## JSON & Database Storage
-The generated enum type also implements the `json.Unmarshal` and `json.Marshal` interfaces along with the `sql.Scanner` and `sql.Valuer` interfaces to handle parsing over the wire via HTTP or via a Database.
+## JSON, Text, Binary, and Database Storage
+The generated enum type also implements several common interfaces:
+* `json.Unmarshal` and `json.Marshal` 
+* `sql.Scanner` and `sql.Valuer` 
+* `encoding.TextMarshaler` and `encoding.TextUnmarshaler` 
+* `encoding.BinaryMarshaler` and `encoding.BinaryUnmarshaler`
+
+These interfaces are used to handle parsing for JSON, Text, Binary, and Database storage using the common standard library packages.
+Here is an example of the generated handling code:
 
 ```go
 func (p Status) MarshalJSON() ([]byte, error) {
@@ -191,6 +198,34 @@ func (p *Status) Scan(value any) error {
 
 func (p Status) Value() (driver.Value, error) {
 	return p.String(), nil
+}
+
+// UnmarshalBinary implements the encoding.BinaryUnmarshaler interface for Status.
+// It decodes the enum value from a byte slice.
+func (p *Status) UnmarshalBinary(b []byte) error {
+	newp, err := ParseStatus(b)
+	if err != nil {
+		return err
+	}
+	*p = newp
+	return nil
+}
+
+// MarshalText implements the encoding.TextMarshaler interface for Status.
+// The enum value is encoded as its string representation.
+func (p Status) MarshalText() ([]byte, error) {
+	return []byte(p.String()), nil
+}
+
+// UnmarshalText implements the encoding.TextUnmarshaler interface for Status.
+// It supports unmarshaling from a string representation of the enum.
+func (p *Status) UnmarshalText(b []byte) error {
+	newp, err := ParseStatus(b)
+	if err != nil {
+		return err
+	}
+	*p = newp
+	return nil
 }
 ```
 

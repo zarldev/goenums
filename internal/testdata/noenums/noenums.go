@@ -1,5 +1,7 @@
 package noenums
 
+//go:generate goenums noenums.go
+
 // Not a proper enum (no type)
 const (
 	First  = 1

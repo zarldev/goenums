@@ -1,15 +1,16 @@
-package planets_gravity_only
+package solarsystemsimple
 
-type planet int // Gravity[float64]
+type planet int
 
-//go:generate goenums -f planets.go
+//go:generate goenums planets.go
 const (
-	mercury planet = iota // 2
-	venus                 // 2
-	earth                 // 1
-	mars                  // 3
-	jupiter               // 69
-	saturn                // 58
-	uranus                // 25
-	neptune               // 24
+	unknown planet = iota // invalid
+	mercury
+	venus
+	earth
+	mars
+	jupiter
+	saturn
+	uranus
+	neptune
 )
