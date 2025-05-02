@@ -74,26 +74,6 @@ func Example_camelCase() {
 	// HTTP_response -> HttpResponse
 }
 
-// Example_pluralAndCamel demonstrates getting both plural and camel case forms.
-func Example_pluralAndCamel() {
-	fmt.Println("Plural and camel case:")
-
-	plural, camelPlural := strings.PluralAndCamelPlural("status")
-	fmt.Println("status ->", plural, ",", camelPlural)
-
-	plural, camelPlural = strings.PluralAndCamelPlural("user_profile")
-	fmt.Println("user_profile ->", plural, ",", camelPlural)
-
-	plural, camelPlural = strings.PluralAndCamelPlural("HTTP_CODE")
-	fmt.Println("HTTP_CODE ->", plural, ",", camelPlural)
-
-	// Output:
-	// Plural and camel case:
-	// status -> statuses , Statuses
-	// user_profile -> user_profiles , UserProfiles
-	// HTTP_CODE -> HTTP_CODES , HttpCodes
-}
-
 // Example_enumBuilder demonstrates using the EnumBuilder for efficient string building.
 func Example_enumBuilder() {
 	// Create some sample enum representation

@@ -76,6 +76,7 @@ type Representation struct {
 	TypeInfo       TypeInfo
 	Enums          []Enum
 	SourceFilename string
+	OutputFilename string
 }
 
 // Enum represents a single enum value within an enum type representation. It combines the
