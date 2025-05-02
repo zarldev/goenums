@@ -162,7 +162,8 @@ func (g *Writer) writeParsingMethods(enum enum.Representation) {
 
 func (g *Writer) writeParseFunction(rep enum.Representation) {
 	var b strings.EnumBuilder
-	b.WriteString("// Parse" + rep.TypeInfo.Camel + " converts various input types to a " + rep.TypeInfo.Camel + " value.\n")
+	b.WriteString("// Parse" + rep.TypeInfo.Camel + " converts various input types to a " +
+		rep.TypeInfo.Camel + " value.\n")
 	b.WriteString("// It accepts the following types:\n")
 	b.WriteString("// - " + rep.TypeInfo.Camel + ": returns the value directly\n")
 	b.WriteString("// - string: parses the string representation\n")
@@ -171,11 +172,13 @@ func (g *Writer) writeParseFunction(rep enum.Representation) {
 	b.WriteString("// - int/int32/int64: converts the integer to the corresponding enum value\n")
 	if rep.Failfast {
 		b.WriteString("//\n")
-		b.WriteString("// If the input cannot be converted to a valid " + rep.TypeInfo.Camel + " value, it returns\n")
+		b.WriteString("// If the input cannot be converted to a valid " + rep.TypeInfo.Camel +
+			" value, it returns\n")
 		b.WriteString("// the invalid" + rep.TypeInfo.Camel + " value and an error.\n")
 	} else {
 		b.WriteString("//\n")
-		b.WriteString("// If the input cannot be converted to a valid " + rep.TypeInfo.Camel + " value, it returns\n")
+		b.WriteString("// If the input cannot be converted to a valid " + rep.TypeInfo.Camel +
+			" value, it returns\n")
 		b.WriteString("// the invalid" + rep.TypeInfo.Camel + " value without an error.\n")
 	}
 	b.WriteString("func Parse" + rep.TypeInfo.Camel + "(a any) (" + rep.TypeInfo.Camel + ", error) {\n")
@@ -211,20 +214,20 @@ func (g *Writer) writeParseFunction(rep enum.Representation) {
 // It now handles both primary aliases and additional aliases for each enum value
 func (g *Writer) writeStringParsingMethod(rep enum.Representation) {
 	b := strings.NewEnumBuilder(rep)
-
-	b.WriteString("// stringTo" + rep.TypeInfo.Camel + " is an internal function that converts a string to a " + rep.TypeInfo.Camel + " value.\n")
+	b.WriteString("// stringTo" + rep.TypeInfo.Camel + " is an internal function that converts a string to a " +
+		rep.TypeInfo.Camel + " value.\n")
 	b.WriteString("// It uses a predefined mapping of string representations to enum values.\n")
 	if rep.CaseInsensitive {
 		b.WriteString("// This implementation is case-insensitive.\n")
 	}
 	b.WriteString("var (\n")
-	b.WriteString(fmt.Sprintf("\t_%sNameMap = map[string]%s{\n", rep.TypeInfo.Lower, rep.TypeInfo.Camel))
+	b.WriteString(fmt.Sprintf("\t%sNameMap = map[string]%s{\n", rep.TypeInfo.Lower, rep.TypeInfo.Camel))
 	seen := make(map[string]bool)
 
 	for _, enum := range rep.Enums {
 		alias := enum.Info.Alias
 		if alias != "" {
-			b.WriteString(fmt.Sprintf("\t\t%q: %s.%s, // Primary alias\n",
+			b.WriteString(fmt.Sprintf("\t\t%q: %s.%s, // primary alias\n",
 				alias, rep.TypeInfo.PluralCamel, enum.Info.Upper))
 			seen[alias] = true
 			g.caseInsensitiveName(rep, alias, seen, b, enum)
@@ -232,7 +235,7 @@ func (g *Writer) writeStringParsingMethod(rep enum.Representation) {
 		if len(enum.Info.Aliases) > 0 {
 			for _, alias := range enum.Info.Aliases {
 				if alias != "" && !seen[alias] {
-					b.WriteString(fmt.Sprintf("\t\t%q: %s.%s, // Additional alias\n",
+					b.WriteString(fmt.Sprintf("\t\t%q: %s.%s, // additional alias\n",
 						alias, rep.TypeInfo.PluralCamel, enum.Info.Upper))
 					seen[alias] = true
 
@@ -241,7 +244,7 @@ func (g *Writer) writeStringParsingMethod(rep enum.Representation) {
 			}
 		}
 		if !seen[enum.Info.Name] {
-			b.WriteString(fmt.Sprintf("\t\t%q: %s.%s, // Enum name\n",
+			b.WriteString(fmt.Sprintf("\t\t%q: %s.%s, // enum name\n",
 				enum.Info.Name, rep.TypeInfo.PluralCamel, enum.Info.Upper))
 			seen[enum.Info.Name] = true
 			g.caseInsensitiveName(rep, alias, seen, b, enum)
@@ -253,7 +256,7 @@ func (g *Writer) writeStringParsingMethod(rep enum.Representation) {
 
 	// Generate the actual string-to-enum function
 	b.WriteString("func stringTo" + rep.TypeInfo.Camel + "(s string) " + rep.TypeInfo.Camel + " {\n")
-	b.WriteString(fmt.Sprintf("\tif v, ok := _%sNameMap[s]; ok {\n", rep.TypeInfo.Lower))
+	b.WriteString(fmt.Sprintf("\tif v, ok := %sNameMap[s]; ok {\n", rep.TypeInfo.Lower))
 	b.WriteString("\t\treturn v\n")
 	b.WriteString("\t}\n")
 
@@ -261,7 +264,7 @@ func (g *Writer) writeStringParsingMethod(rep enum.Representation) {
 	if rep.CaseInsensitive {
 		b.WriteString("\tlwr := strings.ToLower(s)\n")
 		b.WriteString("\tif lwr != s {\n")
-		b.WriteString(fmt.Sprintf("\t\tif v, ok := _%sNameMap[lwr]; ok {\n", rep.TypeInfo.Lower))
+		b.WriteString(fmt.Sprintf("\t\tif v, ok := %sNameMap[lwr]; ok {\n", rep.TypeInfo.Lower))
 		b.WriteString("\t\t\treturn v\n")
 		b.WriteString("\t\t}\n")
 		b.WriteString("\t}\n")
@@ -342,16 +345,16 @@ func (g *Writer) generateIndexAndNameRun(rep enum.Representation) (string, strin
 		positions = append(positions, namesBuilder.Len())
 	}
 	nameStr := namesBuilder.String()
-	nameConst := fmt.Sprintf("_%s_name = %q\n", rep.TypeInfo.Lower, nameStr)
+	nameConst := fmt.Sprintf("%sName = %q\n", rep.TypeInfo.Lower, nameStr)
 
 	var indexBuilder strings.EnumBuilder
-	indexBuilder.WriteString(fmt.Sprintf("_%s_index = [...]uint16{", rep.TypeInfo.Lower))
+	indexBuilder.WriteString(fmt.Sprintf("%sIdx = [...]uint16{", rep.TypeInfo.Lower))
 
 	for i, pos := range positions {
 		if i > 0 {
 			indexBuilder.WriteString(", ")
 		}
-		indexBuilder.WriteString(fmt.Sprintf("%d", pos))
+		indexBuilder.WriteString(strconv.Itoa(pos))
 	}
 	indexBuilder.WriteString("}\n")
 	return indexBuilder.String(), nameConst
@@ -472,9 +475,7 @@ func (g *Writer) writeImports(rep enum.Representation) {
 		b.WriteString("\t\"iter\"\n")
 	}
 	b.WriteString("\t\"database/sql/driver\"\n")
-	// Track which packages we've already added
 	importedPkgs := make(map[string]bool)
-
 	for _, pair := range rep.TypeInfo.NameTypePair {
 		isTypeUsed := false
 		for _, enum := range rep.Enums {
@@ -540,15 +541,12 @@ func (g *Writer) writeAllMethod(rep enum.Representation) {
 	b.WriteString("\t}\n")
 	b.WriteString("}\n\n")
 	b.WriteString("// AllSlice returns all valid " + rep.TypeInfo.Camel + " values as a slice.\n")
-	if !rep.Legacy {
-		b.WriteString("// Deprecated: Use All() with Go 1.21+ range over function types instead.\n")
-	}
 	b.WriteString("func (c " + rep.TypeInfo.Lower + "Container) AllSlice() []" + rep.TypeInfo.Camel + " {\n")
 	b.WriteString("\treturn c.allSlice()\n")
 	b.WriteString("}\n\n")
 	b.WriteString("// All returns all valid " + rep.TypeInfo.Camel + " values.\n")
 	if !rep.Legacy {
-		b.WriteString("// In Go 1.21+, this can be used with range-over-function iteration:\n")
+		b.WriteString("// In Go 1.23+, this can be used with range-over-function iteration:\n")
 		b.WriteString("// ```\n")
 		b.WriteString("// for v := range " + rep.TypeInfo.PluralCamel + ".All() {\n")
 		b.WriteString("//     // process each enum value\n")

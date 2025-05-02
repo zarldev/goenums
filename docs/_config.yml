@@ -4,7 +4,7 @@ description: Type-safe enum generation for Go
 url: "https://zarldev.github.io/goenums"
 baseurl: "/goenums"
 repository: "zarldev/goenums"
-version: "0.3.6"
+version: "0.3.7"
 
 # Build settings
 markdown: kramdown

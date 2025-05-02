@@ -265,20 +265,6 @@ func Fields(s string) []string {
 	return strings.Fields(s)
 }
 
-// Trim returns a slice of the string s with all leading and trailing Unicode
-// code points contained in cutset removed.
-// This is a wrapper around strings.Trim.
-func Trim(s, cutset string) string {
-	return strings.Trim(s, s)
-}
-
-// TrimPrefix returns s without the provided leading prefix string.
-// If s doesn't start with prefix, s is returned unchanged.
-// This is a wrapper around strings.TrimPrefix.
-func TrimPrefix(s, prefix string) string {
-	return strings.TrimPrefix(s, prefix)
-}
-
 // LastIndex returns the index of the last instance of sep in s, or -1 if sep is not present in s.
 // This is a wrapper around strings.LastIndex.
 func LastIndex(s, sep string) int {
@@ -289,14 +275,20 @@ func LastIndex(s, sep string) int {
 // If old is empty, it matches at the beginning of the string and after each UTF-8 sequence, yielding up to k+1 replacements for a len(s) = k string.
 // If new is empty, it removes all instances of old from s.
 // This is a wrapper around strings.ReplaceAll.
-func ReplaceAll(s, old, new string) string {
-	return strings.ReplaceAll(s, old, new)
+func ReplaceAll(s, o, n string) string {
+	return strings.ReplaceAll(s, o, n)
 }
 
 const (
 	initialBufferSize = 512
 	enumExtraBuffer   = 100
 )
+
+// EnumBuilder is a wrapper around strings.Builder with preallocated buffer size.
+// It is used to build the enum string representation.
+type EnumBuilder struct {
+	b *strings.Builder
+}
 
 // NewEnumBuilder creates a new EnumBuilder with an initial allocated buffer size
 // based on the number of enums and their alias lengths.
@@ -310,12 +302,6 @@ func NewEnumBuilder(reps enum.Representation) *EnumBuilder {
 	return &EnumBuilder{
 		b: &b,
 	}
-}
-
-// EnumBuilder is a wrapper around strings.Builder with preallocated buffer size.
-// It is used to build the enum string representation.
-type EnumBuilder struct {
-	b *strings.Builder
 }
 
 // WriteString writes the string s to the EnumBuilder

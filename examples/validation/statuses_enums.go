@@ -6,7 +6,7 @@
 //
 // goenums status.go
 
-package validationstrings
+package validation
 
 import (
 	"bytes"
@@ -238,17 +238,17 @@ func _() {
 	_ = x[booked-5]
 }
 
-const _statuses_name = "FAILEDPASSEDSKIPPEDSCHEDULEDRUNNINGBOOKED"
+const _statusesName = "FAILEDPASSEDSKIPPEDSCHEDULEDRUNNINGBOOKED"
 
-var _statuses_index = [...]uint16{0, 6, 12, 19, 28, 35, 41}
+var _statusesIdx = [...]uint16{0, 6, 12, 19, 28, 35, 41}
 
 // String returns the string representation of the Status value.
 // For valid values, it returns the name of the constant.
 // For invalid values, it returns a string in the format "statuses(N)",
 // where N is the numeric value.
 func (i status) String() string {
-	if i < 0 || i >= status(len(_statuses_index)-1) {
+	if i < 0 || i >= status(len(_statusesIdx)-1) {
 		return "statuses(" + (strconv.FormatInt(int64(i), 10) + ")")
 	}
-	return _statuses_name[_statuses_index[i]:_statuses_index[i+1]]
+	return _statusesName[_statusesIdx[i]:_statusesIdx[i+1]]
 }
