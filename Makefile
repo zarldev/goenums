@@ -7,6 +7,28 @@ GIT_DIRTY := $(shell git status --porcelain 2>/dev/null | wc -l | sed -e 's/^ */
 # Properly formatted LDFLAGS
 LDFLAGS := -ldflags "-X github.com/zarldev/goenums/internal/version.CURRENT='$(VERSION)' -X github.com/zarldev/goenums/internal/version.BUILD='$(BUILD_TIME)' -X github.com/zarldev/goenums/internal/version.COMMIT='$(GIT_COMMIT)$(GIT_DIRTY)'"
 PRODLDFLAGS := -ldflags "-s -w -X github.com/zarldev/goenums/internal/version.CURRENT='$(VERSION)' -X github.com/zarldev/goenums/internal/version.BUILD='$(BUILD_TIME)' -X github.com/zarldev/goenums/internal/version.COMMIT='$(GIT_COMMIT)$(GIT_DIRTY)'"
+
+release-tag:
+	@echo "Checking for uncommitted changes..."
+	@if [ "$$(git status --porcelain | wc -l)" -ne "0" ]; then \
+		echo "Error: Working directory has uncommitted changes. Commit or stash them first."; \
+		exit 1; \
+	fi
+	@echo "Creating git tag $(VERSION)..."
+	git tag -a $(VERSION) -m "Release $(VERSION)"
+	@echo "Tag created. Push with: git push origin $(VERSION)"
+
+# Release build that ensures a clean state
+release-build: release-tag build-prod
+	@echo "Built release version $(VERSION)"
+
+# Build all platforms from clean tagged state
+release-all: release-tag
+	$(MAKE) build-linux
+	$(MAKE) build-darwin
+	$(MAKE) build-windows
+	@echo "Built all platforms for release $(VERSION)"
+
 # Debug target to verify variable values
 debug-version:
 	@echo "VERSION: $(VERSION)"
