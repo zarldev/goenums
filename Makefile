@@ -23,11 +23,32 @@ release-build: build-prod
 	@echo "Built release version $(VERSION)"
 
 # Build all platforms from clean tagged state
-release-all: 
-	$(MAKE) build-linux
-	$(MAKE) build-darwin
-	$(MAKE) build-windows
-	@echo "Built all platforms for release $(VERSION)"
+release-all: build-linux-archive build-darwin-archive build-windows-archive
+	@echo "Built all platforms and archived for release $(VERSION)"
+
+build-linux-archive: build-linux
+	mkdir -p dist
+	cp bin/linux/amd64/goenums dist/goenums-$(VERSION)-linux-amd64
+	cp bin/linux/arm64/goenums dist/goenums-$(VERSION)-linux-arm64
+	tar -czf dist/goenums-$(VERSION)-linux-amd64.tar.gz -C dist goenums-$(VERSION)-linux-amd64
+	tar -czf dist/goenums-$(VERSION)-linux-arm64.tar.gz -C dist goenums-$(VERSION)-linux-arm64
+	rm dist/goenums-$(VERSION)-linux-amd64
+	rm dist/goenums-$(VERSION)-linux-arm64
+
+build-darwin-archive: build-darwin
+	mkdir -p dist
+	cp bin/darwin/amd64/goenums dist/goenums-$(VERSION)-darwin-amd64
+	cp bin/darwin/arm64/goenums dist/goenums-$(VERSION)-darwin-arm64
+	tar -czf dist/goenums-$(VERSION)-darwin-amd64.tar.gz -C dist goenums-$(VERSION)-darwin-amd64
+	tar -czf dist/goenums-$(VERSION)-darwin-arm64.tar.gz -C dist goenums-$(VERSION)-darwin-arm64
+	rm dist/goenums-$(VERSION)-darwin-amd64
+	rm dist/goenums-$(VERSION)-darwin-arm64
+
+build-windows-archive: build-windows
+	mkdir -p dist
+	cp bin/windows/amd64/goenums.exe dist/goenums-$(VERSION)-windows-amd64.exe
+	tar -czf dist/goenums-$(VERSION)-windows-amd64.tar.gz -C dist goenums-$(VERSION)-windows-amd64.exe
+	rm dist/goenums-$(VERSION)-windows-amd64.exe
 
 # Debug target to verify variable values
 debug-version:
