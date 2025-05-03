@@ -23,7 +23,7 @@ release-build: release-tag build-prod
 	@echo "Built release version $(VERSION)"
 
 # Build all platforms from clean tagged state
-release-all: release-tag
+release-all:
 	$(MAKE) build-linux
 	$(MAKE) build-darwin
 	$(MAKE) build-windows

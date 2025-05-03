@@ -301,7 +301,7 @@ func (g *Writer) writeIntParsingMethod(rep enum.Representation) {
 	b.WriteString("// If the integer doesn't correspond to a valid enum value, invalid" + rep.TypeInfo.Camel + " is returned.\n")
 	b.WriteString("func intTo" + rep.TypeInfo.Camel + "(i int) " + rep.TypeInfo.Camel + " {\n")
 	if rep.TypeInfo.Index != 0 {
-		b.WriteString("\ti = i - " + strconv.Itoa(rep.TypeInfo.Index) + "\n")
+		b.WriteString("\ti -= " + strconv.Itoa(rep.TypeInfo.Index) + "\n")
 	}
 	b.WriteString("\tif i < 0 || i >= len(" + rep.TypeInfo.PluralCamel + ".allSlice()) {\n")
 	b.WriteString("\t\treturn invalid" + rep.TypeInfo.Camel + "\n")
@@ -339,11 +339,8 @@ func (g *Writer) writeValueMethod(rep enum.Representation) {
 }
 func (g *Writer) generateIndexAndNameRun(rep enum.Representation) (string, string) {
 	var namesBuilder strings.EnumBuilder
-	positions := make([]int, 0, len(rep.Enums)+rep.TypeInfo.Index+1)
-	positions = append(positions, 0)
-	for i := range rep.TypeInfo.Index {
-		positions = append(positions, positions[i])
-	}
+	positions := make([]int, 1, len(rep.Enums)+1)
+	positions[0] = 0
 	for _, enum := range rep.Enums {
 		namesBuilder.WriteString(enum.Info.Alias)
 		positions = append(positions, namesBuilder.Len())
@@ -363,25 +360,32 @@ func (g *Writer) generateIndexAndNameRun(rep enum.Representation) (string, strin
 	indexBuilder.WriteString("}\n")
 	return indexBuilder.String(), nameConst
 }
-
 func (g *Writer) writeStringMethod(rep enum.Representation) {
 	indexVar, nameConst := g.generateIndexAndNameRun(rep)
 	var b strings.EnumBuilder
 	b.WriteString("const " + nameConst)
 	b.WriteString("var " + indexVar)
-
 	b.WriteString("// String returns the string representation of the " + rep.TypeInfo.Camel + " value.\n")
 	b.WriteString("// For valid values, it returns the name of the constant.\n")
 	b.WriteString("// For invalid values, it returns a string in the format \"" + rep.TypeInfo.Lower + "(N)\",\n")
 	b.WriteString("// where N is the numeric value.\n")
-
 	b.WriteString("func (i " + rep.TypeInfo.Name + ") String() string {\n")
-	b.WriteString(fmt.Sprintf("\tif i < %d || i >= %s(len(%sIdx)-1) {\n",
-		rep.TypeInfo.Index, rep.TypeInfo.Name, rep.TypeInfo.Lower))
+	b.WriteString(fmt.Sprintf("\tif i < %d || i > %s(len(%sIdx)-1)+%d {\n",
+		rep.MinValue, rep.TypeInfo.Name, rep.TypeInfo.Lower, rep.MinValue-1))
 	b.WriteString("\t\treturn \"" + rep.TypeInfo.Lower + "(\" + (strconv.FormatInt(int64(i), 10) + \")\")\n")
 	b.WriteString("\t}\n")
-	b.WriteString(fmt.Sprintf("\treturn %sName[%sIdx[i]:%sIdx[i+1]]\n",
-		rep.TypeInfo.Lower, rep.TypeInfo.Lower, rep.TypeInfo.Lower))
+
+	// Calculate zero-based index offset based on MinValue
+	if rep.MinValue == 0 {
+		// zero-based enums: index directly
+		b.WriteString(fmt.Sprintf("\treturn %sName[%sIdx[i]:%sIdx[i+1]]\n",
+			rep.TypeInfo.Lower, rep.TypeInfo.Lower, rep.TypeInfo.Lower))
+	} else {
+		// one-based or higher: subtract MinValue to get zero-based index
+		b.WriteString(fmt.Sprintf("\tindex := int(i) - %d\n", rep.MinValue))
+		b.WriteString(fmt.Sprintf("\treturn %sName[%sIdx[index]:%sIdx[index+1]]\n",
+			rep.TypeInfo.Lower, rep.TypeInfo.Lower, rep.TypeInfo.Lower))
+	}
 	b.WriteString("}\n")
 	g.write(b.String())
 }

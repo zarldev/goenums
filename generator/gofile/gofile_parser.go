@@ -171,8 +171,8 @@ func (p *Parser) collectRepresentations(node *ast.File,
 					comment = strings.ReplaceAll(comment, "invalid", "")
 				}
 				var (
-					aliases   []string = make([]string, 0)
-					valueStrs []string = make([]string, 0)
+					aliases   = make([]string, 0)
+					valueStrs = make([]string, 0)
 				)
 				s1, s2 := strings.SplitBySpace(strings.TrimLeft(comment, " "))
 				hasAliases := false
@@ -245,7 +245,6 @@ func (p *Parser) collectRepresentations(node *ast.File,
 				entry.iotaIdx++
 			}
 			enumsByType[currIotaType] = entry
-
 		}
 		return false
 	})
@@ -265,10 +264,17 @@ func (p *Parser) collectRepresentations(node *ast.File,
 		if strings.IsRegularPlural(camel) {
 			camel = strings.Singular(camel)
 		}
+		minValue := math.MaxInt32
+		for _, e := range info.enums {
+			if e.TypeInfo.Index < minValue {
+				minValue = e.TypeInfo.Index
+			}
+		}
 		rep := enum.Representation{
-			Version:        version.CURRENT,
-			GenerationTime: time.Now(),
-
+			Version:         version.CURRENT,
+			GenerationTime:  time.Now(),
+			MinValue:        minValue,
+			Enums:           info.enums,
 			PackageName:     packageName,
 			Failfast:        cfg.Failfast,
 			Legacy:          cfg.Legacy,
@@ -285,7 +291,6 @@ func (p *Parser) collectRepresentations(node *ast.File,
 				PluralCamel:  camelPlural,
 				NameTypePair: info.nameTPairs,
 			},
-			Enums: info.enums,
 		}
 		representations = append(representations, rep)
 	}
@@ -686,9 +691,13 @@ func (p *Parser) iotaInfo(valueSpec *ast.ValueSpec, typeComments typeComments) (
 					}
 				}
 			}
-			if y, ok := be.Y.(*ast.BasicLit); ok {
-				if idx, err := strconv.Atoi(y.Value); err == nil {
-					iotaIdx = idx
+			if be.Op == token.ADD {
+				if x, ok := be.X.(*ast.Ident); ok && x.Name == iotaIdentifier {
+					if y, ok := be.Y.(*ast.BasicLit); ok {
+						if idx, err := strconv.Atoi(y.Value); err == nil {
+							iotaIdx = idx
+						}
+					}
 				}
 			}
 		}

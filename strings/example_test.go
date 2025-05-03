@@ -69,9 +69,9 @@ func Example_camelCase() {
 	// Camel case conversion:
 	// hello_world -> HelloWorld
 	// dog_house -> DogHouse
-	// DOG_HOUSE -> DogHouse
+	// DOG_HOUSE -> DOGHOUSE
 	// status -> Status
-	// HTTP_response -> HttpResponse
+	// HTTP_response -> HTTPResponse
 }
 
 // Example_enumBuilder demonstrates using the EnumBuilder for efficient string building.

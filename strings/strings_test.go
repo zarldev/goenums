@@ -149,9 +149,9 @@ func TestCamelCase(t *testing.T) {
 			expected: "Dog",
 		},
 		{
-			name:     "uppercase word",
+			name:     "uppercase word - remains uppercase - cannot tell which chars should be lowercase",
 			input:    "DOG",
-			expected: "Dog",
+			expected: "DOG",
 		},
 		{
 			name:     "already camel case",

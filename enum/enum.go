@@ -74,6 +74,7 @@ type Representation struct {
 	// Information about the enum type being generated.
 	PackageName    string
 	TypeInfo       TypeInfo
+	MinValue       int
 	Enums          []Enum
 	SourceFilename string
 	OutputFilename string

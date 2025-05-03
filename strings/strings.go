@@ -223,7 +223,6 @@ func CamelCase(in string) string {
 			continue
 		}
 		runes := []rune(part)
-		// Capitalize first letter if it's lowercase
 		if len(runes) > 0 {
 			result.WriteRune(unicode.ToUpper(runes[0]))
 			result.WriteString(string(runes[1:]))

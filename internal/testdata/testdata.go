@@ -1344,7 +1344,7 @@ var (
 			Name:            "enum with plural type - discount - default",
 			Source:          source.FromFileSystem(FS, "plural/discount.go"),
 			Config:          DefaultConfig,
-			ExpectedFiles:   []string{"plural/discounttype_enums.go"},
+			ExpectedFiles:   []string{"plural/discounttypes_enums.go"},
 			Representations: []enum.Representation{saleRepresentation},
 		},
 		{
