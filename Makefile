@@ -40,7 +40,7 @@ debug-version:
 # Build with clear output
 build: deps test
 	mkdir -p bin
-	go build $(LDFLAGS) -o bin/goenums goenums.go
+	go build  $(LDFLAGS) -o bin/goenums goenums.go
 	@echo "Build with version $(VERSION) ($(BUILD_TIME), $(GIT_COMMIT)$(GIT_DIRTY))"
 
 deps:
@@ -49,7 +49,7 @@ deps:
 
 # Production build command - explicitly uses the prod tag
 build-prod:
-	go build -tags=prod $(PRODLDFLAGS) -o bin/goenums goenums.go
+	go build -trimpath -tags=prod $(PRODLDFLAGS) -o bin/goenums goenums.go
 
 # Other platform-specific builds
 build-linux: generate test
