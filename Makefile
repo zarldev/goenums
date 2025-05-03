@@ -2,7 +2,7 @@
 VERSION := v0.3.8
 BUILD_TIME := $(shell date +%Y%m%d-%H:%M:%S)
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-GIT_DIRTY := $(shell git status --porcelain 2>/dev/null | wc -l | sed -e 's/^ *//' | xargs test 0 -eq || echo "-dirty")
+GIT_DIRTY := $(shell if [ -n "$$(git status --porcelain)" ]; then echo "-dirty"; fi)
 
 # Properly formatted LDFLAGS
 LDFLAGS := -ldflags "-X github.com/zarldev/goenums/internal/version.CURRENT='$(VERSION)' -X github.com/zarldev/goenums/internal/version.BUILD='$(BUILD_TIME)' -X github.com/zarldev/goenums/internal/version.COMMIT='$(GIT_COMMIT)$(GIT_DIRTY)'"
@@ -19,7 +19,7 @@ release-tag:
 	@echo "Tag created. Push with: git push origin $(VERSION)"
 
 # Release build that ensures a clean state
-release-build: release-tag build-prod
+release-build: build-prod
 	@echo "Built release version $(VERSION)"
 
 # Build all platforms from clean tagged state
