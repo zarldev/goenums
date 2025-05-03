@@ -298,16 +298,3 @@ func buildFileList(filenames []string) string {
 	}
 	return builder.String()
 }
-
-func buildFileList(filenames []string) string {
-	if len(filenames) == 0 {
-		return ""
-	}
-	var builder strings.EnumBuilder
-	builder.WriteString(filenames[0])
-	for _, filename := range filenames[1:] {
-		builder.WriteString(", ")
-		builder.WriteString(filename)
-	}
-	return builder.String()
-}
