@@ -24,7 +24,7 @@ jobs:
       run: gofmt -s -l . > gofmt.out
     - name: gofmt output
       run: | 
-       output=$(cat gofmt.out
+       output=$(cat gofmt.out | grep -v "^internal/testdata/")
        if [ -n "$output" ]; then 
           echo "gofmt found issues with the following files:"
           echo "$output
