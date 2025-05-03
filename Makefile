@@ -19,7 +19,7 @@ release-tag:
 	@echo "Tag created. Push with: git push origin $(VERSION)"
 
 # Release build that ensures a clean state
-release-build: release-tag build-prod
+release-build: build-prod
 	@echo "Built release version $(VERSION)"
 
 # Build all platforms from clean tagged state
