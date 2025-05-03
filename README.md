@@ -199,6 +199,7 @@ func (p *Status) Scan(value any) error {
 func (p Status) Value() (driver.Value, error) {
 	return p.String(), nil
 }
+```
 
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface for Status.
 // It decodes the enum value from a byte slice.
@@ -388,6 +389,7 @@ Produces a go output file called `planets_enums.go` with the following content:
 // using the command:
 //
 // goenums planets.go
+
 
 package solarsystem
 
