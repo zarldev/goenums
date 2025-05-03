@@ -23,16 +23,14 @@ jobs:
       id: gofmt
       run: gofmt -s -l . > gofmt.out
     - name: gofmt output
-      run: | 
-       output=$(cat gofmt.out | grep -v "^internal/testdata/")
-       if [ -n "$output" ]; then 
-          echo "gofmt found issues with the following files:"
-          echo "$output
-          exit 1; fi
-       else
+      run: |
+        if gofmt -s -l . | grep -v 'internal/testdata' | tee gofmt.out | grep .; then
+          echo "gofmt found issues with the following files (excluding internal/testdata):"
+          cat gofmt.out
+          exit 1
+        else
           echo "gofmt found no issues."
-       fi
-       exit 0
+        fi
     - name: go vet
       run: go vet -c 5 ./...
     - name: run tests
