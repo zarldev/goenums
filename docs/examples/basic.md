@@ -93,9 +93,16 @@ if err != nil {
 }
 ```
 
-## JSON & Database Storage
+## JSON, Text, Binary, and Database Storage
 
-The generated enum type also implements the `json.Unmarshal` and `json.Marshal` interfaces along with the `sql.Scanner` and `sql.Valuer` interfaces to handle parsing over the wire via HTTP or via a Database.
+The generated enum type implements the:
+
+* `json.Unmarshal` and `json.Marshal` interfaces
+* `sql.Scanner` and `sql.Valuer` interfaces 
+* `encoding.BinaryMarshaler` and `encoding.BinaryUnmarshaler` interfaces
+* `encoding.TextMarshaler` and `encoding.TextUnmarshaler` interfaces
+
+These interfaces allow you to use the enum type in JSON, text, binary, and database storage seamlessly.
 
 # Basic Usage After Generation
 

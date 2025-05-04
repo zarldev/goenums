@@ -40,9 +40,16 @@ fmt.Printf("Weight on %s: %.2f kg\n",
 fmt.Printf("Earth radius: %.1f km\n", solarsystem.Planets.EARTH.RadiusKm)
 ```
 
-## JSON & Database Storage
+## JSON, Text, Binary, and Database Storage
 
-The generated enum type also implements the `json.Unmarshal` and `json.Marshal` interfaces along with the `sql.Scanner` and `sql.Valuer` interfaces for seemless JSON and database integration.
+The generated enum type implements the:
+
+* `json.Unmarshal` and `json.Marshal` interfaces
+* `sql.Scanner` and `sql.Valuer` interfaces 
+* `encoding.BinaryMarshaler` and `encoding.BinaryUnmarshaler` interfaces
+* `encoding.TextMarshaler` and `encoding.TextUnmarshaler` interfaces
+
+These interfaces allow you to use the enum type in JSON, text, binary, and database storage seamlessly.
 
 ```go
 // JSON example

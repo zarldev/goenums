@@ -18,6 +18,18 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version-file: 'go.mod'
+        cache-dependency-path: 'go.sum'
+    - name: gofmt check
+      run: |
+        if gofmt -s -l . | grep -v 'internal/testdata' | tee gofmt.out | grep .; then
+          echo "gofmt found issues with the following files (excluding internal/testdata):"
+          cat gofmt.out
+          exit 1
+        else
+          echo "gofmt found no issues."
+        fi
+    - name: go vet
+      run: go vet -c 5 ./...
     - name: run tests
       run: go test -v --race ./...
     - name: build

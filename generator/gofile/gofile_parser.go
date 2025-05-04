@@ -16,6 +16,7 @@ import (
 	"slices"
 	"strconv"
 	"time"
+	"unicode"
 
 	"github.com/zarldev/goenums/enum"
 	"github.com/zarldev/goenums/generator/config"
@@ -52,8 +53,8 @@ func WithSource(source enum.Source) ParserOption {
 	}
 }
 
-// WiithConfiguration sets the configuration for the parser.
-func WithParserConfig(configuration config.Configuration) ParserOption {
+// WithParserConfiguration sets the configuration for the parser.
+func WithParserConfiguration(configuration config.Configuration) ParserOption {
 	return func(p *Parser) {
 		p.Configuration = configuration
 	}
@@ -78,7 +79,7 @@ func NewParser(opts ...ParserOption) *Parser {
 func (p *Parser) Parse(ctx context.Context) ([]enum.Representation, error) {
 	defer func() {
 		if r := recover(); r != nil {
-			slog.Error("unexpected panic in parser",
+			slog.Default().Error("unexpected panic in parser",
 				"version", version.CURRENT,
 				"build", version.BUILD,
 				"commit", version.COMMIT,
@@ -98,10 +99,10 @@ func (p *Parser) doParse(ctx context.Context) ([]enum.Representation, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrReadGoFile, err)
 	}
-	slog.Debug("parsing source content")
+	slog.Default().DebugContext(ctx, "parsing source content")
 	filename := p.source.Filename()
 	fset := token.NewFileSet()
-	slog.Debug("parsing file", "filename", filename)
+	slog.Default().DebugContext(ctx, "parsing file", "filename", filename)
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
@@ -109,11 +110,11 @@ func (p *Parser) doParse(ctx context.Context) ([]enum.Representation, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrParseGoFile, err)
 	}
-	slog.Debug("collecting all enum representations")
+	slog.Default().DebugContext(ctx, "collecting all enum representations")
 	typeComments := p.getTypeComments(node)
 	reps := p.collectRepresentations(node, filename, typeComments,
 		p.Configuration)
-	slog.Debug("collected all enum representations", "count", len(reps))
+	slog.Default().DebugContext(ctx, "collected all enum representations", "count", len(reps))
 	return reps, nil
 }
 
@@ -133,9 +134,9 @@ func (p *Parser) collectRepresentations(node *ast.File,
 	filename string, typeComments map[string]string,
 	cfg config.Configuration) []enum.Representation {
 	packageName := p.getPackageName(node)
-	slog.Debug("enum package name", "name", packageName)
+	slog.Default().Debug("enum package name", "name", packageName)
 	enumsByType := make(map[string]tempHolder)
-	slog.Debug("traversing ast")
+	slog.Default().Debug("traversing ast")
 	ast.Inspect(node, func(n ast.Node) bool {
 		decl, ok := n.(*ast.GenDecl)
 		if !ok || decl.Tok != token.CONST {
@@ -169,9 +170,54 @@ func (p *Parser) collectRepresentations(node *ast.File,
 				if !valid {
 					comment = strings.ReplaceAll(comment, "invalid", "")
 				}
-				comment, alias, addAliases := p.getAliasNames(comment, name)
-				values := p.getValues(comment)
-				ntps := p.copyNameTPairs(currNTPs, values)
+				var (
+					aliases   = make([]string, 0)
+					valueStrs = make([]string, 0)
+				)
+				s1, s2 := strings.SplitBySpace(strings.TrimLeft(comment, " "))
+				hasAliases := false
+				if s1 == "" && s2 == "" {
+					hasAliases = false
+				}
+				if s2 != "" && len(currNTPs) >= 1 {
+					hasAliases = true
+					aliases = strings.Split(strings.TrimSpace(s1), ",")
+					vsr := strings.Split(strings.TrimSpace(s2), ",")
+					for _, v := range vsr {
+						if v != "" {
+							valueStrs = append(valueStrs, v)
+						}
+					}
+				}
+				if s1 != "" && len(currNTPs) == 0 {
+					hasAliases = true
+					aliases = strings.Split(strings.TrimSpace(s1), ",")
+					vsr := strings.Split(strings.TrimSpace(s2), ",")
+					for _, v := range vsr {
+						if v != "" {
+							valueStrs = append(valueStrs, v)
+						}
+					}
+				}
+				if !hasAliases {
+					vsr := strings.Split(strings.TrimSpace(s1), ",")
+					for _, v := range vsr {
+						if v != "" {
+							valueStrs = append(valueStrs, v)
+						}
+					}
+					aliases = []string{}
+				}
+
+				ntps := p.copyNameTPairs(currNTPs, valueStrs)
+				camel := strings.CamelCase(currIotaType)
+				if strings.IsRegularPlural(camel) {
+					camel = strings.Singular(camel)
+				}
+				alias := name.Name
+				if len(aliases) > 0 {
+					alias = aliases[0]
+				}
 				entry.enums = append(entry.enums, enum.Enum{
 					Info: enum.Info{
 						Name:    name.Name,
@@ -179,13 +225,13 @@ func (p *Parser) collectRepresentations(node *ast.File,
 						Lower:   strings.ToLower(name.Name),
 						Upper:   strings.ToUpper(name.Name),
 						Alias:   alias,
-						Aliases: append([]string{alias}, addAliases...),
+						Aliases: append([]string{alias}, aliases...),
 						Value:   enumValue,
 						Valid:   valid,
 					},
 					TypeInfo: enum.TypeInfo{
 						Name:         currIotaType,
-						Camel:        strings.CamelCase(currIotaType),
+						Camel:        camel,
 						Lower:        strings.ToLower(currIotaType),
 						Upper:        strings.ToUpper(currIotaType),
 						NameTypePair: ntps,
@@ -196,6 +242,7 @@ func (p *Parser) collectRepresentations(node *ast.File,
 						TypeComment: p.getTypeComment(vs, typeComments),
 					},
 				})
+				entry.iotaIdx++
 			}
 			enumsByType[currIotaType] = entry
 		}
@@ -206,38 +253,54 @@ func (p *Parser) collectRepresentations(node *ast.File,
 	}
 	representations := make([]enum.Representation, 0, len(enumsByType))
 	for iotaType, info := range enumsByType {
-		slog.Debug("enum representation for type", "type", iotaType)
+		slog.Default().Debug("enum representation for type", "type", iotaType)
 		for _, v := range info.enums {
-			slog.Debug("enum information", "enum", v.Info.Name)
+			slog.Default().Debug("enum information", "enum", v.Info.Name)
 		}
-		lowerPlural, camelPlural := strings.PluralAndCamelPlural(iotaType)
+		plural := strings.Plural(iotaType)
+		lowerPlural := string(unicode.ToLower(rune(plural[0]))) + plural[1:]
+		camelPlural := strings.CamelCase(lowerPlural)
+		camel := strings.CamelCase(iotaType)
+		if strings.IsRegularPlural(camel) {
+			camel = strings.Singular(camel)
+		}
+		minValue := math.MaxInt32
+		for _, e := range info.enums {
+			if e.TypeInfo.Index < minValue {
+				minValue = e.TypeInfo.Index
+			}
+		}
 		rep := enum.Representation{
-			Version:        version.CURRENT,
-			GenerationTime: time.Now(),
-
+			Version:         version.CURRENT,
+			GenerationTime:  time.Now(),
+			MinValue:        minValue,
+			Enums:           info.enums,
 			PackageName:     packageName,
 			Failfast:        cfg.Failfast,
 			Legacy:          cfg.Legacy,
 			CaseInsensitive: cfg.Insensitive,
 			SourceFilename:  filename,
+			OutputFilename:  strings.ToLower(lowerPlural),
 			TypeInfo: enum.TypeInfo{
 				Index:        info.iotaIdx,
 				Name:         info.iotaType,
-				Camel:        strings.CamelCase(info.iotaType),
+				Camel:        camel,
 				Lower:        lowerPlural,
 				Upper:        strings.ToUpper(info.iotaType),
 				Plural:       lowerPlural,
 				PluralCamel:  camelPlural,
 				NameTypePair: info.nameTPairs,
 			},
-			Enums: info.enums,
 		}
 		representations = append(representations, rep)
 	}
 	return representations
 }
 
-func (p *Parser) parseEnumNameTypePairs(decl *ast.GenDecl, typeComments map[string]string) ([]enum.NameTypePair, string, int) {
+type typeComments = map[string]string
+
+func (p *Parser) parseEnumNameTypePairs(decl *ast.GenDecl, typeComms typeComments) (
+	[]enum.NameTypePair, string, int) {
 	var (
 		currNTPs     = make([]enum.NameTypePair, 0)
 		currIotaType = ""
@@ -245,7 +308,7 @@ func (p *Parser) parseEnumNameTypePairs(decl *ast.GenDecl, typeComments map[stri
 	)
 	if len(decl.Specs) > 0 {
 		if valueSpec, ok := decl.Specs[0].(*ast.ValueSpec); ok && len(valueSpec.Values) == 1 {
-			name, iType, iTypeComm, iIdx := p.iotaInfo(valueSpec, typeComments)
+			name, iType, iTypeComm, iIdx := p.iotaInfo(valueSpec, typeComms)
 			if (name == "" || name == "_") || iType == "" {
 				return currNTPs, currIotaType, idx
 			}
@@ -262,6 +325,7 @@ func (p *Parser) parseEnumNameTypePairs(decl *ast.GenDecl, typeComments map[stri
 // getEnumValue returns the value of the enum at the given index.
 // If the value is not specified or calculated, it returns the index.
 func (p *Parser) getEnumValue(idx int, vs *ast.ValueSpec, decl *ast.GenDecl) int {
+	// Find the position of this ValueSpec in the declaration
 	specIndex := 0
 	for i, s := range decl.Specs {
 		if s == vs {
@@ -269,19 +333,29 @@ func (p *Parser) getEnumValue(idx int, vs *ast.ValueSpec, decl *ast.GenDecl) int
 			break
 		}
 	}
-	if specIndex == 0 && len(vs.Values) > 0 {
+
+	// For iota-based enums, return the index directly
+	if len(vs.Values) == 0 {
+		return specIndex
+	}
+
+	// Handle explicit values
+	if len(vs.Values) > 0 {
+		// Check for binary expressions (like x + 1)
 		if binExpr, ok := vs.Values[0].(*ast.BinaryExpr); ok {
 			return p.specIndex(binExpr, specIndex, idx)
 		}
-	}
-	if specIndex == 0 {
-		return idx
-	}
-	if len(decl.Specs) > 0 && len(decl.Specs[0].(*ast.ValueSpec).Values) > 0 {
-		if binExpr, ok := decl.Specs[0].(*ast.ValueSpec).Values[0].(*ast.BinaryExpr); ok {
-			return p.specIndex(binExpr, specIndex, idx)
+
+		// Handle literal values
+		if lit, ok := vs.Values[0].(*ast.BasicLit); ok {
+			val, err := strconv.Atoi(lit.Value)
+			if err == nil {
+				return val
+			}
 		}
 	}
+
+	// Default to using the spec index
 	return specIndex
 }
 
@@ -304,12 +378,12 @@ func (*Parser) specIndex(expr *ast.BinaryExpr, specIdx int, idx int) int {
 			}
 		}
 	}
-	return 0
+	return idx
 }
 
 // getTypeComment retrieves the documentation comment associated with a type.
 // This is used to extract metadata about enum types from their definitions.
-func (p *Parser) getTypeComment(valueSpec *ast.ValueSpec, typeComments map[string]string) string {
+func (p *Parser) getTypeComment(valueSpec *ast.ValueSpec, typeComments typeComments) string {
 	if valueSpec.Type != nil {
 		constantType := fmt.Sprintf("%s", valueSpec.Type)
 		if comment, exists := typeComments[constantType]; exists {
@@ -331,8 +405,8 @@ func (p *Parser) getPackageName(node *ast.File) string {
 
 // getTypeComments collects all comments associated with type declarations.
 // This builds a mapping of type names to their documentation comments.
-func (p *Parser) getTypeComments(node *ast.File) map[string]string {
-	typeComments := make(map[string]string)
+func (p *Parser) getTypeComments(node *ast.File) typeComments {
+	typeComms := make(map[string]string)
 	ast.Inspect(node, func(n ast.Node) bool {
 		decl, ok := n.(*ast.GenDecl)
 		if !ok || decl.Tok != token.TYPE {
@@ -344,29 +418,11 @@ func (p *Parser) getTypeComments(node *ast.File) map[string]string {
 				continue
 			}
 			comment := strings.TrimSpace(typeSpec.Comment.List[0].Text[2:])
-			typeComments[typeSpec.Name.Name] = comment
+			typeComms[typeSpec.Name.Name] = comment
 		}
 		return true
 	})
-	return typeComments
-}
-
-// getValues extracts value information from a comment string.
-// This is used to parse comma-separated values in enum comments.
-func (p *Parser) getValues(comment string) []string {
-	values := strings.Split(comment, ",")
-	result := make([]string, 0, len(values))
-	for _, v := range values {
-		v = strings.TrimSpace(v)
-		if v == "" {
-			continue
-		}
-		if strings.HasPrefix(v, `"`) && strings.HasSuffix(v, `"`) {
-			v = v[1 : len(v)-1]
-		}
-		result = append(result, v)
-	}
-	return result
+	return typeComms
 }
 
 // copyNameTPairs creates a copy of name-type pairs with updated values.
@@ -391,7 +447,7 @@ func formatValueByType(v, typeName string) string {
 			parsed, err := strconv.ParseUint(s, 10, strconv.IntSize)
 			return uint(parsed), err
 		})
-		return fmt.Sprintf("%d", val)
+		return strconv.FormatUint(uint64(val), 10)
 	case "uint8":
 		val := parseOrDefault(v, uint8(0), func(s string) (uint8, error) {
 			parsed, err := strconv.ParseUint(s, 10, 8)
@@ -400,7 +456,7 @@ func formatValueByType(v, typeName string) string {
 			}
 			return uint8(parsed), nil
 		})
-		return fmt.Sprintf("%d", val)
+		return strconv.FormatUint(uint64(val), 10)
 	case "uint16":
 		val := parseOrDefault(v, uint16(0), func(s string) (uint16, error) {
 			parsed, err := strconv.ParseUint(s, 10, 16)
@@ -409,7 +465,7 @@ func formatValueByType(v, typeName string) string {
 			}
 			return uint16(parsed), nil
 		})
-		return fmt.Sprintf("%d", val)
+		return strconv.FormatUint(uint64(val), 10)
 	case "uint32":
 		val := parseOrDefault(v, uint32(0), func(s string) (uint32, error) {
 			parsed, err := strconv.ParseUint(s, 10, 32)
@@ -418,17 +474,15 @@ func formatValueByType(v, typeName string) string {
 			}
 			return uint32(parsed), nil
 		})
-		return fmt.Sprintf("%d", val)
+		return strconv.FormatUint(uint64(val), 10)
 	case "uint64":
 		val := parseOrDefault(v, uint64(0), func(s string) (uint64, error) {
 			return strconv.ParseUint(s, 10, 64)
 		})
-		return fmt.Sprintf("%d", val)
+		return strconv.FormatUint(val, 10)
 	case "int":
-		val := parseOrDefault(v, int(0), func(s string) (int, error) {
-			return strconv.Atoi(s)
-		})
-		return fmt.Sprintf("%d", val)
+		val := parseOrDefault(v, int(0), strconv.Atoi)
+		return strconv.Itoa(val)
 	case "int8":
 		val := parseOrDefault(v, int8(0), func(s string) (int8, error) {
 			parsed, err := strconv.ParseInt(s, 10, 8)
@@ -437,7 +491,7 @@ func formatValueByType(v, typeName string) string {
 			}
 			return int8(parsed), nil
 		})
-		return fmt.Sprintf("%d", val)
+		return strconv.Itoa(int(val))
 	case "int16":
 		val := parseOrDefault(v, int16(0), func(s string) (int16, error) {
 			parsed, err := strconv.ParseInt(s, 10, 16)
@@ -446,7 +500,7 @@ func formatValueByType(v, typeName string) string {
 			}
 			return int16(parsed), nil
 		})
-		return fmt.Sprintf("%d", val)
+		return strconv.Itoa(int(val))
 	case "int32":
 		val := parseOrDefault(v, int32(0), func(s string) (int32, error) {
 			parsed, err := strconv.ParseInt(s, 10, 32)
@@ -455,12 +509,12 @@ func formatValueByType(v, typeName string) string {
 			}
 			return int32(parsed), nil
 		})
-		return fmt.Sprintf("%d", val)
+		return strconv.Itoa(int(val))
 	case "int64":
 		val := parseOrDefault(v, int64(0), func(s string) (int64, error) {
 			return strconv.ParseInt(s, 10, 64)
 		})
-		return fmt.Sprintf("%d", val)
+		return strconv.FormatInt(val, 10)
 	case "float32":
 		val := parseOrDefault(v, float32(0), func(s string) (float32, error) {
 			parsed, err := strconv.ParseFloat(s, 32)
@@ -476,24 +530,20 @@ func formatValueByType(v, typeName string) string {
 		})
 		return fmt.Sprintf("%f", val)
 	case "bool":
-		val := parseOrDefault(v, false, func(s string) (bool, error) {
-			return strconv.ParseBool(s)
-		})
-		return fmt.Sprintf("%t", val)
+		val := parseOrDefault(v, false, strconv.ParseBool)
+		return strconv.FormatBool(val)
 	case "string":
 		return fmt.Sprintf("%q", v)
 	case "time.Duration":
-		val := parseOrDefault(v, 0, func(s string) (time.Duration, error) {
-			return time.ParseDuration(s)
-		})
+		val := parseOrDefault(v, 0, time.ParseDuration)
 		hours := val.Hours()
-		str := fmt.Sprintf("%q", val)
-		if hours == math.Floor(hours) {
-			str = fmt.Sprintf("time.Hour * %d", int(hours))
-		} else if val.Minutes() == math.Floor(val.Minutes()) {
-			str = fmt.Sprintf("time.Minute * %d", int(val.Minutes()))
-		} else if val.Seconds() == math.Floor(val.Seconds()) {
-			str = fmt.Sprintf("time.Second * %d", int(val.Seconds()))
+		str := fmt.Sprintf("time.Hour * %d", int(hours))
+		if hours != math.Floor(hours) {
+			if val.Minutes() == math.Floor(val.Minutes()) {
+				str = fmt.Sprintf("time.Minute * %d", int(val.Minutes()))
+			} else if val.Seconds() == math.Floor(val.Seconds()) {
+				str = fmt.Sprintf("time.Second * %d", int(val.Seconds()))
+			}
 		}
 		return str
 	case "time.Time":
@@ -534,80 +584,8 @@ func formatValueByType(v, typeName string) string {
 		})
 		return val.Format(time.RFC3339)
 	default:
-		return fmt.Sprintf("%v", v)
+		return v
 	}
-}
-
-// getAliasNames extracts primary alias and additional aliases from comments.
-// This allows for separate string representations of enum values, including comma-separated aliases.
-// It returns the updated comment string, the primary alias, and a slice of additional aliases.
-func (p *Parser) getAliasNames(comment string, n *ast.Ident) (string, string, []string) {
-	if strings.LastIndex(comment, " ") < 1 {
-		comment = strings.TrimLeft(comment, " ")
-		return comment, n.Name, nil
-	}
-	comment = strings.TrimLeft(comment, " ")
-
-	primaryAlias := n.Name
-	var additionalAliases []string
-
-	if comment == "" {
-		return "", primaryAlias, nil
-	}
-	aliasesStr := comment
-	if strings.HasPrefix(aliasesStr, `"`) {
-		endQI := strings.Index(aliasesStr[1:], `"`)
-		if endQI != -1 {
-			primaryAlias = aliasesStr[1 : endQI+1]
-			restOfComment := aliasesStr[endQI+2:]
-			commaIdx := strings.Index(restOfComment, ",")
-			if commaIdx != -1 {
-				aliasPart := restOfComment[commaIdx+1:]
-				idx := strings.Index(aliasPart, " \"")
-				comment = aliasPart[idx+1:]
-				aliasPart = aliasPart[:idx]
-				additionalAliases = p.parseCommaList(aliasPart)
-			}
-			return comment, primaryAlias, additionalAliases
-		}
-	}
-	if strings.Count(aliasesStr, " ") >= 1 {
-		comment = aliasesStr[strings.Index(comment, " ")+1:]
-		aliasesStr = aliasesStr[:strings.Index(aliasesStr, " ")]
-	}
-	if strings.Count(aliasesStr, " ") == 0 {
-		// If comment is just a single word and not "invalid", use it as the alias
-		if !strings.Contains(aliasesStr, "invalid") {
-			primaryAlias = aliasesStr
-		}
-		return comment, primaryAlias, nil
-	}
-	return comment, primaryAlias, nil
-}
-
-// parseCommaList parses a comma-separated string into a slice of trimmed, non-empty strings.
-// It handles quoted values and removes the quotes.
-func (p *Parser) parseCommaList(s string) []string {
-	var result []string
-	parts := strings.Split(s, ",")
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
-		}
-		if strings.HasPrefix(part, `"`) && strings.HasSuffix(part, `"`) {
-			part = part[1 : len(part)-1]
-		}
-		result = append(result, part)
-	}
-	return result
-}
-
-// Keep the original getAliasName for backward compatibility
-// but make it use the new implementation
-func (p *Parser) getAliasName(comment string, n *ast.Ident, nameTPairs []enum.NameTypePair) (string, string) {
-	updatedComment, primaryAlias, _ := p.getAliasNames(comment, n)
-	return updatedComment, primaryAlias
 }
 
 // getComment retrieves the comment associated with a value specification.
@@ -629,21 +607,18 @@ func (p *Parser) nameTPairsFromComments(iotaTypeComment string, nameTPairs []enu
 		if len(v) == 0 {
 			continue
 		}
+		v = strings.TrimSpace(v)
 		var (
-			formatType         = "unknown"
-			openR, closeR      string
+			formatType         = "space"
+			openR, closeR      = " ", " "
 			nEnd, tStart, tEnd int
 		)
-		v = strings.TrimSpace(v)
 		if strings.Contains(v, "[") {
 			formatType = "bracket"
 			openR, closeR = "[", "]"
 		} else if strings.Contains(v, "(") {
 			formatType = "parenthesis"
 			openR, closeR = "(", ")"
-		} else if strings.Contains(v, " ") {
-			formatType = "space"
-			openR, closeR = " ", " "
 		}
 		nEnd = strings.Index(v, openR)
 		if nEnd == -1 {
@@ -681,7 +656,8 @@ const (
 
 // iotaInfo extracts information about iota-based enum declarations.
 // It identifies the enum type, name, and starting index value.
-func (p *Parser) iotaInfo(valueSpec *ast.ValueSpec, typeComments map[string]string) (string, string, string, int) {
+func (p *Parser) iotaInfo(valueSpec *ast.ValueSpec, typeComments typeComments) (
+	string, string, string, int) {
 	if len(valueSpec.Values) == 0 ||
 		len(valueSpec.Names) == 0 {
 		return "", "", "", 0
@@ -715,9 +691,13 @@ func (p *Parser) iotaInfo(valueSpec *ast.ValueSpec, typeComments map[string]stri
 					}
 				}
 			}
-			if y, ok := be.Y.(*ast.BasicLit); ok {
-				if idx, err := strconv.Atoi(y.Value); err == nil {
-					iotaIdx = idx
+			if be.Op == token.ADD {
+				if x, ok := be.X.(*ast.Ident); ok && x.Name == iotaIdentifier {
+					if y, ok := be.Y.(*ast.BasicLit); ok {
+						if idx, err := strconv.Atoi(y.Value); err == nil {
+							iotaIdx = idx
+						}
+					}
 				}
 			}
 		}
@@ -738,24 +718,4 @@ func parseOrDefault[T Parsable](s string, defaultVal T, parser func(string) (T, 
 		return val
 	}
 	return defaultVal
-}
-
-// formatValue formats values for code generation according to their type.
-// It ensures that values are properly quoted and formatted in generated code.
-func formatValue[T any](val T) string {
-	switch v := any(val).(type) {
-	case string:
-		if v == "" {
-			return `""`
-		}
-		return fmt.Sprintf("%q", v)
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
-		return fmt.Sprintf("%d", v)
-	case float32, float64:
-		return fmt.Sprintf("%g", v)
-	case bool:
-		return fmt.Sprintf("%t", v)
-	default:
-		return fmt.Sprintf("%v", v)
-	}
 }

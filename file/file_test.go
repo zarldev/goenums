@@ -1,10 +1,12 @@
-package file
+package file_test
 
 import (
 	"errors"
 	"io"
 	"strings"
 	"testing"
+
+	"github.com/zarldev/goenums/file"
 )
 
 func TestWriteToFileAndFormatFS(t *testing.T) {
@@ -19,12 +21,12 @@ func TestWriteToFileAndFormatFS(t *testing.T) {
 		{
 			name: "empty path",
 			path: "",
-			err:  ErrCreateFile,
+			err:  file.ErrCreateFile,
 		},
 		{
 			name: "nil write func",
 			path: "test.go",
-			err:  ErrWriteFile,
+			err:  file.ErrWriteFile,
 		},
 		{
 			name:     "valid go file without formatting",
@@ -45,7 +47,7 @@ func TestWriteToFileAndFormatFS(t *testing.T) {
 			path:    "invalid.go",
 			content: "this is not valid go code",
 			format:  true,
-			err:     ErrFormatFile,
+			err:     file.ErrFormatFile,
 		},
 		{
 			name:     "invalid go file without formatting",
@@ -65,12 +67,12 @@ func TestWriteToFileAndFormatFS(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fs := NewMemFS()
+			fs := file.NewMemFS()
 			writeFunc := func(w io.Writer) error {
 				_, err := io.WriteString(w, tt.content)
 				return err
 			}
-			err := WriteToFileAndFormatFS(t.Context(), fs, tt.path, tt.format, writeFunc)
+			err := file.WriteToFileAndFormatFS(t.Context(), fs, tt.path, tt.format, writeFunc)
 			if err != nil {
 				if tt.err != nil && !errors.Is(err, tt.err) {
 					t.Errorf("unexpected error: %v", err)

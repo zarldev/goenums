@@ -31,7 +31,7 @@ You should see the `goenums` logo and current version displayed:
  / /_/ / /_/ /  __/ / / / /_/ / / / / / (__  ) 
  \__, /\____/\___/_/ /_/\__,_/_/ /_/ /_/____/
 /____/
-                version: v0.3.6
+                version: v0.3.8
 ```
 
 # Prerequisites

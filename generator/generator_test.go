@@ -27,8 +27,9 @@ func TestGenerator_ParseAndWrite(t *testing.T) {
 	})
 	for _, tc := range testcases {
 		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
 			parser := gofile.NewParser(
-				gofile.WithParserConfig(tc.Config),
+				gofile.WithParserConfiguration(tc.Config),
 				gofile.WithSource(tc.Source))
 			wri := gofile.NewWriter(
 				gofile.WithWriterConfig(tc.Config),

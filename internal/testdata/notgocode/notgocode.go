@@ -1,6 +1,8 @@
 package invalid
 package alsoinvalid
 
+//go:generate goenums notgocode.go
+
 type invalid int
 
 var _ 

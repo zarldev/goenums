@@ -31,7 +31,7 @@ func TestGoFileParser_Parse(t *testing.T) {
 			t.Parallel()
 
 			parser := gofile.NewParser(
-				gofile.WithParserConfig(tc.Config),
+				gofile.WithParserConfiguration(tc.Config),
 				gofile.WithSource(tc.Source))
 
 			representations, err := parser.Parse(t.Context())

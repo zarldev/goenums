@@ -13,6 +13,7 @@ package strings
 
 import (
 	"strings"
+	"unicode"
 
 	"github.com/zarldev/goenums/enum"
 )
@@ -39,11 +40,23 @@ var irregular = map[string]string{
 	"status":   "statuses",
 }
 
-// PluralAndCamelPlural returns both lowercase and camel case versions of a plural form
-// for a given type name. It handles irregular plurals, compound words with
-// underscores, and applies standard English pluralization rules.
-func PluralAndCamelPlural(iotaType string) (string, string) {
-	return Plural(iotaType), CamelCase(Plural(strings.ToLower(iotaType)))
+func SplitBySpace(input string) (string, string) {
+	if strings.Contains(input, "\"") {
+		inQuote := false
+		for i, char := range input {
+			if char == '"' {
+				inQuote = !inQuote
+			} else if char == ' ' && !inQuote {
+				return input[:i], input[i+1:]
+			}
+		}
+		return input, ""
+	}
+	parts := strings.SplitN(input, " ", 2)
+	if len(parts) == 1 {
+		return parts[0], ""
+	}
+	return parts[0], parts[1]
 }
 
 // Plural returns the plural form of a given type name. It handles irregular plurals,
@@ -63,11 +76,11 @@ func Plural(iotaType string) string {
 			return lower
 		}
 	}
-	if isRegularPlural(lower) {
+	if IsRegularPlural(lower) {
 		if isUpper {
 			return ToUpper(lower)
 		}
-		return lower
+		return iotaType
 	}
 	if Contains(lower, "_") {
 		parts := Split(lower, "_")
@@ -81,7 +94,7 @@ func Plural(iotaType string) string {
 				break
 			}
 		}
-		if isRegularPlural(lastPart) {
+		if IsRegularPlural(lastPart) {
 			alreadyPlural = true
 		}
 		if !alreadyPlural {
@@ -111,7 +124,76 @@ func Plural(iotaType string) string {
 	return result
 }
 
-func isRegularPlural(word string) bool {
+// splitWords splits a CamelCase or PascalCase or ALLCAPS string into components
+func splitWords(s string) []string {
+	var words []string
+	var current strings.Builder
+
+	for i, r := range s {
+		if i > 0 && unicode.IsUpper(r) && (i+1 < len(s) && unicode.IsLower(rune(s[i+1]))) {
+			words = append(words, current.String())
+			current.Reset()
+		}
+		current.WriteRune(r)
+	}
+	words = append(words, current.String())
+	return words
+}
+
+// matchCasing copies the casing pattern from src to dst
+func matchCasing(src, dst string) string {
+	if src == strings.ToUpper(src) {
+		return strings.ToUpper(dst)
+	}
+	if src == strings.ToLower(src) {
+		return strings.ToLower(dst)
+	}
+	// Copy casing per character
+	srcRunes := []rune(src)
+	dstRunes := []rune(dst)
+	for i := 0; i < len(srcRunes) && i < len(dstRunes); i++ {
+		if unicode.IsUpper(srcRunes[i]) {
+			dstRunes[i] = unicode.ToUpper(dstRunes[i])
+		} else {
+			dstRunes[i] = unicode.ToLower(dstRunes[i])
+		}
+	}
+	return string(dstRunes)
+}
+
+func Singular(input string) string {
+	words := splitWords(input)
+	if len(words) == 0 {
+		return input
+	}
+
+	last := words[len(words)-1]
+	lower := strings.ToLower(last)
+
+	var singular string
+	// Irregular plural
+	for s, p := range irregular {
+		if lower == p {
+			singular = s
+			break
+		}
+	}
+	// Regular plural
+	if singular == "" && IsRegularPlural(lower) {
+		singular = lower[:len(lower)-1]
+	}
+	// Fallback
+	if singular == "" {
+		singular = lower
+	}
+
+	// Match casing and rebuild
+	singularCased := matchCasing(last, singular)
+	words[len(words)-1] = singularCased
+	return strings.Join(words, "")
+}
+
+func IsRegularPlural(word string) bool {
 	if len(word) < 2 {
 		return false
 	}
@@ -127,30 +209,27 @@ func isRegularPlural(word string) bool {
 //   - "hello_world" → "HelloWorld"
 //   - "dog_house" → "DogHouse"
 //   - "DOG_HOUSE" → "DogHouse"
+
 func CamelCase(in string) string {
 	if len(in) == 0 {
 		return ""
 	}
-	if Contains(in, "_") {
-		parts := Split(in, "_")
-		var result strings.Builder
-		for _, part := range parts {
-			if part == "" {
-				continue
-			}
-			lower := ToLower(part)
-			if lower != "" {
-				result.WriteString(ToUpper(lower[:1]))
-				result.WriteString(lower[1:])
-			}
+
+	parts := strings.Split(in, "_")
+	var result strings.Builder
+
+	for _, part := range parts {
+		if part == "" {
+			continue
 		}
-		return result.String()
+		runes := []rune(part)
+		if len(runes) > 0 {
+			result.WriteRune(unicode.ToUpper(runes[0]))
+			result.WriteString(string(runes[1:]))
+		}
 	}
-	lower := ToLower(in)
-	if len(lower) == 0 {
-		return ""
-	}
-	return ToUpper(lower[:1]) + lower[1:]
+
+	return result.String()
 }
 
 func regularPlural(word string) string {
@@ -219,6 +298,13 @@ func TrimLeft(s, cutset string) string {
 	return strings.TrimLeft(s, cutset)
 }
 
+// TrimRight returns a slice of the string with all trailing
+// characters contained in cutset removed.
+// This is a wrapper around strings.TrimRight.
+func TrimRight(s, cutset string) string {
+	return strings.TrimRight(s, cutset)
+}
+
 // HasPrefix tests whether the string starts with prefix.
 // This is a wrapper around strings.HasPrefix.
 func HasPrefix(s, prefix string) bool {
@@ -265,20 +351,6 @@ func Fields(s string) []string {
 	return strings.Fields(s)
 }
 
-// Trim returns a slice of the string s with all leading and trailing Unicode
-// code points contained in cutset removed.
-// This is a wrapper around strings.Trim.
-func Trim(s, cutset string) string {
-	return strings.Trim(s, s)
-}
-
-// TrimPrefix returns s without the provided leading prefix string.
-// If s doesn't start with prefix, s is returned unchanged.
-// This is a wrapper around strings.TrimPrefix.
-func TrimPrefix(s, prefix string) string {
-	return strings.TrimPrefix(s, prefix)
-}
-
 // LastIndex returns the index of the last instance of sep in s, or -1 if sep is not present in s.
 // This is a wrapper around strings.LastIndex.
 func LastIndex(s, sep string) int {
@@ -289,14 +361,20 @@ func LastIndex(s, sep string) int {
 // If old is empty, it matches at the beginning of the string and after each UTF-8 sequence, yielding up to k+1 replacements for a len(s) = k string.
 // If new is empty, it removes all instances of old from s.
 // This is a wrapper around strings.ReplaceAll.
-func ReplaceAll(s, old, new string) string {
-	return strings.ReplaceAll(s, old, new)
+func ReplaceAll(s, o, n string) string {
+	return strings.ReplaceAll(s, o, n)
 }
 
 const (
 	initialBufferSize = 512
 	enumExtraBuffer   = 100
 )
+
+// EnumBuilder is a wrapper around strings.Builder with preallocated buffer size.
+// It is used to build the enum string representation.
+type EnumBuilder struct {
+	b *strings.Builder
+}
 
 // NewEnumBuilder creates a new EnumBuilder with an initial allocated buffer size
 // based on the number of enums and their alias lengths.
@@ -310,12 +388,6 @@ func NewEnumBuilder(reps enum.Representation) *EnumBuilder {
 	return &EnumBuilder{
 		b: &b,
 	}
-}
-
-// EnumBuilder is a wrapper around strings.Builder with preallocated buffer size.
-// It is used to build the enum string representation.
-type EnumBuilder struct {
-	b *strings.Builder
 }
 
 // WriteString writes the string s to the EnumBuilder

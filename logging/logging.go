@@ -6,6 +6,7 @@ package logging
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -16,7 +17,7 @@ import (
 
 var (
 	// ErrLogging is a sentinel error used to identify logging-related errors.
-	ErrLogging = fmt.Errorf("logging error")
+	ErrLogging = errors.New("logging error")
 )
 
 // Configure sets up the default slog logger with appropriate settings.
@@ -88,70 +89,67 @@ func (h *logger) WithGroup(name string) slog.Handler {
 	}
 }
 
-// formatAttr formats a single attribute
+// formatAttr formats a single attribute with consistent, fixed-width spacing
 func formatAttr(a slog.Attr) string {
-	if a.Value.Kind() == slog.KindString {
-		return fmt.Sprintf("%s=%q", a.Key, a.Value.String())
+	const (
+		fixedWidth = 12
+		halfWidth  = fixedWidth / 2
+	)
+	if a.Key == "" {
+		padding := strings.Repeat(" ", halfWidth)
+		return fmt.Sprintf("%s%v", padding, a.Value.Any())
 	}
-	return fmt.Sprintf("%s=%v", a.Key, a.Value.Any())
+	spaces := fixedWidth - len(a.Key)
+	if spaces < 0 {
+		spaces = 0
+	}
+	padding := strings.Repeat(" ", spaces)
+	return fmt.Sprintf("%s:%s%v", a.Key, padding, a.Value.Any())
 }
 
 // Handle formats and outputs the log record
 func (h *logger) Handle(ctx context.Context, r slog.Record) error {
-	// Build the list of all attributes to include in the log
 	var allAttrs []string
 
-	// Add the handler's attributes
+	// Collect non-empty attributes
 	for _, attr := range h.attrs {
-		allAttrs = append(allAttrs, formatAttr(attr))
+		if formatted := formatAttr(attr); formatted != "" {
+			allAttrs = append(allAttrs, formatted)
+		}
 	}
 
-	// Add the record's attributes, skipping time, level, and source
 	r.Attrs(func(a slog.Attr) bool {
 		if a.Key == slog.TimeKey || a.Key == slog.LevelKey || a.Key == slog.SourceKey {
-			return true // Skip these metadata attributes
+			return true
 		}
-		allAttrs = append(allAttrs, formatAttr(a))
+		if formatted := formatAttr(a); formatted != "" {
+			allAttrs = append(allAttrs, formatted)
+		}
 		return true
 	})
 
-	// Format the log message
 	var builder strings.Builder
 
-	// If it's an error level message and the message doesn't already start with "error:",
-	// we could choose to NOT add the "ERROR" prefix here
-	// This ensures consistent message format without level indicators
-	message := r.Message
-
-	// Strip any "ERROR " prefix if present (case-insensitive)
-	if strings.HasPrefix(strings.ToUpper(message), "ERROR ") {
-		message = message[6:] // Remove "ERROR " prefix
-	}
-
-	// Remove any log level indicator like "INFO: " or "DEBUG: " if present
-	for _, level := range []string{"INFO: ", "DEBUG: ", "WARN: ", "WARNING: ", "ERROR: ", "FATAL: "} {
-		if strings.HasPrefix(strings.ToUpper(message), strings.ToUpper(level)) {
-			message = message[len(level):] // Remove the level prefix
-			break
+	// Add message if present
+	if r.Message != "" {
+		_, _ = builder.WriteString(r.Message)
+		if len(allAttrs) > 0 {
+			_, _ = builder.WriteString("\n")
 		}
 	}
 
-	// Write the cleaned message
-	_, _ = builder.WriteString(message)
-
-	// Add attributes if there are any
+	// Add attributes if present
 	if len(allAttrs) > 0 {
-		_, _ = builder.WriteString(" ")
-		_, _ = builder.WriteString(strings.Join(allAttrs, " "))
+		_, _ = builder.WriteString(strings.Join(allAttrs, "\n"))
 	}
 
-	// Add newline
-	_, _ = builder.WriteString("\n")
+	// Only add final newline if we wrote something
+	if builder.Len() > 0 {
+		_, _ = builder.WriteString("\n")
+	}
 
-	// Write to output
 	if _, err := fmt.Fprint(h.w, builder.String()); err != nil {
 		return fmt.Errorf("%w: %s: %w", ErrLogging, "printing log message", err)
 	}
-
 	return nil
 }

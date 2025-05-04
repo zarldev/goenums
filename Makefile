@@ -1,12 +1,55 @@
 # Build variables
-VERSION := v0.3.6
+VERSION := v0.3.8
 BUILD_TIME := $(shell date +%Y%m%d-%H:%M:%S)
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-GIT_DIRTY := $(shell git status --porcelain 2>/dev/null | wc -l | sed -e 's/^ *//' | xargs test 0 -eq || echo "-dirty")
+GIT_DIRTY := $(shell if [ -n "$$(git status --porcelain)" ]; then echo "-dirty"; fi)
 
 # Properly formatted LDFLAGS
 LDFLAGS := -ldflags "-X github.com/zarldev/goenums/internal/version.CURRENT='$(VERSION)' -X github.com/zarldev/goenums/internal/version.BUILD='$(BUILD_TIME)' -X github.com/zarldev/goenums/internal/version.COMMIT='$(GIT_COMMIT)$(GIT_DIRTY)'"
 PRODLDFLAGS := -ldflags "-s -w -X github.com/zarldev/goenums/internal/version.CURRENT='$(VERSION)' -X github.com/zarldev/goenums/internal/version.BUILD='$(BUILD_TIME)' -X github.com/zarldev/goenums/internal/version.COMMIT='$(GIT_COMMIT)$(GIT_DIRTY)'"
+
+release-tag:
+	@echo "Checking for uncommitted changes..."
+	@if [ "$$(git status --porcelain | wc -l)" -ne "0" ]; then \
+		echo "Error: Working directory has uncommitted changes. Commit or stash them first."; \
+		exit 1; \
+	fi
+	@echo "Creating git tag $(VERSION)..."
+	git tag -a $(VERSION) -m "Release $(VERSION)"
+	@echo "Tag created. Push with: git push origin $(VERSION)"
+
+# Release build that ensures a clean state
+release-build: build-prod
+	@echo "Built release version $(VERSION)"
+
+# Build all platforms from clean tagged state
+release-all: build-linux-archive build-darwin-archive build-windows-archive
+	@echo "Built all platforms and archived for release $(VERSION)"
+
+build-linux-archive: build-linux
+	mkdir -p dist
+	cp bin/linux/amd64/goenums dist/goenums-$(VERSION)-linux-amd64
+	cp bin/linux/arm64/goenums dist/goenums-$(VERSION)-linux-arm64
+	tar -czf dist/goenums-$(VERSION)-linux-amd64.tar.gz -C dist goenums-$(VERSION)-linux-amd64
+	tar -czf dist/goenums-$(VERSION)-linux-arm64.tar.gz -C dist goenums-$(VERSION)-linux-arm64
+	rm dist/goenums-$(VERSION)-linux-amd64
+	rm dist/goenums-$(VERSION)-linux-arm64
+
+build-darwin-archive: build-darwin
+	mkdir -p dist
+	cp bin/darwin/amd64/goenums dist/goenums-$(VERSION)-darwin-amd64
+	cp bin/darwin/arm64/goenums dist/goenums-$(VERSION)-darwin-arm64
+	tar -czf dist/goenums-$(VERSION)-darwin-amd64.tar.gz -C dist goenums-$(VERSION)-darwin-amd64
+	tar -czf dist/goenums-$(VERSION)-darwin-arm64.tar.gz -C dist goenums-$(VERSION)-darwin-arm64
+	rm dist/goenums-$(VERSION)-darwin-amd64
+	rm dist/goenums-$(VERSION)-darwin-arm64
+
+build-windows-archive: build-windows
+	mkdir -p dist
+	cp bin/windows/amd64/goenums.exe dist/goenums-$(VERSION)-windows-amd64.exe
+	tar -czf dist/goenums-$(VERSION)-windows-amd64.tar.gz -C dist goenums-$(VERSION)-windows-amd64.exe
+	rm dist/goenums-$(VERSION)-windows-amd64.exe
+
 # Debug target to verify variable values
 debug-version:
 	@echo "VERSION: $(VERSION)"
@@ -18,7 +61,7 @@ debug-version:
 # Build with clear output
 build: deps test
 	mkdir -p bin
-	go build $(LDFLAGS) -o bin/goenums goenums.go
+	go build  $(LDFLAGS) -o bin/goenums goenums.go
 	@echo "Build with version $(VERSION) ($(BUILD_TIME), $(GIT_COMMIT)$(GIT_DIRTY))"
 
 deps:
@@ -27,7 +70,7 @@ deps:
 
 # Production build command - explicitly uses the prod tag
 build-prod:
-	go build -tags=prod $(PRODLDFLAGS) -o bin/goenums goenums.go
+	go build -trimpath -tags=prod $(PRODLDFLAGS) -o bin/goenums goenums.go
 
 # Other platform-specific builds
 build-linux: generate test

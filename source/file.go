@@ -13,8 +13,8 @@ var (
 )
 
 const (
-	// MaxFileSize is the maximum allowed file size in bytes (default: 10MB)
-	// Files larger than this will trigger an error to prevent resource exhaustion
+	// MaxFileSize is the maximum allowed file size in bytes (default: 10MB).
+	// Files larger than this will trigger an error to prevent resource exhaustion.
 	MaxFileSize = 10 * 1024 * 1024 // 10MB
 )
 

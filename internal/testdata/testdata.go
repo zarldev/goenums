@@ -1107,6 +1107,142 @@ var (
 			},
 		},
 	}
+	discountRepresentation = enum.Representation{
+		Version:        "testdata",
+		GenerationTime: time.Now(),
+		PackageName:    "discounts",
+		SourceFilename: "discounts/discounts_enums.go",
+		TypeInfo: enum.TypeInfo{
+			Name:        "discount",
+			Camel:       "Discount",
+			Lower:       "discount",
+			Upper:       "DISCOUNT",
+			Plural:      "discounts",
+			PluralCamel: "Discounts",
+			NameTypePair: []enum.NameTypePair{
+				{
+					Name:  "none",
+					Type:  "discount",
+					Value: "0",
+				},
+				{
+					Name:  "sale",
+					Type:  "discount",
+					Value: "1",
+				},
+				{
+					Name:  "percentage",
+					Type:  "discount",
+					Value: "2",
+				},
+				{
+					Name:  "amount",
+					Type:  "discount",
+					Value: "3",
+				},
+				{
+					Name:  "giveaway",
+					Type:  "discount",
+					Value: "4",
+				},
+			},
+		},
+
+		Enums: []enum.Enum{
+			{
+				Info: enum.Info{
+					Name:  "sale",
+					Upper: "SALE",
+					Alias: "sale",
+					Value: 1,
+				},
+				TypeInfo: enum.TypeInfo{
+					Name:        "discount",
+					Camel:       "Discount",
+					Lower:       "discount",
+					Upper:       "DISCOUNT",
+					Plural:      "discounts",
+					PluralCamel: "Discounts",
+					NameTypePair: []enum.NameTypePair{
+						{
+							Name:  "sale",
+							Type:  "discount",
+							Value: "1",
+						},
+					},
+				},
+			},
+			{
+				Info: enum.Info{
+					Name:  "percentage",
+					Upper: "PERCENTAGE",
+					Alias: "percentage",
+					Value: 2,
+				},
+				TypeInfo: enum.TypeInfo{
+					Name:        "discount",
+					Camel:       "Discount",
+					Lower:       "discount",
+					Upper:       "DISCOUNT",
+					Plural:      "discounts",
+					PluralCamel: "Discounts",
+					NameTypePair: []enum.NameTypePair{
+						{
+							Name:  "percentage",
+							Type:  "discount",
+							Value: "2",
+						},
+					},
+				},
+			},
+			{
+				Info: enum.Info{
+					Name:  "amount",
+					Upper: "AMOUNT",
+					Alias: "amount",
+					Value: 3,
+				},
+				TypeInfo: enum.TypeInfo{
+					Name:        "discount",
+					Camel:       "Discount",
+					Lower:       "discount",
+					Upper:       "DISCOUNT",
+					Plural:      "discounts",
+					PluralCamel: "Discounts",
+					NameTypePair: []enum.NameTypePair{
+						{
+							Name:  "amount",
+							Type:  "discount",
+							Value: "3",
+						},
+					},
+				},
+			},
+			{
+				Info: enum.Info{
+					Name:  "giveaway",
+					Upper: "GIVEAWAY",
+					Alias: "giveaway",
+					Value: 4,
+				},
+				TypeInfo: enum.TypeInfo{
+					Name:        "discount",
+					Camel:       "Discount",
+					Lower:       "discount",
+					Upper:       "DISCOUNT",
+					Plural:      "discounts",
+					PluralCamel: "Discounts",
+					NameTypePair: []enum.NameTypePair{
+						{
+							Name:  "giveaway",
+							Type:  "discount",
+							Value: "4",
+						},
+					},
+				},
+			},
+		},
+	}
 )
 var (
 	DefaultConfig        = config.Configuration{}
@@ -1163,6 +1299,13 @@ var (
 			Representations: []enum.Representation{planetsRepresentation},
 		},
 		{
+			Name:            "enum with values only - sale discount types - default",
+			Source:          source.FromFileSystem(FS, "values_only/discount.go"),
+			Config:          DefaultConfig,
+			ExpectedFiles:   []string{"values_only/discounttypes_enums.go"},
+			Representations: []enum.Representation{discountRepresentation},
+		},
+		{
 			Name:            "enum with values - planets gravity only value - failfast & legacy",
 			Source:          source.FromFileSystem(FS, "values/planets.go"),
 			Config:          FailFastLegacyConfig,
@@ -1189,6 +1332,20 @@ var (
 			Config:          DefaultConfig,
 			ExpectedFiles:   []string{"quotes/tickets_enums.go"},
 			Representations: []enum.Representation{ticketsRepresentation},
+		},
+		{
+			Name:            "enum with plural type - discount - failfast & legacy",
+			Config:          FailFastLegacyConfig,
+			Source:          source.FromFileSystem(FS, "time/sale.go"),
+			ExpectedFiles:   []string{"time/sales_enums.go"},
+			Representations: []enum.Representation{saleRepresentation},
+		},
+		{
+			Name:            "enum with plural type - discount - default",
+			Source:          source.FromFileSystem(FS, "plural/discount.go"),
+			Config:          DefaultConfig,
+			ExpectedFiles:   []string{"plural/discounttypes_enums.go"},
+			Representations: []enum.Representation{saleRepresentation},
 		},
 		{
 			Name:            "enum with quoted strings - tickets - failfast & legacy",

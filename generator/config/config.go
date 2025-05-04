@@ -37,4 +37,7 @@ type Configuration struct {
 
 	// OutputFormat is the format of the output file.
 	OutputFormat string
+
+	// Filenames is the list of paths provided to the reader
+	Filenames []string
 }
