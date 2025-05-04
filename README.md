@@ -22,7 +22,7 @@ Documentation is available at [https://zarldev.github.io/goenums](https://zarlde
     - [Name Comment with spaces](#name-comment-with-spaces)
   - [Extended Enum Types with Custom Fields](#extended-enum-types-with-custom-fields)
   - [Case Insensitive String Parsing](#case-insensitive-string-parsing)
-  - [JSON & Database Storage](#json--database-storage)
+  - [JSON, Text, Binary, and Database Storage](#json-text-binary-and-database-storage)
   - [Exhaustive Handling](#exhaustive-handling)
   - [Iterator Support (Go 1.23+)](#iterator-support-go-123)
   - [Failfast Mode / Strict Mode](#failfast-mode--strict-mode)
@@ -199,7 +199,6 @@ func (p *Status) Scan(value any) error {
 func (p Status) Value() (driver.Value, error) {
 	return p.String(), nil
 }
-```
 
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface for Status.
 // It decodes the enum value from a byte slice.
