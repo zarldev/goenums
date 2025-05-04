@@ -73,6 +73,8 @@ This file will contain:
   - Parsing functions for various input types
   - JSON marshaling/unmarshaling
   - Database scanning/valuing
+  - Binary marshaling/unmarshaling
+  - Text marshaling/unmarshaling
   - Validation functions
   - Iteration helpers
 
@@ -133,7 +135,7 @@ Here is some more [Examples]({{ '/examples' | relative_url }}) →
 
 Now you can use the generated `status` enums type in your code:
 
-```golang
+```go
 /// Access enum constants safely
 myStatus := validation.Statuses.PASSED
 
@@ -161,7 +163,7 @@ Where <filename> is the Go source file containing your enum definitions.
 
 To use goenums, you need to add a `go:generate` directive to your Go source file. 
 
-```golang
+```go
 package validation
 
 type status int
@@ -207,7 +209,7 @@ This file will contain:
 
 After generating the enum implementations, you can use the generated code in your Go project.
 
-```golang
+```go
 // Import the package containing your enum
 import "yourpackage/validation"
 

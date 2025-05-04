@@ -100,15 +100,19 @@ const (
 When using Alternative names that contain spaces, the double quotes are required.
 
 ```go
-type ticketStatus int
+type order int
 
 //go:generate goenums status.go
 const (
-    unknown   ticketStatus = iota // invalid "Not Found"
-    pending                       // "In Progress"
-    approved                      // "Fully Approved"
-    rejected                      // "Has Been Rejected"
-    completed                     // "Successfully Completed"
+	created     order = iota // "CREATED"
+	approved                 // "APPROVED"
+	processing               // "PROCESSING"
+	readyToShip              // "READY TO SHIP"
+	shipped                  // "SHIPPED TO CUSTOMER"
+	delivered                // "DELIVERED TO CUSTOMER"
+	cancelled                // "CANCELLED BY CUSTOMER"
+	refunded                 // "REFUNDED TO CUSTOMER"
+	closed                   // "CLOSED"
 )
 ```
 ## Extended Enum Types with Custom Fields
@@ -359,7 +363,7 @@ type Task struct {
 
 Input source go file:
 
-```golang
+```go
 package solarsystem
 
 type planet int // Gravity float64,RadiusKm float64,MassKg float64,OrbitKm float64,OrbitDays float64,SurfacePressureBars float64,Moons int,Rings bool

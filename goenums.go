@@ -247,14 +247,6 @@ func configuration(ctx context.Context) (config.Configuration, error) {
 
 	filenames := args
 
-	// Validate that all files exist
-	for _, filename := range filenames {
-		if _, err := os.Stat(filename); os.IsNotExist(err) {
-			slog.Default().ErrorContext(ctx, "input file does not exist", slog.String("filename", filename))
-			return config.Configuration{}, fmt.Errorf("input file does not exist %s", filename)
-		}
-	}
-
 	for _, filename := range filenames {
 		filename = strings.TrimSpace(filename)
 		if filename == "" {
