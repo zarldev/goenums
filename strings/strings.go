@@ -59,69 +59,68 @@ func SplitBySpace(input string) (string, string) {
 	return parts[0], parts[1]
 }
 
-// Plural returns the plural form of a given type name. It handles irregular plurals,
-// compound words with underscores, and already pluralized words. It preserves the
-// original casing (uppercase/lowercase) of the input.
+// detectCase returns a function that applies original case from src to the target string
+func detectCase(src string) func(string) string {
+	if src == strings.ToUpper(src) {
+		// ALL UPPER
+		return func(s string) string { return strings.ToUpper(s) }
+	}
+	if src == strings.ToLower(src) {
+		// all lower
+		return func(s string) string { return strings.ToLower(s) }
+	}
+	// Capitalized (Title Case)
+	if len(src) > 0 && unicode.IsUpper(rune(src[0])) && src[1:] == strings.ToLower(src[1:]) {
+		return func(s string) string {
+			if len(s) == 0 {
+				return s
+			}
+			return strings.ToUpper(string(s[0])) + strings.ToLower(s[1:])
+		}
+	}
+	// Mixed or camelCase — fallback to identity (no case change)
+	return func(s string) string {
+		// attempt to keep as is (but pluralize all lowercase)
+		return s
+	}
+}
+
+// Plural pluralizes a word or snake_case word with case preservation
 func Plural(iotaType string) string {
-	if len(iotaType) == 0 {
+	if iotaType == "" {
 		return ""
 	}
-	lower := ToLower(iotaType)
-	isUpper := ToUpper(iotaType) == iotaType
-	for _, plural := range irregular {
-		if lower == plural {
-			if isUpper {
-				return ToUpper(lower)
-			}
-			return lower
-		}
-	}
-	if IsRegularPlural(lower) {
-		if isUpper {
-			return ToUpper(lower)
-		}
-		return iotaType
-	}
-	if Contains(lower, "_") {
-		parts := Split(lower, "_")
-		lastIndex := len(parts) - 1
-		lastPart := parts[lastIndex]
 
-		alreadyPlural := false
-		for _, plural := range irregular {
-			if lastPart == plural {
-				alreadyPlural = true
-				break
-			}
+	applyCase := detectCase(iotaType)
+
+	// Handle snake_case
+	if strings.Contains(iotaType, "_") {
+		parts := strings.Split(iotaType, "_")
+		// pluralize last part only
+		last := parts[len(parts)-1]
+
+		lowerLast := strings.ToLower(last)
+		var pluralLast string
+		if p, ok := irregular[lowerLast]; ok {
+			pluralLast = p
+		} else {
+			pluralLast = regularPlural(lowerLast)
 		}
-		if IsRegularPlural(lastPart) {
-			alreadyPlural = true
-		}
-		if !alreadyPlural {
-			if p, ok := irregular[lastPart]; ok {
-				parts[lastIndex] = p
-			} else {
-				parts[lastIndex] = regularPlural(lastPart)
-			}
-		}
-		result := Join(parts, "_")
-		if isUpper {
-			return ToUpper(result)
-		}
-		return result
+		parts[len(parts)-1] = applyCase(pluralLast)
+
+		return strings.Join(parts, "_")
 	}
+
+	lower := strings.ToLower(iotaType)
+	var plural string
+
 	if p, ok := irregular[lower]; ok {
-		result := p
-		if isUpper {
-			return ToUpper(result)
-		}
-		return result
+		plural = p
+	} else {
+		plural = regularPlural(lower)
 	}
-	result := regularPlural(lower)
-	if isUpper {
-		return ToUpper(result)
-	}
-	return result
+
+	return applyCase(plural)
 }
 
 // splitWords splits a CamelCase or PascalCase or ALLCAPS string into components
