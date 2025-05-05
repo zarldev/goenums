@@ -78,11 +78,25 @@ func detectCase(src string) func(string) string {
 			return strings.ToUpper(string(s[0])) + strings.ToLower(s[1:])
 		}
 	}
-	// Mixed or camelCase — fallback to identity (no case change)
+	isUpper := make([]bool, len(src))
+	for i, r := range src {
+		if unicode.IsUpper(r) {
+			isUpper[i] = true
+		}
+	}
 	return func(s string) string {
-		// attempt to keep as is (but pluralize all lowercase)
+		for i, r := range s {
+			if i < len(isUpper) && isUpper[i] {
+				s = s[:i] + strings.ToUpper(string(r)) + s[i+1:]
+			}
+		}
 		return s
 	}
+
+}
+
+func alreadyPlural(s string) bool {
+	return strings.HasSuffix(s, "s") || strings.HasSuffix(s, "es")
 }
 
 // Plural pluralizes a word or snake_case word with case preservation
@@ -92,6 +106,10 @@ func Plural(iotaType string) string {
 	}
 
 	applyCase := detectCase(iotaType)
+
+	if alreadyPlural(iotaType) {
+		return iotaType
+	}
 
 	// Handle snake_case
 	if strings.Contains(iotaType, "_") {
