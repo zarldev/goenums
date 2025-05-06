@@ -91,6 +91,21 @@ func (p *Parser) Parse(ctx context.Context) ([]enum.Representation, error) {
 	return p.doParse(ctx)
 }
 
+type EnumIota struct {
+	Type       string
+	Comment    string
+	Fields     []Field
+	Opener     string
+	Closer     string
+	StartIndex int
+	Enums      []Enum
+}
+
+type Field struct {
+	Name  string
+	Value any
+}
+
 func (p *Parser) doParse(ctx context.Context) ([]enum.Representation, error) {
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
@@ -111,11 +126,485 @@ func (p *Parser) doParse(ctx context.Context) ([]enum.Representation, error) {
 		return nil, fmt.Errorf("%w: %w", ErrParseGoFile, err)
 	}
 	slog.Default().DebugContext(ctx, "collecting all enum representations")
+
+	enumIotas := p.getEnumIotas(node)
+	slog.Default().DebugContext(ctx, "enum iota", "count", len(enumIotas), "enumIota", enumIotas)
+	slog.Default().DebugContext(ctx, "collecting all enum representations", "filename", filename)
+
+	for i, enumIota := range enumIotas {
+		slog.Default().DebugContext(ctx, "enum iota", "enumIota", enumIota)
+		enums := p.getEnums(node, &enumIota)
+		slog.Default().DebugContext(ctx, "enums", "count", len(enums), "enums", enums)
+		enumIota.Enums = enums
+		enumIotas[i] = enumIota
+	}
+
 	typeComments := p.getTypeComments(node)
+
 	reps := p.collectRepresentations(node, filename, typeComments,
 		p.Configuration)
 	slog.Default().DebugContext(ctx, "collected all enum representations", "count", len(reps))
 	return reps, nil
+}
+
+type Enum struct {
+	Name    string
+	Fields  []Field
+	Aliases []string
+	Valid   bool
+}
+
+func (p *Parser) getEnums(node *ast.File, enumIota *EnumIota) []Enum {
+	var enums []Enum
+	for _, decl := range node.Decls {
+		switch t := decl.(type) {
+		case *ast.GenDecl:
+			for _, spec := range t.Specs {
+				switch vs := spec.(type) {
+				case *ast.ValueSpec:
+					enum := p.getEnum(vs, enumIota)
+					enums = append(enums, enum)
+					slog.Default().Debug("enum", "enum", enum)
+				}
+			}
+		}
+	}
+	return enums
+}
+
+func (p *Parser) getEnum(vs *ast.ValueSpec, enumIota *EnumIota) Enum {
+	if len(vs.Names) == 0 {
+		return Enum{}
+	}
+	if vs.Type != nil {
+		switch t := vs.Type.(type) {
+		case *ast.Ident:
+			if t.Name != enumIota.Type {
+				return Enum{}
+			}
+		}
+	}
+	enum := Enum{
+		Name: vs.Names[0].Name,
+	}
+	for _, v := range vs.Values {
+		switch t := v.(type) {
+		case *ast.BinaryExpr:
+			x, ok := t.X.(*ast.Ident)
+			if !ok {
+				return Enum{}
+			}
+			if x.Name != iotaIdentifier {
+				return Enum{}
+			}
+			y, ok := t.Y.(*ast.BasicLit)
+			if !ok {
+				return Enum{}
+			}
+			if y.Kind != token.INT {
+				return Enum{}
+			}
+			val, err := strconv.Atoi(y.Value)
+			if err != nil {
+				return Enum{}
+			}
+			enumIota.StartIndex = val
+		}
+	}
+	valueStr := ""
+	if vs.Comment != nil && len(vs.Comment.List) > 0 {
+		comment := vs.Comment.List[0].Text[2:]
+		valid := !strings.Contains(comment, "invalid")
+		if !valid {
+			comment = strings.ReplaceAll(comment, "invalid", "")
+		}
+		var (
+			aliases   = make([]string, 0)
+			valueStrs = make([]string, 0)
+		)
+		s1, s2 := strings.SplitBySpace(strings.TrimLeft(comment, " "))
+		hasAliases := false
+		if s1 == "" && s2 == "" {
+			hasAliases = false
+		}
+		if s2 != "" && len(enum.Fields) >= 1 {
+			hasAliases = true
+			aliases = strings.Split(strings.TrimSpace(s1), ",")
+			vsr := strings.Split(strings.TrimSpace(s2), ",")
+			for _, v := range vsr {
+				if v != "" {
+					valueStrs = append(valueStrs, v)
+				}
+			}
+		}
+		if s1 != "" && len(enum.Fields) == 0 {
+			hasAliases = true
+			aliases = strings.Split(strings.TrimSpace(s1), ",")
+			vsr := strings.Split(strings.TrimSpace(s2), ",")
+			for _, v := range vsr {
+				if v != "" {
+					valueStrs = append(valueStrs, v)
+				}
+			}
+		}
+		if !hasAliases {
+			vsr := strings.Split(strings.TrimSpace(s1), ",")
+			for _, v := range vsr {
+				if v != "" {
+					valueStrs = append(valueStrs, v)
+				}
+			}
+			aliases = []string{}
+		}
+		fieldVals := strings.Split(valueStr, ",")
+		enum.Aliases = aliases
+		enumFields := make([]Field, len(enumIota.Fields))
+		enum.Fields = enumFields
+		for i, f := range enumIota.Fields {
+			valRaw := fieldVals[i]
+			val := parseValue(valRaw, f.Value)
+			enum.Fields = append(enum.Fields, Field{
+				Name:  f.Name,
+				Value: val,
+			})
+		}
+	}
+	return enum
+}
+
+func parseValue(valRaw string, t any) any {
+	switch t.(type) {
+	case bool:
+		val, err := strconv.ParseBool(valRaw)
+		if err != nil {
+			return nil
+		}
+		return val
+	case float64:
+		val, err := strconv.ParseFloat(valRaw, 64)
+		if err != nil {
+			return nil
+		}
+		return val
+	case float32:
+		val, err := strconv.ParseFloat(valRaw, 32)
+		if err != nil {
+			return nil
+		}
+		return float32(val)
+	case int:
+		val, err := strconv.Atoi(valRaw)
+		if err != nil {
+			return nil
+		}
+		return val
+	case int64:
+		val, err := strconv.ParseInt(valRaw, 10, 64)
+		if err != nil {
+			return nil
+		}
+		return val
+	case int32:
+		val, err := strconv.ParseInt(valRaw, 10, 32)
+		if err != nil {
+			return nil
+		}
+		return int32(val)
+	case int16:
+		val, err := strconv.ParseInt(valRaw, 10, 16)
+		if err != nil {
+			return nil
+		}
+		return int16(val)
+	case int8:
+		val, err := strconv.ParseInt(valRaw, 10, 8)
+		if err != nil {
+			return nil
+		}
+		return int8(val)
+	case uint:
+		val, err := strconv.ParseUint(valRaw, 10, 64)
+		if err != nil {
+			return nil
+		}
+		return uint(val)
+	case uint64:
+		val, err := strconv.ParseUint(valRaw, 10, 64)
+		if err != nil {
+			return nil
+		}
+		return val
+	case uint32:
+		val, err := strconv.ParseUint(valRaw, 10, 32)
+		if err != nil {
+			return nil
+		}
+		return uint32(val)
+	case uint16:
+		val, err := strconv.ParseUint(valRaw, 10, 16)
+		if err != nil {
+			return nil
+		}
+		return uint16(val)
+	case uint8:
+		val, err := strconv.ParseUint(valRaw, 10, 8)
+		if err != nil {
+			return nil
+		}
+		return uint8(val)
+	case string:
+		return valRaw
+	case time.Time:
+		val, err := time.Parse(time.RFC3339, valRaw)
+		if err != nil {
+			return nil
+		}
+		return val
+	case time.Duration:
+		val, err := time.ParseDuration(valRaw)
+		if err != nil {
+			return nil
+		}
+		return val
+	default:
+		return nil
+	}
+}
+
+// 	enum := Enum{
+// 		Name: vs.Names[0].Name,
+// 		vs.Type.(*ast.Ident)
+// 	}
+// 	comment := ""
+// 	if vs.Comment != nil && len(vs.Comment.List) > 0 {
+// 		comment = vs.Comment.List[0].Text
+// 		comment = strings.TrimPrefix(comment, "//")
+// 		comment = strings.TrimSpace(comment)
+// 	}
+// 	aliasStr, valueStr := strings.SplitBySpace(comment)
+// 	slog.Default().Debug("getEnum", "aliasStr", aliasStr, "valueStr", valueStr)
+// 	aliases := make([]string, 0)
+// 	if strings.Contains(aliasStr, ",") {
+// 		aliases = strings.Split(aliasStr, ",")
+// 	}
+// 	enum := Enum{
+// 		Name:    vs.Names[0].Name,
+// 		Aliases: aliases,
+// 	}
+
+// 	if len(vs.Values) > 0 {
+// 		for _, v := range vs.Values {
+// 			switch t := v.(type) {
+// 			case *ast.BasicLit:
+// 				val := t.Value
+// 				ival, _ := strconv.Atoi(val)
+// 				enum.Index = ival
+// 			case *ast.BinaryExpr:
+// 				switch t := t.X.(type) {
+// 				case *ast.BasicLit:
+// 					val := t.Value
+// 					ival, _ := strconv.Atoi(val)
+// 					enum.Index = ival
+// 				case *ast.Ident:
+// 					enum.Index = 0
+// 				}
+// 			}
+// 		}
+// 	}
+// 	// convert aliasStr to int using strconv.Atoi
+// 	i, _ := strconv.Atoi(vs.Values[0].(*ast.BasicLit).Value)
+// 	return Enum{
+// 		Name:    vs.Names[0].Name,
+// 		Index:   i,
+// 		Aliases: aliases,
+// 		Fields:  p.getEnumFields(valueStr, enumIota),
+// 	}
+// }
+
+func (p *Parser) getEnumFields(valueStr string, enumIota EnumIota) []Field {
+	if valueStr == "" {
+		return nil
+	}
+	values := strings.Split(valueStr, ",")
+	if len(values) != len(enumIota.Fields) {
+		return nil
+	}
+	fields := make([]Field, 0)
+	for i, value := range values {
+		fields = append(fields, Field{
+			Name:  enumIota.Fields[i].Name,
+			Value: value,
+		})
+	}
+	return fields
+}
+
+func (p *Parser) getEnumIotas(node *ast.File) []EnumIota {
+	var enumIotas []EnumIota
+	for _, decl := range node.Decls {
+		switch t := decl.(type) {
+		case *ast.GenDecl:
+			for _, spec := range t.Specs {
+				switch ts := spec.(type) {
+				case *ast.TypeSpec:
+					if ts.Type != nil {
+						enumIota := EnumIota{
+							Type: ts.Name.Name,
+						}
+						if ts.Comment != nil &&
+							len(ts.Comment.List) > 0 {
+							comment := ts.Comment.List[0].Text
+							if strings.HasPrefix(comment, "//") {
+								comment = comment[2:]
+							}
+							opener, closer, fields := extractFields(comment)
+							enumIota.Comment = comment
+							enumIota.Fields = fields
+							enumIota.Opener = opener
+							enumIota.Closer = closer
+						}
+						enumIotas = append(enumIotas, enumIota)
+					}
+				}
+			}
+		}
+	}
+	return enumIotas
+}
+
+func extractFields(comment string) (string, string, []Field) {
+	fields := make([]Field, 0)
+	comment = strings.TrimSpace(comment)
+	open, closer := " ", " "
+	if comment == "" {
+		return open, closer, fields
+	}
+	fieldVals := strings.Split(comment, ",")
+	for _, val := range fieldVals {
+		field := strings.TrimSpace(val)
+		open, closer = openCloser(field)
+
+		nO, nC, tO, tC := 0, 0, 0, 0
+		n, f := "", ""
+
+		if open == " " {
+			extra := strings.Split(field, " ")
+			if len(extra) > 1 {
+				n = extra[0]
+				f = extra[1]
+			} else {
+				f = extra[0]
+			}
+			fields = append(fields, Field{
+				Name:  n,
+				Value: fieldToType(f),
+			})
+			continue
+		}
+
+		nO = strings.Index(field, open)
+		if nO == -1 {
+			continue
+		}
+		nC = strings.Index(field[nO:], closer) + nO
+		if nC == -1 {
+			continue
+		}
+		tO = nO + len(open)
+		tC = nC
+		name := field[:nO]
+		typ := field[tO:tC]
+		fields = append(fields, Field{
+			Name:  name,
+			Value: typ,
+		})
+	}
+	return open, closer, fields
+}
+
+func openCloser(field string) (string, string) {
+	open := " "
+	closer := " "
+	if strings.Contains(field, "[") {
+		open = "["
+		closer = "]"
+	} else if strings.Contains(field, "(") {
+		open = "("
+		closer = ")"
+	}
+	return open, closer
+}
+
+func fieldToType(field string) any {
+	f := strings.TrimSpace(field)
+	switch f {
+	case "bool":
+		return false
+	case "int":
+		return 0
+	case "string":
+		return ""
+	case "time.Duration":
+		return time.Duration(0)
+	case "time.Time":
+		return time.Time{}
+	case "float64":
+		return 0.0
+	case "float32":
+		return float32(0.0)
+	case "int64":
+		return int64(0)
+	case "int32":
+		return int32(0)
+	case "int16":
+		return int16(0)
+	case "int8":
+		return int8(0)
+	case "uint64":
+		return uint64(0)
+	case "uint32":
+		return uint32(0)
+	case "uint16":
+		return uint16(0)
+	case "uint8":
+		return uint8(0)
+	case "uint":
+		return uint(0)
+	case "byte":
+		return byte(0)
+	case "rune":
+		return rune(0)
+	case "complex64":
+		return complex64(0)
+	case "complex128":
+		return complex128(0)
+	case "uintptr":
+		return uintptr(0)
+	default:
+		return nil
+	}
+}
+
+// getTypeComments collects all comments associated with type declarations.
+// This builds a mapping of type names to their documentation comments.
+func (p *Parser) getTypeComments(node *ast.File) typeComments {
+	typeComms := make(map[string]string)
+	ast.Inspect(node, func(n ast.Node) bool {
+		decl, ok := n.(*ast.GenDecl)
+		if !ok || decl.Tok != token.TYPE {
+			return true
+		}
+		for _, spec := range decl.Specs {
+			typeSpec, ok := spec.(*ast.TypeSpec)
+			if !ok || typeSpec.Comment == nil || len(typeSpec.Comment.List) == 0 {
+				continue
+			}
+			comment := strings.TrimSpace(typeSpec.Comment.List[0].Text[2:])
+			typeComms[typeSpec.Name.Name] = comment
+		}
+		return true
+	})
+	return typeComms
 }
 
 // tempHolder is a temporary struct used to collect enum representations
@@ -401,28 +890,6 @@ func (p *Parser) getPackageName(node *ast.File) string {
 		packageName = node.Name.Name
 	}
 	return packageName
-}
-
-// getTypeComments collects all comments associated with type declarations.
-// This builds a mapping of type names to their documentation comments.
-func (p *Parser) getTypeComments(node *ast.File) typeComments {
-	typeComms := make(map[string]string)
-	ast.Inspect(node, func(n ast.Node) bool {
-		decl, ok := n.(*ast.GenDecl)
-		if !ok || decl.Tok != token.TYPE {
-			return true
-		}
-		for _, spec := range decl.Specs {
-			typeSpec, ok := spec.(*ast.TypeSpec)
-			if !ok || typeSpec.Comment == nil || len(typeSpec.Comment.List) == 0 {
-				continue
-			}
-			comment := strings.TrimSpace(typeSpec.Comment.List[0].Text[2:])
-			typeComms[typeSpec.Name.Name] = comment
-		}
-		return true
-	})
-	return typeComms
 }
 
 // copyNameTPairs creates a copy of name-type pairs with updated values.

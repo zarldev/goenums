@@ -302,6 +302,13 @@ func TrimSpace(s string) string {
 	return strings.TrimSpace(s)
 }
 
+func TrimPrefix(s, prefix string) string {
+	return strings.TrimPrefix(s, prefix)
+}
+func TrimSuffix(s, suffix string) string {
+	return strings.TrimSuffix(s, suffix)
+}
+
 // Split slices s into all substrings separated by sep and returns them.
 // This is a wrapper around strings.Split.
 func Split(s, sep string) []string {
