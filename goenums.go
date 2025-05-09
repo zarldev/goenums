@@ -190,7 +190,7 @@ func main() {
 		switch config.OutputFormat {
 		case "", "go":
 			slog.Default().Debug("initializing gofile writer")
-			writer = gofile.NewWriter(gofile.WithWriterConfig(config))
+			writer = gofile.NewWriter(gofile.WithWriterConfiguration(config))
 		default:
 			slog.Default().Error("only outputting to go files is supported")
 			return

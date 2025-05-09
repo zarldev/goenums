@@ -108,6 +108,20 @@ func (g *Generator) ParseAndWrite(ctx context.Context) error {
 	if ctx.Err() != nil {
 		return fmt.Errorf("%w: %w", ErrGeneratorFailedToGenerate, ctx.Err())
 	}
+	genr := make([]enum.GenerationRequest, len(enums))
+	for i, e := range enums {
+		genr[i] = enum.GenerationRequest{
+			Package:         "",
+			EnumIota:        e,
+			Version:         "",
+			SourceFilename:  "",
+			OutputFilename:  "",
+			Failfast:        false,
+			Legacy:          false,
+			CaseInsensitive: false,
+		}
+	}
+
 	if err = g.writer.Write(ctx, enums); err != nil {
 		return fmt.Errorf("%w: %w", ErrGeneratorFailedToGenerate, err)
 	}

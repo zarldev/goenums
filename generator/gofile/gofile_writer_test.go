@@ -17,7 +17,7 @@ func TestWriter_Write(t *testing.T) {
 			t.Parallel()
 			memfs := file.NewMemFS()
 			writer := gofile.NewWriter(
-				gofile.WithWriterConfig(tt.Config),
+				gofile.WithWriterConfiguration(tt.Config),
 				gofile.WithFileSystem(memfs))
 
 			err := writer.Write(t.Context(), tt.Representations)

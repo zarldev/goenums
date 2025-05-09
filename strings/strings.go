@@ -3,7 +3,7 @@
 // This package wraps standard library string functions and adds custom functionality
 // specifically tailored for enum code generation, including:
 //   - Case conversion (upper, lower, camel case)
-//   - Intelligent pluralization with irregular word handling
+//   - Intelligent pluralization with irregularToPlurals word handling
 //   - String parsing and manipulation
 //
 // By centralizing string operations here, we avoid code duplication and maintain
@@ -12,15 +12,20 @@
 package strings
 
 import (
+	"fmt"
+	"io"
+	"os"
+	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/zarldev/goenums/enum"
 )
 
-// irregular contains mappings for words that don't follow standard English
+// irregularToPlural contains mappings for words that don't follow standard English
 // pluralization rules, ensuring correct pluralization for special cases.
-var irregular = map[string]string{
+var irregularToPlural = map[string]string{
 	"man":      "men",
 	"woman":    "women",
 	"child":    "children",
@@ -38,6 +43,26 @@ var irregular = map[string]string{
 	"analysis": "analyses",
 	"crisis":   "crises",
 	"status":   "statuses",
+}
+
+var irregularToPluralsToSingular = map[string]string{
+	"men":      "man",
+	"women":    "woman",
+	"children": "child",
+	"feet":     "foot",
+	"teeth":    "tooth",
+	"geese":    "goose",
+	"mice":     "mouse",
+	"oxen":     "ox",
+	"people":   "person",
+	"indices":  "index",
+	"matrices": "matrix",
+	"vertices": "vertex",
+	"data":     "datum",
+	"media":    "medium",
+	"analyses": "analysis",
+	"crises":   "crisis",
+	"statuses": "status",
 }
 
 func SplitBySpace(input string) (string, string) {
@@ -119,7 +144,7 @@ func Plural(iotaType string) string {
 
 		lowerLast := strings.ToLower(last)
 		var pluralLast string
-		if p, ok := irregular[lowerLast]; ok {
+		if p, ok := irregularToPlural[lowerLast]; ok {
 			pluralLast = p
 		} else {
 			pluralLast = regularPlural(lowerLast)
@@ -132,7 +157,7 @@ func Plural(iotaType string) string {
 	lower := strings.ToLower(iotaType)
 	var plural string
 
-	if p, ok := irregular[lower]; ok {
+	if p, ok := irregularToPlural[lower]; ok {
 		plural = p
 	} else {
 		plural = regularPlural(lower)
@@ -189,7 +214,7 @@ func Singular(input string) string {
 
 	var singular string
 	// Irregular plural
-	for s, p := range irregular {
+	for s, p := range irregularToPlural {
 		if lower == p {
 			singular = s
 			break
@@ -400,15 +425,45 @@ type EnumBuilder struct {
 	b *strings.Builder
 }
 
+func (b *EnumBuilder) Write(p []byte) (n int, err error) {
+	return b.b.Write(p)
+}
+
+type EnumWriter struct {
+	io.Writer
+}
+
+func (w *EnumWriter) Write(p []byte) (n int, err error) {
+	return w.Writer.Write(p)
+}
+
+type WriterOption func(*EnumWriter)
+
+func WithWriter(w io.Writer) WriterOption {
+	return func(e *EnumWriter) {
+		e.Writer = w
+	}
+}
+
+func NewEnumWriter(opts ...WriterOption) *EnumWriter {
+	e := &EnumWriter{
+		Writer: os.Stdout,
+	}
+	for _, opt := range opts {
+		opt(e)
+	}
+	return e
+}
+
+func AsType(v any) string {
+	return fmt.Sprintf("%T", v)
+}
+
 // NewEnumBuilder creates a new EnumBuilder with an initial allocated buffer size
 // based on the number of enums and their alias lengths.
 func NewEnumBuilder(reps enum.Representation) *EnumBuilder {
 	var b strings.Builder
-	growSize := initialBufferSize
-	for _, enum := range reps.Enums {
-		growSize += len(enum.Info.Alias) + len(enum.Info.Upper) + enumExtraBuffer
-	}
-	b.Grow(growSize)
+
 	return &EnumBuilder{
 		b: &b,
 	}
@@ -466,4 +521,124 @@ func (b *EnumBuilder) WriteByte(c byte) error {
 		b.b = &strings.Builder{}
 	}
 	return b.b.WriteByte(c)
+}
+
+func Pluralise(s string) string {
+	if len(s) == 0 {
+		return ""
+	}
+	if len(s) == 1 {
+		return s + "s"
+	}
+	if isPlural(s) {
+		return s
+	}
+	if s, ok := pluraliseIrregular(s); ok {
+		return s
+	}
+	if s, ok := pluraliseRegular(s); ok {
+		return s
+	}
+	return s + "s"
+}
+
+func pluraliseIrregular(s string) (string, bool) {
+	if p, ok := irregularToPlural[s]; ok {
+		return p, true
+	}
+	return "", false
+}
+
+func pluraliseRegular(s string) (string, bool) {
+	if strings.HasSuffix(s, "y") {
+		return s[:len(s)-1] + "ies", true
+	}
+	if strings.HasSuffix(s, "s") || strings.HasSuffix(s, "x") || strings.HasSuffix(s, "z") {
+		return s + "es", true
+	}
+	if strings.HasSuffix(s, "ch") || strings.HasSuffix(s, "sh") {
+		return s + "es", true
+	}
+	return "", false
+}
+
+func isPlural(s string) bool {
+	if isIrregularPlural(s) {
+		return true
+	}
+	return isRegularPlural(s)
+}
+
+func isIrregularPlural(s string) bool {
+	_, ok := irregularToPlural[s]
+	return ok
+}
+
+func isRegularPlural(s string) bool {
+	return strings.HasSuffix(s, "s") ||
+		strings.HasSuffix(s, "es") ||
+		strings.HasSuffix(s, "ies")
+}
+
+func Camel(s string) string {
+	if len(s) == 0 {
+		return ""
+	}
+	if len(s) == 1 {
+		return strings.ToUpper(s)
+	}
+	c := unicode.ToUpper(rune(s[0]))
+	return string(c) + s[1:]
+}
+
+func Lower1stCharacter(s string) string {
+	if len(s) == 0 {
+		return ""
+	}
+	if len(s) == 1 {
+		return strings.ToLower(s)
+	}
+	c := unicode.ToLower(rune(s[0]))
+	return string(c) + s[1:]
+}
+
+func Ify(v any) string {
+	switch v := v.(type) {
+	case string:
+		return v
+	case int:
+		return strconv.Itoa(v)
+	case int8:
+		return strconv.Itoa(int(v))
+	case int16:
+		return strconv.Itoa(int(v))
+	case int32:
+		return strconv.Itoa(int(v))
+	case int64:
+		return strconv.Itoa(int(v))
+	case uint:
+		return strconv.Itoa(int(v))
+	case uint8:
+		return strconv.Itoa(int(v))
+	case uint16:
+		return strconv.Itoa(int(v))
+	case uint32:
+		return strconv.Itoa(int(v))
+	case uint64:
+		return strconv.Itoa(int(v))
+	case float32:
+		return strconv.FormatFloat(float64(v), 'f', -1, 32)
+	case float64:
+		return strconv.FormatFloat(v, 'f', -1, 64)
+	case bool:
+		return strconv.FormatBool(v)
+	case time.Time:
+		return v.Format(time.RFC3339)
+	case time.Duration:
+		return v.String()
+	case fmt.Stringer:
+		return v.String()
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }

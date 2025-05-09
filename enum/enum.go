@@ -27,7 +27,55 @@ type Parser interface {
 	// Parse analyzes the content from a source and returns structured enum representations.
 	// It transforms input data into a format-agnostic model that can be used
 	// for code generation. The context allows for cancellation and timeout control.
-	Parse(ctx context.Context) ([]Representation, error)
+	Parse(ctx context.Context) ([]EnumIota, error)
+}
+
+type GenerationRequest struct {
+	Package         string
+	EnumIota        EnumIota
+	Version         string
+	SourceFilename  string
+	OutputFilename  string
+	Failfast        bool
+	Legacy          bool
+	CaseInsensitive bool
+}
+
+func (r GenerationRequest) Command() string {
+	command := ""
+	if r.Failfast {
+		command += "-f "
+	}
+	if r.Legacy {
+		command += "-l "
+	}
+	if r.CaseInsensitive {
+		command += "-i "
+	}
+	return command
+}
+
+type EnumIota struct {
+	Type       string
+	Comment    string
+	Fields     []Field
+	Opener     string
+	Closer     string
+	StartIndex int
+	Enums      []Enum
+}
+
+type Field struct {
+	Name  string
+	Value any
+}
+
+type Enum struct {
+	Name    string
+	Index   int
+	Fields  []Field
+	Aliases []string
+	Valid   bool
 }
 
 // Source abstracts the origin of input content to be parsed for enum definitions.
@@ -52,7 +100,7 @@ type Writer interface {
 	// Write generates output artifacts from enum representations.
 	// It transforms the format-agnostic model into concrete output such as
 	// source code files. The context allows for cancellation and timeout control.
-	Write(ctx context.Context, enums []Representation) error
+	Write(ctx context.Context, enums []GenerationRequest) error
 }
 
 // Representation is a comprehensive model that encapsulates all information needed
@@ -84,7 +132,7 @@ type Representation struct {
 // core information about the enum constant (name, value, etc.), type-specific metadata,
 // and the original raw content from which it was parsed. This structure provides a
 // complete view of an enum value for code generation purposes.
-type Enum struct {
+type EnumOld struct {
 	Info     Info
 	TypeInfo TypeInfo
 	Raw      Raw

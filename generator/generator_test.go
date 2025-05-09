@@ -32,7 +32,7 @@ func TestGenerator_ParseAndWrite(t *testing.T) {
 				gofile.WithParserConfiguration(tc.Config),
 				gofile.WithSource(tc.Source))
 			wri := gofile.NewWriter(
-				gofile.WithWriterConfig(tc.Config),
+				gofile.WithWriterConfiguration(tc.Config),
 				gofile.WithFileSystem(testdata.FS))
 
 			p := generator.New(
