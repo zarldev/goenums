@@ -14,6 +14,7 @@ package strings
 import (
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -602,34 +603,26 @@ func Lower1stCharacter(s string) string {
 	return string(c) + s[1:]
 }
 
+type Integer interface {
+	~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64
+}
+
+type Float interface {
+	~float32 | ~float64
+}
+
+type Number interface {
+	Integer | Float
+}
+
 func Ify(v any) string {
 	switch v := v.(type) {
 	case string:
 		return v
-	case int:
-		return strconv.Itoa(v)
-	case int8:
-		return strconv.Itoa(int(v))
-	case int16:
-		return strconv.Itoa(int(v))
-	case int32:
-		return strconv.Itoa(int(v))
-	case int64:
-		return strconv.Itoa(int(v))
-	case uint:
-		return strconv.Itoa(int(v))
-	case uint8:
-		return strconv.Itoa(int(v))
-	case uint16:
-		return strconv.Itoa(int(v))
-	case uint32:
-		return strconv.Itoa(int(v))
-	case uint64:
-		return strconv.Itoa(int(v))
-	case float32:
-		return strconv.FormatFloat(float64(v), 'f', -1, 32)
-	case float64:
-		return strconv.FormatFloat(v, 'f', -1, 64)
+	case []byte:
+		return string(v)
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
+		return ifyNumber(v)
 	case bool:
 		return strconv.FormatBool(v)
 	case time.Time:
@@ -641,4 +634,57 @@ func Ify(v any) string {
 	default:
 		return fmt.Sprintf("%v", v)
 	}
+}
+
+// ifyNumber formats a number to string with scientific notation for large values
+func ifyNumber(n any) string {
+	// Helper function to format float64 values
+	format := func(f float64) string {
+		absF := math.Abs(f)
+		if absF >= 1e6 || (absF < 1e-6 && absF > 0) {
+			return strconv.FormatFloat(f, 'e', 2, 64)
+		}
+		return strconv.FormatFloat(f, 'f', -1, 64)
+	}
+
+	// Handle different numeric types
+	switch v := n.(type) {
+	case int:
+		return format(float64(v))
+	case int8:
+		return format(float64(v))
+	case int16:
+		return format(float64(v))
+	case int32:
+		return format(float64(v))
+	case int64:
+		return format(float64(v))
+	case uint:
+		return format(float64(v))
+	case uint8:
+		return format(float64(v))
+	case uint16:
+		return format(float64(v))
+	case uint32:
+		return format(float64(v))
+	case uint64:
+		return format(float64(v))
+	case float32:
+		return format(float64(v))
+	case float64:
+		return format(v)
+	default:
+		return fmt.Sprintf("%v", n)
+	}
+}
+
+// Generic version that can be used when type is known at compile time
+func IfiableNumeric[T Number](n T) string {
+	f := float64(n)
+	absF := math.Abs(f)
+
+	if absF >= 1e6 || (absF < 1e-6 && absF > 0) {
+		return strconv.FormatFloat(f, 'e', 2, 64)
+	}
+	return strconv.FormatFloat(f, 'f', -1, 64)
 }

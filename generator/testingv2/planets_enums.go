@@ -11,6 +11,8 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"fmt"
+	"iter"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -44,10 +46,10 @@ var Planets = planetsContainer{
 		planet:              mercury,
 		Gravity:             0.378,
 		RadiusKm:            2439.7,
-		MassKg:              330000000000000000000000,
-		OrbitKm:             57910000,
+		MassKg:              3.30e+23,
+		OrbitKm:             5.79e+07,
 		OrbitDays:           88,
-		SurfacePressureBars: 0.0000000001,
+		SurfacePressureBars: 1.00e-10,
 		Moons:               0,
 		Rings:               false,
 	},
@@ -55,8 +57,8 @@ var Planets = planetsContainer{
 		planet:              venus,
 		Gravity:             0.907,
 		RadiusKm:            6051.8,
-		MassKg:              4870000000000000000000000,
-		OrbitKm:             108200000,
+		MassKg:              4.87e+24,
+		OrbitKm:             1.08e+08,
 		OrbitDays:           225,
 		SurfacePressureBars: 92,
 		Moons:               0,
@@ -66,8 +68,8 @@ var Planets = planetsContainer{
 		planet:              earth,
 		Gravity:             1,
 		RadiusKm:            6378.1,
-		MassKg:              5970000000000000000000000,
-		OrbitKm:             149600000,
+		MassKg:              5.97e+24,
+		OrbitKm:             1.50e+08,
 		OrbitDays:           365,
 		SurfacePressureBars: 1,
 		Moons:               1,
@@ -77,8 +79,8 @@ var Planets = planetsContainer{
 		planet:              mars,
 		Gravity:             0.377,
 		RadiusKm:            3389.5,
-		MassKg:              642000000000000000000000,
-		OrbitKm:             227900000,
+		MassKg:              6.42e+23,
+		OrbitKm:             2.28e+08,
 		OrbitDays:           687,
 		SurfacePressureBars: 0.01,
 		Moons:               2,
@@ -88,8 +90,8 @@ var Planets = planetsContainer{
 		planet:              jupiter,
 		Gravity:             2.36,
 		RadiusKm:            69911,
-		MassKg:              1900000000000000000000000000,
-		OrbitKm:             778600000,
+		MassKg:              1.90e+27,
+		OrbitKm:             7.79e+08,
 		OrbitDays:           4333,
 		SurfacePressureBars: 20,
 		Moons:               4,
@@ -99,8 +101,8 @@ var Planets = planetsContainer{
 		planet:              saturn,
 		Gravity:             0.916,
 		RadiusKm:            58232,
-		MassKg:              568000000000000000000000000,
-		OrbitKm:             1433500000,
+		MassKg:              5.68e+26,
+		OrbitKm:             1.43e+09,
 		OrbitDays:           10759,
 		SurfacePressureBars: 1,
 		Moons:               7,
@@ -110,8 +112,8 @@ var Planets = planetsContainer{
 		planet:              uranus,
 		Gravity:             0.889,
 		RadiusKm:            25362,
-		MassKg:              86800000000000000000000000,
-		OrbitKm:             2872500000,
+		MassKg:              8.68e+25,
+		OrbitKm:             2.87e+09,
 		OrbitDays:           30687,
 		SurfacePressureBars: 1.3,
 		Moons:               13,
@@ -121,8 +123,8 @@ var Planets = planetsContainer{
 		planet:              neptune,
 		Gravity:             1.12,
 		RadiusKm:            24622,
-		MassKg:              102000000000000000000000000,
-		OrbitKm:             4495100000,
+		MassKg:              1.02e+26,
+		OrbitKm:             4.50e+09,
 		OrbitDays:           60190,
 		SurfacePressureBars: 1.5,
 		Moons:               2,
@@ -144,8 +146,15 @@ func (p planetsContainer) allSlice() []Planet {
 		Planets.NEPTUNE,
 	}
 }
-func (p planetsContainer) All() []Planet {
-	return p.allSlice()
+
+func (p planetsContainer) All() iter.Seq[Planet] {
+	return func(yield func(Planet) bool) {
+		for _, v := range p.allSlice() {
+			if !yield(v) {
+				return
+			}
+		}
+	}
 }
 
 func ParsePlanet(input any) (Planet, error) {
@@ -160,29 +169,29 @@ func ParsePlanet(input any) (Planet, error) {
 	case []byte:
 		res = stringToPlanet(string(v))
 	case int:
-		res = integerToPlanet(v)
+		res = numberToPlanet(v)
 	case int8:
-		res = integerToPlanet(int(v))
+		res = numberToPlanet(v)
 	case int16:
-		res = integerToPlanet(int(v))
+		res = numberToPlanet(v)
 	case int32:
-		res = integerToPlanet(int(v))
+		res = numberToPlanet(v)
 	case int64:
-		res = integerToPlanet(int(v))
+		res = numberToPlanet(v)
 	case uint:
-		res = integerToPlanet(v)
+		res = numberToPlanet(v)
 	case uint8:
-		res = integerToPlanet(uint(v))
+		res = numberToPlanet(v)
 	case uint16:
-		res = integerToPlanet(uint(v))
+		res = numberToPlanet(v)
 	case uint32:
-		res = integerToPlanet(uint(v))
+		res = numberToPlanet(v)
 	case uint64:
-		res = integerToPlanet(uint(v))
+		res = numberToPlanet(v)
 	case float32:
-		res = floatToPlanet(float64(v))
+		res = numberToPlanet(v)
 	case float64:
-		res = floatToPlanet(v)
+		res = numberToPlanet(v)
 	default:
 		return res, fmt.Errorf("invalid type %T", input)
 	}
@@ -218,34 +227,27 @@ func stringToPlanet(s string) Planet {
 	return invalidPlanet
 }
 
-func intToPlanet(i int) Planet {
-	i -= 1
-	if i < 0 || i >= len(Planets.allSlice()) {
-		return invalidPlanet
-	}
-	return Planets.allSlice()[i]
+type integer interface {
+	~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64
 }
 
-func uintToPlanet(i uint) Planet {
-	i -= 1
-	if i < 0 || i >= uint(len(Planets.allSlice())) {
-		return invalidPlanet
-	}
-	return Planets.allSlice()[i]
+type float interface {
+	~float32 | ~float64
 }
 
-func integerToPlanet(i any) Planet {
-	switch v := i.(type) {
-	case int:
-		return intToPlanet(v)
-	case uint:
-		return uintToPlanet(v)
-	default:
-		return invalidPlanet
-	}
+type number interface {
+	integer | float
 }
 
-func floatToPlanet(f float64) Planet {
+// ToPlanet converts a numeric value to a Planet
+func numberToPlanet[T number](num T) Planet {
+	f := float64(num)
+	if math.Floor(f) != f {
+		return invalidPlanet
+	}
 	i := int(f)
-	return integerToPlanet(i)
+	if i <= 0 || i > len(Planets.allSlice()) {
+		return invalidPlanet
+	}
+	return Planets.allSlice()[i-1]
 }

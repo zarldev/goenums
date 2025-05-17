@@ -147,8 +147,7 @@ func (g *Writer) writeNumberParsingMethods(rep enum.GenerationRequest) {
 		MapEnumType:   wrapperType(rep.EnumIota.Type),
 		EnumType:      containerName(rep),
 	}
-	g.writeIntegerParsingMethod(data, rep.Legacy)
-	g.writeFloatParsingMethod(data)
+	g.writeNumberParsingMethod(data)
 }
 
 type invalidEnumDefinition struct {
@@ -307,7 +306,7 @@ import (
 )
 
 func (g *Writer) writePackageAndImports(rep enum.GenerationRequest) {
-	imports := []string{"fmt", "strconv", "bytes", "database/sql/driver"}
+	imports := []string{"fmt", "strconv", "bytes", "database/sql/driver", "math"}
 	if rep.CaseInsensitive {
 		imports = append(imports, "strings")
 	}
@@ -463,29 +462,29 @@ func Parse{{.EnumType}}(input any) ({{.EnumType}}, error) {
 	case []byte:
 		res = stringTo{{.EnumType}}(string(v))
 	case int:
-		res = integerTo{{.EnumType}}(v)
+		res = numberTo{{.EnumType}}(v)
 	case int8:
-		res = integerTo{{.EnumType}}(int(v))
+		res = numberTo{{.EnumType}}(v)
 	case int16:
-		res = integerTo{{.EnumType}}(int(v))
+		res = numberTo{{.EnumType}}(v)
 	case int32:
-		res = integerTo{{.EnumType}}(int(v))
+		res = numberTo{{.EnumType}}(v)
 	case int64:
-		res = integerTo{{.EnumType}}(int(v))
+		res = numberTo{{.EnumType}}(v)
 	case uint:
-		res = integerTo{{.EnumType}}(v)
+		res = numberTo{{.EnumType}}(v)
 	case uint8:
-		res = integerTo{{.EnumType}}(uint(v))
+		res = numberTo{{.EnumType}}(v)
 	case uint16:
-		res = integerTo{{.EnumType}}(uint(v))
+		res = numberTo{{.EnumType}}(v)
 	case uint32:
-		res = integerTo{{.EnumType}}(uint(v))
+		res = numberTo{{.EnumType}}(v)
 	case uint64:
-		res = integerTo{{.EnumType}}(uint(v))
+		res = numberTo{{.EnumType}}(v)
 	case float32:
-		res = floatTo{{.EnumType}}(float64(v))
+		res = numberTo{{.EnumType}}(v)
 	case float64:
-		res = floatTo{{.EnumType}}(v)
+		res = numberTo{{.EnumType}}(v)
 	default:
 		return res, fmt.Errorf("invalid type %T", input)
 	}
@@ -553,51 +552,6 @@ func (g *Writer) writeStringParsingMethod(rep enum.GenerationRequest) {
 	parseStringFunctionTemplate.Execute(g.w, data)
 }
 
-type parseIntFunctionData struct {
-	MapEnumType   string
-	EnumType      string
-	StartIndex    int
-	HasStartIndex bool
-}
-
-var (
-	parseIntFunctionStr = `
-func intTo{{.MapEnumType}}(i int) {{.MapEnumType}} {
-  {{- if .StartIndex }}
-  i -= {{.StartIndex}}
-  {{- end }}
-  if i < 0 || i >= len({{.EnumType}}.allSlice()) {
-    return invalid{{.MapEnumType}}
-  }
-  return {{.EnumType}}.allSlice()[i]
-}
-`
-	parseIntFunctionTemplate = template.Must(template.New("parseIntFunction").Parse(parseIntFunctionStr))
-)
-
-func (g *Writer) writeIntParsingMethod(data parseNumberFunctionData) {
-	parseIntFunctionTemplate.Execute(g.w, data)
-}
-
-var (
-	parseUintFunctionStr = `
-func uintTo{{.MapEnumType}}(i uint) {{.MapEnumType}} {
-  {{- if .StartIndex }}
-  i -= {{.StartIndex}}
-  {{- end }}
-  if i < 0 || i >= uint(len({{.EnumType}}.allSlice())) {
-    return invalid{{.MapEnumType}}
-  }
-  return {{.EnumType}}.allSlice()[i]
-}
-`
-	parseUintFunctionTemplate = template.Must(template.New("parseUintFunction").Parse(parseUintFunctionStr))
-)
-
-func (g *Writer) writeUintParsingMethod(data parseNumberFunctionData) {
-	parseUintFunctionTemplate.Execute(g.w, data)
-}
-
 type parseNumberFunctionData struct {
 	MapEnumType   string
 	EnumType      string
@@ -607,52 +561,41 @@ type parseNumberFunctionData struct {
 
 var (
 	parseIntegerGenericFunctionTemplate = template.Must(template.New("parseIntegerGenericFunction").Parse(`
-func integerTo{{.MapEnumType}}[T int | uint](i T) {{.MapEnumType}} {
-  {{- if .StartIndex }}
-  i -= {{.StartIndex}}
-  {{- end }}
-  if i < 0 || i >= T(len({{.EnumType}}.allSlice())) {
-    return invalid{{.MapEnumType}}
-  }
-  return {{.EnumType}}.allSlice()[i]
-}
-`))
 
-	parseIntegerFunctionTemplate = template.Must(template.New("parseIntegerFunction").Parse(`
-func integerTo{{.MapEnumType}}(i any) {{.MapEnumType}} {
-  switch v := i.(type) {
-  case int:
-    return intTo{{.MapEnumType}}(v)
-  case uint:
-    return uintTo{{.MapEnumType}}(v)
-  default:
-    return invalid{{.MapEnumType}}
-  }
+type integer interface {
+    ~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64
 }
-`))
-)
 
-func (g *Writer) writeIntegerParsingMethod(data parseNumberFunctionData, legacy bool) {
-	if legacy {
-		g.writeIntParsingMethod(data)
-		g.writeUintParsingMethod(data)
-		parseIntegerFunctionTemplate.Execute(g.w, data)
-		return
+type float interface {
+    ~float32 | ~float64
+}
+
+type number interface {
+    integer | float
+}
+
+// To{{.MapEnumType}} converts a numeric value to a {{.MapEnumType}}
+func numberTo{{.MapEnumType}}[T number](num T) {{.MapEnumType}} {
+	f := float64(num)
+    if math.Floor(f) != f {
+        return invalid{{.MapEnumType}}
+    }
+	i := int(f)
+	if i <= 0 || i > len({{.EnumType}}.allSlice()) {
+		return invalid{{.MapEnumType}}
 	}
-	parseIntegerGenericFunctionTemplate.Execute(g.w, data)
+	{{- if .StartIndex }}
+	return {{.EnumType}}.allSlice()[i-{{.StartIndex}}]
+	{{- else }}
+	return {{.EnumType}}.allSlice()[i]
+	{{- end }}
 }
 
-var (
-	parseFloatFunctionTemplate = template.Must(template.New("parseFloatFunction").Parse(`
-func floatTo{{.MapEnumType}}(f float64) {{.MapEnumType}} {
-i := int(f)
-return integerTo{{.MapEnumType}}(i)
-}
 `))
 )
 
-func (g *Writer) writeFloatParsingMethod(data parseNumberFunctionData) {
-	parseFloatFunctionTemplate.Execute(g.w, data)
+func (g *Writer) writeNumberParsingMethod(data parseNumberFunctionData) {
+	parseIntegerGenericFunctionTemplate.Execute(g.w, data)
 }
 
 func enumNameMap(enumType string) string {

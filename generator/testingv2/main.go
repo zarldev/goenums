@@ -46,7 +46,7 @@ const (
 	cfg := config.Configuration{
 		Failfast:     false,
 		Insensitive:  true,
-		Legacy:       true,
+		Legacy:       false,
 		Verbose:      false,
 		OutputFormat: "",
 		Filenames:    []string{"./planets.go"},
@@ -79,5 +79,3 @@ const (
 	writer.Write(ctx, reqs)
 
 }
-
-// generator := generator.NewGenerator()
