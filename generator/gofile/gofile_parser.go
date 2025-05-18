@@ -229,6 +229,7 @@ func (p *Parser) getEnum(vs *ast.ValueSpec, idx *int, enumIota *enum.EnumIota) *
 		if !valid {
 			comment = strings.ReplaceAll(comment, "invalid", "")
 		}
+		enum.Valid = valid
 		s1, s2 := strings.SplitBySpace(strings.TrimLeft(comment, " "))
 		expectedFields := len(enumIota.Fields)
 		if s1 == "" && s2 == "" {

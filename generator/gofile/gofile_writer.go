@@ -1,6 +1,7 @@
 package gofile
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -138,6 +139,352 @@ func (g *Writer) writeEnumGenerationRequest(enum enum.GenerationRequest) {
 	g.writeParseFunction(enum)
 	g.writeStringParsingMethod(enum)
 	g.writeNumberParsingMethods(enum)
+	g.writeExhaustiveFunction(enum)
+	g.writeIsValidFunction(enum)
+	if enum.Handlers.JSON {
+		g.writeJSONMarshalMethod(enum)
+		g.writeJSONUnmarshalMethod(enum)
+	}
+	if enum.Handlers.Text {
+		g.writeTextMarshalMethod(enum)
+		g.writeTextUnmarshalMethod(enum)
+	}
+	if enum.Handlers.SQL {
+		g.writeScanMethod(enum)
+		g.writeValueMethod(enum)
+	}
+	if enum.Handlers.Binary {
+		g.writeBinaryMarshalMethod(enum)
+		g.writeBinaryUnmarshalMethod(enum)
+	}
+	if enum.Handlers.YAML {
+		g.writeYAMLMarshalMethod(enum)
+		g.writeYAMLUnmarshalMethod(enum)
+	}
+	g.writeStringMethod(enum)
+	g.writeCompileCheck(enum)
+}
+
+var (
+	jsonMarshalStr = `
+func (p {{ .EnumType }}) MarshalJSON() ([]byte, error) {
+	return []byte( p.String()), nil 
+}
+	`
+	jsonMarshalTemplate = template.Must(template.New("jsonMarshal").Parse(jsonMarshalStr))
+
+	jsonUnmarshalStr = `
+func (p *{{ .EnumType }}) UnmarshalJSON(b []byte) error {
+	b = bytes.Trim(bytes.Trim(b, "\""), "\"")
+	newp, err := Parse{{ .EnumType }}(b)
+	if err != nil {
+		return err
+	}
+	*p = newp
+	return nil
+}
+`
+	jsonUnmarshalTemplate = template.Must(template.New("jsonUnmarshal").Parse(jsonUnmarshalStr))
+	textMarshalStr        = `
+	func (p {{ .EnumType }}) MarshalText() ([]byte, error) {
+		return []byte(p.String()), nil
+	}
+`
+)
+
+type jsonMarshalFunctionData struct {
+	EnumType string
+	EnumName string
+}
+
+func (g *Writer) writeJSONMarshalMethod(rep enum.GenerationRequest) {
+	d := jsonMarshalFunctionData{
+		EnumType: strings.Camel(rep.EnumIota.Type),
+		EnumName: strings.ToUpper(rep.EnumIota.Type),
+	}
+	jsonMarshalTemplate.Execute(g.w, d)
+}
+
+func (g *Writer) writeJSONUnmarshalMethod(rep enum.GenerationRequest) {
+	d := jsonMarshalFunctionData{
+		EnumType: strings.Camel(rep.EnumIota.Type),
+	}
+	jsonUnmarshalTemplate.Execute(g.w, d)
+}
+
+var (
+	textMarshalTemplate = template.Must(template.New("textMarshal").Parse(textMarshalStr))
+
+	textUnmarshalStr = `
+	func (p *{{ .EnumType }}) UnmarshalText(b []byte) error {
+		newp, err := Parse{{ .EnumType }}(b)
+		if err != nil {
+			return err
+		}
+		*p = newp
+		return nil
+	}
+`
+	textUnmarshalTemplate = template.Must(template.New("textUnmarshal").Parse(textUnmarshalStr))
+)
+
+type textMarshalFunctionData struct {
+	EnumType string
+}
+
+func (g *Writer) writeTextMarshalMethod(rep enum.GenerationRequest) {
+	d := textMarshalFunctionData{
+		EnumType: strings.Camel(rep.EnumIota.Type),
+	}
+	textMarshalTemplate.Execute(g.w, d)
+}
+
+func (g *Writer) writeTextUnmarshalMethod(rep enum.GenerationRequest) {
+	d := textMarshalFunctionData{
+		EnumType: strings.Camel(rep.EnumIota.Type),
+	}
+	textUnmarshalTemplate.Execute(g.w, d)
+}
+
+var (
+	binaryMarshalStr = `
+	func (p {{ .EnumType }}) MarshalBinary() ([]byte, error) {
+		return []byte(p.String()), nil
+	}
+`
+	binaryMarshalTemplate = template.Must(template.New("binaryMarshal").Parse(binaryMarshalStr))
+
+	binaryUnmarshalStr = `
+	func (p *{{ .EnumType }}) UnmarshalBinary(b []byte) error {
+		newp, err := Parse{{ .EnumType }}(b)
+		if err != nil {
+			return err
+		}
+		*p = newp
+		return nil
+	}
+`
+	binaryUnmarshalTemplate = template.Must(template.New("binaryUnmarshal").Parse(binaryUnmarshalStr))
+)
+
+type binaryMarshalFunctionData struct {
+	EnumType string
+}
+
+func (g *Writer) writeBinaryMarshalMethod(rep enum.GenerationRequest) {
+	d := binaryMarshalFunctionData{
+		EnumType: strings.Camel(rep.EnumIota.Type),
+	}
+	binaryMarshalTemplate.Execute(g.w, d)
+}
+
+func (g *Writer) writeBinaryUnmarshalMethod(rep enum.GenerationRequest) {
+	d := binaryMarshalFunctionData{
+		EnumType: strings.Camel(rep.EnumIota.Type),
+	}
+	binaryUnmarshalTemplate.Execute(g.w, d)
+}
+
+var (
+	yamlMarshalStr = `
+	func (p {{ .EnumType }}) MarshalYAML() (interface{}, error) {
+		return p.String(), nil
+	}
+`
+	yamlMarshalTemplate = template.Must(template.New("yamlMarshal").Parse(yamlMarshalStr))
+
+	yamlUnmarshalStr = `
+	func (p *{{ .EnumType }}) UnmarshalYAML(value *yaml.Node) error {
+		newp, err := Parse{{ .EnumType }}(value.Value)
+		if err != nil {
+			return err
+		}
+		*p = newp
+		return nil
+	}
+`
+	yamlUnmarshalTemplate = template.Must(template.New("yamlUnmarshal").Parse(yamlUnmarshalStr))
+)
+
+type yamlMarshalFunctionData struct {
+	EnumType string
+}
+
+func (g *Writer) writeYAMLMarshalMethod(rep enum.GenerationRequest) {
+	d := yamlMarshalFunctionData{
+		EnumType: strings.Camel(rep.EnumIota.Type),
+	}
+	yamlMarshalTemplate.Execute(g.w, d)
+}
+
+func (g *Writer) writeYAMLUnmarshalMethod(rep enum.GenerationRequest) {
+	d := yamlMarshalFunctionData{
+		EnumType: strings.Camel(rep.EnumIota.Type),
+	}
+	yamlUnmarshalTemplate.Execute(g.w, d)
+}
+
+var (
+	scanStr = `
+func (p *{{ .EnumType }}) Scan(value any) error {
+	newp, err := Parse{{ .EnumType }}(value)
+	if err != nil {
+		return err
+	}
+	*p = newp
+	return nil
+}
+`
+	scanTemplate = template.Must(template.New("scan").Parse(scanStr))
+
+	valueStr = `
+func (p {{ .EnumType }}) Value() (driver.Value, error) {
+	return p.String(), nil
+}
+`
+	valueTemplate = template.Must(template.New("value").Parse(valueStr))
+)
+
+type scanFunctionData struct {
+	EnumType string
+}
+
+func (g *Writer) writeScanMethod(rep enum.GenerationRequest) {
+	d := scanFunctionData{
+		EnumType: strings.Camel(rep.EnumIota.Type),
+	}
+	scanTemplate.Execute(g.w, d)
+}
+
+type valueFunctionData = scanFunctionData
+
+func (g *Writer) writeValueMethod(rep enum.GenerationRequest) {
+	d := valueFunctionData{
+		EnumType: strings.Camel(rep.EnumIota.Type),
+	}
+	valueTemplate.Execute(g.w, d)
+}
+
+var (
+	compileCheckStr = `
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the goenums command to generate them again.
+	// Does not identify newly added constant values unless order changes
+	var x [{{len .Enums}}]struct{}
+	{{- range .Enums }}
+	_ = x[{{ .Name }}-{{ .Index }}]
+	{{- end }}
+}
+	`
+	compileCheckTemplate = template.Must(template.New("compileCheck").Parse(compileCheckStr))
+)
+
+type compileCheckData struct {
+	Enums []enum.Enum
+}
+
+func (g *Writer) writeCompileCheck(rep enum.GenerationRequest) {
+	d := compileCheckData{
+		Enums: rep.EnumIota.Enums,
+	}
+	compileCheckTemplate.Execute(g.w, d)
+}
+
+// const statusesName = "FAILEDPASSEDSKIPPEDSCHEDULEDRUNNINGBOOKED"
+
+// var statusesIdx = [...]uint16{0, 6, 12, 19, 28, 35, 41}
+
+// // String returns the string representation of the Status value.
+// // For valid values, it returns the name of the constant.
+// // For invalid values, it returns a string in the format "statuses(N)",
+// // where N is the numeric value.
+// func (i status) String() string {
+// 	if i < 0 || i > status(len(statusesIdx)-1)+-1 {
+// 		return "statuses(" + (strconv.FormatInt(int64(i), 10) + ")")
+// 	}
+// 	return statusesName[statusesIdx[i]:statusesIdx[i+1]]
+// }
+
+var (
+	stringMethodStr = `
+	const {{ .EnumNames }}Name = "{{ .AllEnumNames }}" 
+	var {{ .EnumNames }}Idx = [...]uint16{ {{ .AllEnumIdx }} }
+
+	func (i {{ .EnumType }}) String() string {
+		if i < {{ .EnumType }}(len({{ .EnumNames }}Idx)-{{.StartIndex}}) {
+			return {{ .EnumNames }}Name[{{ .EnumNames }}Idx[i]:{{ .EnumNames }}Idx[i+{{.StartIndex}}]]	
+		}
+		return {{ .EnumNames }}Name[{{ .EnumNames }}Idx[i]:{{ .EnumNames }}Idx[i+{{.StartIndex}}]]
+`
+	stringMethodTemplate = template.Must(template.New("stringMethod").Parse(stringMethodStr))
+)
+
+type stringMethodData struct {
+	EnumNames    string
+	AllEnumNames string
+	AllEnumIdx   string
+	EnumType     string
+	StartIndex   int
+}
+
+func (g *Writer) writeStringMethod(rep enum.GenerationRequest) {
+	edefs := enumDefinitions(rep)
+	var names bytes.Buffer
+	var indexes bytes.Buffer
+	var startIdx, endIdx int
+	for _, e := range edefs {
+		if e.Valid {
+			startIdx = endIdx
+			endIdx = startIdx + len(e.Aliases[0])
+			names.WriteString(e.Aliases[0])
+			indexes.WriteString(fmt.Sprintf("%d, ", startIdx))
+		}
+	}
+	d := stringMethodData{
+		EnumNames:    strings.ToUpper(rep.EnumIota.Type),
+		AllEnumNames: names.String(),
+		AllEnumIdx:   indexes.String(),
+		EnumType:     strings.Camel(rep.EnumIota.Type),
+		StartIndex:   startIdx,
+	}
+
+	stringMethodTemplate.Execute(g.w, d)
+
+}
+
+var (
+	isValidStr = `
+var valid{{ .EnumTypes }} = map[{{ .EnumType }}]bool{
+	{{- range .Enums }}
+	{{ $.EnumTypes }}.{{ .EnumNameIdentifier }}: {{ .Valid }},
+	{{- end }}
+}
+
+// IsValid checks whether the {{ .EnumType }} value is valid.
+// A valid value is one that is defined in the original enum and not marked as invalid.
+func (p {{ .EnumType }}) IsValid() bool {
+	return valid{{ .EnumTypes }}[p]
+}
+`
+	isValidTemplate = template.Must(template.New("isValid").Parse(isValidStr))
+)
+
+type isValidFunctionData struct {
+	EnumTypes string
+	EnumType  string
+	Enums     []enumDefinition
+}
+
+func (g *Writer) writeIsValidFunction(rep enum.GenerationRequest) {
+	edefs := enumDefinitions(rep)
+	eType := strings.Camel(rep.EnumIota.Type)
+	isValidData := isValidFunctionData{
+		EnumTypes: strings.Plural(eType),
+		EnumType:  eType,
+		Enums:     edefs,
+	}
+	isValidTemplate.Execute(g.w, isValidData)
 }
 
 func (g *Writer) writeNumberParsingMethods(rep enum.GenerationRequest) {
@@ -387,6 +734,7 @@ func enumDefinitions(rep enum.GenerationRequest) []enumDefinition {
 			Fields:             ffields,
 			IotaType:           rep.EnumIota.Type,
 			Aliases:            aliases,
+			Valid:              e.Valid,
 		})
 	}
 	return edefs
@@ -517,6 +865,7 @@ type enumDefinition struct {
 	EnumName           string
 	Fields             []enum.Field
 	Aliases            []string
+	Valid              bool
 }
 
 var (
@@ -600,6 +949,34 @@ func (g *Writer) writeNumberParsingMethod(data parseNumberFunctionData) {
 
 func enumNameMap(enumType string) string {
 	return strings.Pluralise(enumType) + "NameMap"
+}
+
+var (
+	exhaustiveStr = `
+	func Exhaustive{{ .EnumTypes }}(f func({{ .EnumType }})) {
+		for _, p := range {{ .EnumTypes }}.allSlice() {
+			f(p)
+		}
+	}
+	`
+	exhaustiveTemplate = template.Must(template.New("exhaustive").Parse(exhaustiveStr))
+)
+
+type exhaustiveFunctionData struct {
+	EnumTypes string
+	EnumType  string
+	Enums     []enumDefinition
+}
+
+func (g *Writer) writeExhaustiveFunction(rep enum.GenerationRequest) {
+	edefs := enumDefinitions(rep)
+	eType := strings.Camel(rep.EnumIota.Type)
+	exhaustiveData := exhaustiveFunctionData{
+		EnumType:  eType,
+		EnumTypes: strings.Plural(eType),
+		Enums:     edefs,
+	}
+	exhaustiveTemplate.Execute(g.w, exhaustiveData)
 }
 
 // // New combined function for all parsing methods

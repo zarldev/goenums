@@ -39,6 +39,15 @@ type GenerationRequest struct {
 	Failfast        bool
 	Legacy          bool
 	CaseInsensitive bool
+	Handlers        Handlers
+}
+
+type Handlers struct {
+	JSON   bool
+	Text   bool
+	YAML   bool
+	SQL    bool
+	Binary bool
 }
 
 func (r GenerationRequest) Command() string {
