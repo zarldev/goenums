@@ -46,7 +46,7 @@ var irregularToPlural = map[string]string{
 	"status":   "statuses",
 }
 
-var irregularToPluralsToSingular = map[string]string{
+var irregularPluralsToSingular = map[string]string{
 	"men":      "man",
 	"women":    "woman",
 	"children": "child",
@@ -122,7 +122,115 @@ func detectCase(src string) func(string) string {
 }
 
 func alreadyPlural(s string) bool {
-	return strings.HasSuffix(s, "s") || strings.HasSuffix(s, "es")
+	if strings.HasSuffix(s, "s") || strings.HasSuffix(s, "es") {
+		return true
+	}
+	if _, ok := irregularPluralsToSingular[s]; ok {
+		return true
+	}
+	if _, ok := irregularPluralsToSingular[strings.ToLower(s)]; ok {
+		return true
+	}
+	return false
+}
+
+func IsPlural(s string) bool {
+	return alreadyPlural(s)
+}
+
+func Singularise(iotaType string) string {
+	if iotaType == "" {
+		return ""
+	}
+	applyCase := detectCase(iotaType)
+	if !alreadyPlural(iotaType) {
+		return iotaType
+	}
+	// Handle snake_case
+	if strings.Contains(iotaType, "_") {
+		parts := strings.Split(iotaType, "_")
+		// singularize last part only
+		last := parts[len(parts)-1]
+		lowerLast := strings.ToLower(last)
+		var singularLast string
+		if s, ok := irregularPluralsToSingular[lowerLast]; ok {
+			singularLast = s
+		} else {
+			singularLast = Singularize(last)
+		}
+		parts[len(parts)-1] = applyCase(singularLast)
+		return strings.Join(parts, "_")
+	}
+	// Handle camelCase
+	if strings.Contains(iotaType, " ") {
+		parts := strings.Split(iotaType, " ")
+		// singularize last part only
+		last := parts[len(parts)-1]
+		lowerLast := strings.ToLower(last)
+		var singularLast string
+		if s, ok := irregularPluralsToSingular[lowerLast]; ok {
+			singularLast = s
+		} else {
+			singularLast = Singularize(last)
+		}
+		parts[len(parts)-1] = applyCase(singularLast)
+		return strings.Join(parts, " ")
+	}
+	// Handle PascalCase
+	if strings.Contains(iotaType, " ") {
+		parts := strings.Split(iotaType, " ")
+		// singularize last part only
+		last := parts[len(parts)-1]
+		lowerLast := strings.ToLower(last)
+		var singularLast string
+		if s, ok := irregularPluralsToSingular[lowerLast]; ok {
+			singularLast = s
+		} else {
+			singularLast = Singularize(last)
+		}
+		parts[len(parts)-1] = applyCase(singularLast)
+		return strings.Join(parts, " ")
+	}
+	// Handle kebab-case
+	if strings.Contains(iotaType, "-") {
+		parts := strings.Split(iotaType, "-")
+		// singularize last part only
+		last := parts[len(parts)-1]
+		lowerLast := strings.ToLower(last)
+		var singularLast string
+		if s, ok := irregularPluralsToSingular[lowerLast]; ok {
+			singularLast = s
+		} else {
+			singularLast = Singularize(last)
+		}
+		parts[len(parts)-1] = applyCase(singularLast)
+		return strings.Join(parts, "-")
+	}
+	// Handle normal case
+	lowerIotaType := strings.ToLower(iotaType)
+	if s, ok := irregularPluralsToSingular[lowerIotaType]; ok {
+		return applyCase(s)
+	}
+	return applyCase(Singularize(iotaType))
+}
+
+func Singularize(word string) string {
+	if _, ok := irregularPluralsToSingular[word]; ok {
+		return irregularPluralsToSingular[word]
+	}
+	if len(word) > 1 && word[len(word)-1] == 's' {
+		return word[:len(word)-1]
+	}
+	if len(word) > 2 && word[len(word)-2:] == "es" {
+		return word[:len(word)-2]
+	}
+	if len(word) > 2 && word[len(word)-2:] == "ies" {
+		return word[:len(word)-3] + "y"
+	}
+	if len(word) > 1 && word[len(word)-1] == 'x' {
+		return word + "es"
+	}
+	return word
 }
 
 // Plural pluralizes a word or snake_case word with case preservation

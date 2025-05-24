@@ -92,43 +92,6 @@ func (g *Writer) Write(ctx context.Context,
 	return nil
 }
 
-// func (g *Writer) writeEnumFile(enum enum.Representation) {
-// 	// Top-level file structure
-// 	g.writeGeneratedComment(enum)
-// 	g.writePackage(enum)
-// 	g.writeImports(enum)
-
-// 	// Type definitions
-// 	g.writeWrapperType(enum)
-// 	g.writeInvalidTypeDefinition(enum)
-
-// 	// Methods and functions
-// 	g.writeAllMethod(enum)
-// 	g.writeParsingMethods(enum)
-// 	g.writeExhaustiveMethod(enum)
-// 	g.writeIsValidMethod(enum)
-
-// 	// Database and JSON handling
-// 	g.writeJSONMarshalMethod(enum)
-// 	g.writeJSONUnmarshalMethod(enum)
-// 	g.writeScanMethod(enum)
-// 	g.writeValueMethod(enum)
-// 	g.writeBinaryMarshalMethod(enum)
-// 	g.writeBinaryUnmarshalMethod(enum)
-// 	g.writeTextMarshalMethod(enum)
-// 	g.writeTextUnmarshalMethod(enum)
-
-// 	// Other utility code
-// 	g.writeCompileCheck(enum)
-// 	g.writeStringMethod(enum)
-// }
-
-// write writes a string to the output writer
-// it is a wrapper around the io.Writer interface
-func (g *Writer) write(s string) {
-	_, _ = g.w.Write([]byte(s))
-}
-
 func (g *Writer) writeEnumGenerationRequest(enum enum.GenerationRequest) {
 	g.writeGeneratedComments(enum)
 	g.writePackageAndImports(enum)
@@ -408,49 +371,80 @@ func (g *Writer) writeCompileCheck(rep enum.GenerationRequest) {
 
 var (
 	stringMethodStr = `
-	const {{ .EnumNames }}Name = "{{ .AllEnumNames }}" 
-	var {{ .EnumNames }}Idx = [...]uint16{ {{ .AllEnumIdx }} }
+const {{ .EnumLower }}Names = "{{ .NameString }}"
 
-	func (i {{ .EnumType }}) String() string {
-		if i < {{ .EnumType }}(len({{ .EnumNames }}Idx)-{{.StartIndex}}) {
-			return {{ .EnumNames }}Name[{{ .EnumNames }}Idx[i]:{{ .EnumNames }}Idx[i+{{.StartIndex}}]]	
-		}
-		return {{ .EnumNames }}Name[{{ .EnumNames }}Idx[i]:{{ .EnumNames }}Idx[i+{{.StartIndex}}]]
+var {{ .EnumLower }}NamesMap = map[{{ .EnumType }}]string{
+    {{- range .EnumDefs }}
+    {{- if .Valid }}
+    {{ $.ContainerName }}.{{ .EnumNameIdentifier }}: {{ $.EnumLower }}Names[{{ index $.NameOffsets .EnumNameIdentifier "start" }}:{{ index $.NameOffsets .EnumNameIdentifier "end" }}],
+    {{- end }}
+    {{- end }}
+}
+
+// String implements the Stringer interface.
+func (p {{ .EnumType }}) String() string {
+    if str, ok := {{ .EnumLower }}NamesMap[p]; ok {
+        return str
+    }
+    return fmt.Sprintf("{{ .EnumLower }}(%d)", p.{{ .EnumIota }})
+}
 `
 	stringMethodTemplate = template.Must(template.New("stringMethod").Parse(stringMethodStr))
 )
 
 type stringMethodData struct {
-	EnumNames    string
-	AllEnumNames string
-	AllEnumIdx   string
-	EnumType     string
-	StartIndex   int
+	EnumType        string
+	EnumLower       string
+	EnumIota        string
+	ContainerName   string
+	NameString      string
+	EnumDefs        []enumDefinition
+	NameOffsets     map[string]map[string]int
+	CaseInsensitive bool
 }
 
 func (g *Writer) writeStringMethod(rep enum.GenerationRequest) {
+	// Build name string and indexes, BUT properly consider valid vs invalid enums
+	// Get the enum definitions
 	edefs := enumDefinitions(rep)
+
+	// Build the concatenated name string
 	var names bytes.Buffer
-	var indexes bytes.Buffer
-	var startIdx, endIdx int
+	nameOffsets := make(map[string]struct{ start, end int })
+
 	for _, e := range edefs {
 		if e.Valid {
-			startIdx = endIdx
-			endIdx = startIdx + len(e.Aliases[0])
-			names.WriteString(e.Aliases[0])
-			indexes.WriteString(fmt.Sprintf("%d, ", startIdx))
+			name := e.Aliases[0]
+			start := names.Len()
+			names.WriteString(name)
+			end := names.Len()
+			nameOffsets[e.EnumNameIdentifier] = struct{ start, end int }{start, end}
+		}
+	}
+
+	// Setup template data
+	enumType := strings.Camel(rep.EnumIota.Type)
+	enumLower := strings.ToLower(rep.EnumIota.Type)
+	containerName := wrapperName(rep.EnumIota.Type)
+	caseInsensitive := rep.CaseInsensitive
+	nameOffsetsForTemplate := make(map[string]map[string]int)
+	for id, offset := range nameOffsets {
+		nameOffsetsForTemplate[id] = map[string]int{
+			"start": offset.start,
+			"end":   offset.end,
 		}
 	}
 	d := stringMethodData{
-		EnumNames:    strings.ToUpper(rep.EnumIota.Type),
-		AllEnumNames: names.String(),
-		AllEnumIdx:   indexes.String(),
-		EnumType:     strings.Camel(rep.EnumIota.Type),
-		StartIndex:   startIdx,
+		EnumType:        enumType,
+		EnumLower:       enumLower,
+		EnumIota:        rep.EnumIota.Type,
+		ContainerName:   containerName,
+		NameString:      names.String(),
+		EnumDefs:        edefs,
+		NameOffsets:     nameOffsetsForTemplate,
+		CaseInsensitive: caseInsensitive,
 	}
-
 	stringMethodTemplate.Execute(g.w, d)
-
 }
 
 var (
@@ -492,7 +486,7 @@ func (g *Writer) writeNumberParsingMethods(rep enum.GenerationRequest) {
 		HasStartIndex: rep.EnumIota.StartIndex > 0,
 		StartIndex:    rep.EnumIota.StartIndex,
 		MapEnumType:   wrapperType(rep.EnumIota.Type),
-		EnumType:      containerName(rep),
+		EnumType:      wrapperName(rep.EnumIota.Type),
 	}
 	g.writeNumberParsingMethod(data)
 }
@@ -586,9 +580,16 @@ func (g *Writer) writeWrapperDefinition(enum enum.GenerationRequest) {
 }
 
 func wrapperName(enum string) string {
+	if strings.IsPlural(enum) {
+		enum = strings.Singularise(enum)
+		strings.Camel(enum)
+	}
 	return strings.Camel(enum)
 }
 
+func containerName(enum string) string {
+	return strings.Camel(enum)
+}
 func wrapperType(enum string) string {
 	return strings.Camel(enum)
 }
@@ -597,12 +598,6 @@ func containerType(enum enum.GenerationRequest) string {
 	cName := strings.Lower1stCharacter(enum.EnumIota.Type)
 	cName = strings.Pluralise(cName)
 	return cName + "Container"
-}
-
-func containerName(enum enum.GenerationRequest) string {
-	cName := strings.Pluralise(enum.EnumIota.Type)
-	cName = strings.Camel(cName)
-	return cName
 }
 
 type generatedComment struct {
@@ -614,8 +609,8 @@ type generatedComment struct {
 
 var (
 	generatedCommentStr = `
-// DO NOT EDIT.
-// code generated by goenums {.Version} at {.Time}.
+// code generated by goenums {.Version} at {.Time}. DO NOT EDIT.
+// 
 // github.com/zarldev/goenums
 //
 // using the command:
@@ -653,10 +648,10 @@ import (
 )
 
 func (g *Writer) writePackageAndImports(rep enum.GenerationRequest) {
-	imports := []string{"fmt", "strconv", "bytes", "database/sql/driver", "math"}
-	if rep.CaseInsensitive {
-		imports = append(imports, "strings")
-	}
+	imports := []string{"fmt", "bytes", "database/sql/driver", "math"}
+	// if rep.CaseInsensitive {
+	// 	imports = append(imports, "strings")
+	// }
 	if !rep.Legacy {
 		imports = append(imports, "iter")
 	}
@@ -692,7 +687,7 @@ func (g *Writer) writeContainerDefinition(rep enum.GenerationRequest) {
 	edefs := enumDefinitions(rep)
 	cdef := containerDefinition{
 		ContainerType: containerType(rep),
-		ContainerName: containerName(rep),
+		ContainerName: wrapperName(rep.EnumIota.Type),
 		EnumDefs:      edefs,
 	}
 	containerDefinitionTemplate.Execute(g.w, cdef)
@@ -714,7 +709,6 @@ func enumDefinitions(rep enum.GenerationRequest) []enumDefinition {
 			}
 		}
 		aliases := e.Aliases
-		aliases = append(aliases, e.Name)
 		if rep.CaseInsensitive {
 			for _, a := range e.Aliases {
 				lwr := strings.ToLower(a)
@@ -730,7 +724,7 @@ func enumDefinitions(rep enum.GenerationRequest) []enumDefinition {
 		edefs = append(edefs, enumDefinition{
 			EnumName:           e.Name,
 			EnumNameIdentifier: strings.ToUpper(e.Name),
-			EnumType:           strings.Camel(rep.EnumIota.Type),
+			EnumType:           wrapperName(rep.EnumIota.Type),
 			Fields:             ffields,
 			IotaType:           rep.EnumIota.Type,
 			Aliases:            aliases,
@@ -783,7 +777,7 @@ func (g *Writer) writeAllFunction(rep enum.GenerationRequest) {
 	allData := allFunctionData{
 		Receiver:      string(r),
 		ContainerType: containerType(rep),
-		ContainerName: containerName(rep),
+		ContainerName: wrapperName(rep.EnumIota.Type),
 		EnumType:      strings.Camel(rep.EnumIota.Type),
 		EnumDefs:      edefs,
 		Legacy:        rep.Legacy,
@@ -793,6 +787,7 @@ func (g *Writer) writeAllFunction(rep enum.GenerationRequest) {
 
 type parseFunctionData struct {
 	EnumType string
+	FailFast bool
 	Enums    []enum.Enum
 }
 
@@ -836,6 +831,11 @@ func Parse{{.EnumType}}(input any) ({{.EnumType}}, error) {
 	default:
 		return res, fmt.Errorf("invalid type %T", input)
 	}
+	{{- if .FailFast}}
+	if res == invalid{{.EnumType}} {
+	  return res, fmt.Errorf("invalid value %v", input)
+	}
+	{{- end}}
 	return res, nil
 }
 `
@@ -846,6 +846,7 @@ func (g *Writer) writeParseFunction(rep enum.GenerationRequest) error {
 	data := parseFunctionData{
 		EnumType: strings.Camel(rep.EnumIota.Type),
 		Enums:    rep.EnumIota.Enums,
+		FailFast: rep.Failfast,
 	}
 	return parseFunctionTemplate.Execute(g.w, data)
 }
@@ -894,7 +895,7 @@ func (g *Writer) writeStringParsingMethod(rep enum.GenerationRequest) {
 	data := parseStringFunctionData{
 		MapEnumType:     wrapperType(rep.EnumIota.Type),
 		EnumNameMap:     enumNameMap(rep.EnumIota.Type),
-		EnumType:        containerName(rep),
+		EnumType:        wrapperName(rep.EnumIota.Type),
 		Enums:           edefs,
 		CaseInsensitive: rep.CaseInsensitive,
 	}
@@ -911,20 +912,8 @@ type parseNumberFunctionData struct {
 var (
 	parseIntegerGenericFunctionTemplate = template.Must(template.New("parseIntegerGenericFunction").Parse(`
 
-type integer interface {
-    ~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64
-}
-
-type float interface {
-    ~float32 | ~float64
-}
-
-type number interface {
-    integer | float
-}
-
 // To{{.MapEnumType}} converts a numeric value to a {{.MapEnumType}}
-func numberTo{{.MapEnumType}}[T number](num T) {{.MapEnumType}} {
+func numberTo{{.MapEnumType}}[T cmp.Ordered](num T) {{.MapEnumType}} {
 	f := float64(num)
     if math.Floor(f) != f {
         return invalid{{.MapEnumType}}
