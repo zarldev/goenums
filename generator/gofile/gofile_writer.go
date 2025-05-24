@@ -162,7 +162,7 @@ type jsonMarshalFunctionData struct {
 
 func (g *Writer) writeJSONMarshalMethod(rep enum.GenerationRequest) {
 	d := jsonMarshalFunctionData{
-		EnumType: strings.Camel(rep.EnumIota.Type),
+		EnumType: wrapperName(rep.EnumIota.Type),
 		EnumName: strings.ToUpper(rep.EnumIota.Type),
 	}
 	jsonMarshalTemplate.Execute(g.w, d)
@@ -170,7 +170,7 @@ func (g *Writer) writeJSONMarshalMethod(rep enum.GenerationRequest) {
 
 func (g *Writer) writeJSONUnmarshalMethod(rep enum.GenerationRequest) {
 	d := jsonMarshalFunctionData{
-		EnumType: strings.Camel(rep.EnumIota.Type),
+		EnumType: wrapperName(rep.EnumIota.Type),
 	}
 	jsonUnmarshalTemplate.Execute(g.w, d)
 }
@@ -197,14 +197,14 @@ type textMarshalFunctionData struct {
 
 func (g *Writer) writeTextMarshalMethod(rep enum.GenerationRequest) {
 	d := textMarshalFunctionData{
-		EnumType: strings.Camel(rep.EnumIota.Type),
+		EnumType: wrapperName(rep.EnumIota.Type),
 	}
 	textMarshalTemplate.Execute(g.w, d)
 }
 
 func (g *Writer) writeTextUnmarshalMethod(rep enum.GenerationRequest) {
 	d := textMarshalFunctionData{
-		EnumType: strings.Camel(rep.EnumIota.Type),
+		EnumType: wrapperName(rep.EnumIota.Type),
 	}
 	textUnmarshalTemplate.Execute(g.w, d)
 }
@@ -236,14 +236,14 @@ type binaryMarshalFunctionData struct {
 
 func (g *Writer) writeBinaryMarshalMethod(rep enum.GenerationRequest) {
 	d := binaryMarshalFunctionData{
-		EnumType: strings.Camel(rep.EnumIota.Type),
+		EnumType: wrapperName(rep.EnumIota.Type),
 	}
 	binaryMarshalTemplate.Execute(g.w, d)
 }
 
 func (g *Writer) writeBinaryUnmarshalMethod(rep enum.GenerationRequest) {
 	d := binaryMarshalFunctionData{
-		EnumType: strings.Camel(rep.EnumIota.Type),
+		EnumType: wrapperName(rep.EnumIota.Type),
 	}
 	binaryUnmarshalTemplate.Execute(g.w, d)
 }
@@ -275,14 +275,14 @@ type yamlMarshalFunctionData struct {
 
 func (g *Writer) writeYAMLMarshalMethod(rep enum.GenerationRequest) {
 	d := yamlMarshalFunctionData{
-		EnumType: strings.Camel(rep.EnumIota.Type),
+		EnumType: wrapperName(rep.EnumIota.Type),
 	}
 	yamlMarshalTemplate.Execute(g.w, d)
 }
 
 func (g *Writer) writeYAMLUnmarshalMethod(rep enum.GenerationRequest) {
 	d := yamlMarshalFunctionData{
-		EnumType: strings.Camel(rep.EnumIota.Type),
+		EnumType: wrapperName(rep.EnumIota.Type),
 	}
 	yamlUnmarshalTemplate.Execute(g.w, d)
 }
@@ -314,7 +314,7 @@ type scanFunctionData struct {
 
 func (g *Writer) writeScanMethod(rep enum.GenerationRequest) {
 	d := scanFunctionData{
-		EnumType: strings.Camel(rep.EnumIota.Type),
+		EnumType: wrapperName(rep.EnumIota.Type),
 	}
 	scanTemplate.Execute(g.w, d)
 }
@@ -323,7 +323,7 @@ type valueFunctionData = scanFunctionData
 
 func (g *Writer) writeValueMethod(rep enum.GenerationRequest) {
 	d := valueFunctionData{
-		EnumType: strings.Camel(rep.EnumIota.Type),
+		EnumType: wrapperName(rep.EnumIota.Type),
 	}
 	valueTemplate.Execute(g.w, d)
 }
@@ -423,9 +423,9 @@ func (g *Writer) writeStringMethod(rep enum.GenerationRequest) {
 	}
 
 	// Setup template data
-	enumType := strings.Camel(rep.EnumIota.Type)
+	enumType := wrapperName(rep.EnumIota.Type)
 	enumLower := strings.ToLower(rep.EnumIota.Type)
-	containerName := wrapperName(rep.EnumIota.Type)
+	containerName := strings.Plural(strings.Camel(rep.EnumIota.Type))
 	caseInsensitive := rep.CaseInsensitive
 	nameOffsetsForTemplate := make(map[string]map[string]int)
 	for id, offset := range nameOffsets {
@@ -472,10 +472,9 @@ type isValidFunctionData struct {
 
 func (g *Writer) writeIsValidFunction(rep enum.GenerationRequest) {
 	edefs := enumDefinitions(rep)
-	eType := strings.Camel(rep.EnumIota.Type)
 	isValidData := isValidFunctionData{
-		EnumTypes: strings.Plural(eType),
-		EnumType:  eType,
+		EnumTypes: strings.Plural(strings.Camel(rep.EnumIota.Type)),
+		EnumType:  wrapperName(rep.EnumIota.Type),
 		Enums:     edefs,
 	}
 	isValidTemplate.Execute(g.w, isValidData)
@@ -485,8 +484,8 @@ func (g *Writer) writeNumberParsingMethods(rep enum.GenerationRequest) {
 	data := parseNumberFunctionData{
 		HasStartIndex: rep.EnumIota.StartIndex > 0,
 		StartIndex:    rep.EnumIota.StartIndex,
-		MapEnumType:   wrapperType(rep.EnumIota.Type),
-		EnumType:      wrapperName(rep.EnumIota.Type),
+		MapEnumType:   wrapperName(rep.EnumIota.Type),
+		EnumType:      strings.Plural(strings.Camel(rep.EnumIota.Type)),
 	}
 	g.writeNumberParsingMethod(data)
 }
@@ -504,7 +503,7 @@ var (
 
 func (g *Writer) writeInvalidEnumDefinition(enum enum.GenerationRequest) {
 	invalidEnumDefinition := invalidEnumDefinition{
-		EnumType: wrapperType(enum.EnumIota.Type),
+		EnumType: wrapperName(enum.EnumIota.Type),
 	}
 	invalidEnumTemplate.Execute(g.w, invalidEnumDefinition)
 }
@@ -564,7 +563,7 @@ func (g *Writer) writeWrapperDefinition(enum enum.GenerationRequest) {
 	for i, e := range enum.EnumIota.Enums {
 		cenums[i] = cenum{
 			Name:     strings.ToUpper(e.Name),
-			EnumType: wType,
+			EnumType: wName,
 		}
 	}
 
@@ -648,7 +647,7 @@ import (
 )
 
 func (g *Writer) writePackageAndImports(rep enum.GenerationRequest) {
-	imports := []string{"fmt", "bytes", "database/sql/driver", "math"}
+	imports := []string{"fmt", "bytes", "database/sql/driver", "math", "golang.org/x/exp/constraints"}
 	// if rep.CaseInsensitive {
 	// 	imports = append(imports, "strings")
 	// }
@@ -687,7 +686,7 @@ func (g *Writer) writeContainerDefinition(rep enum.GenerationRequest) {
 	edefs := enumDefinitions(rep)
 	cdef := containerDefinition{
 		ContainerType: containerType(rep),
-		ContainerName: wrapperName(rep.EnumIota.Type),
+		ContainerName: strings.Camel(strings.Plural(rep.EnumIota.Type)),
 		EnumDefs:      edefs,
 	}
 	containerDefinitionTemplate.Execute(g.w, cdef)
@@ -777,8 +776,8 @@ func (g *Writer) writeAllFunction(rep enum.GenerationRequest) {
 	allData := allFunctionData{
 		Receiver:      string(r),
 		ContainerType: containerType(rep),
-		ContainerName: wrapperName(rep.EnumIota.Type),
-		EnumType:      strings.Camel(rep.EnumIota.Type),
+		ContainerName: containerName(rep.EnumIota.Type),
+		EnumType:      wrapperName(rep.EnumIota.Type),
 		EnumDefs:      edefs,
 		Legacy:        rep.Legacy,
 	}
@@ -844,7 +843,7 @@ func Parse{{.EnumType}}(input any) ({{.EnumType}}, error) {
 
 func (g *Writer) writeParseFunction(rep enum.GenerationRequest) error {
 	data := parseFunctionData{
-		EnumType: strings.Camel(rep.EnumIota.Type),
+		EnumType: wrapperName(rep.EnumIota.Type),
 		Enums:    rep.EnumIota.Enums,
 		FailFast: rep.Failfast,
 	}
@@ -893,9 +892,9 @@ func stringTo{{.MapEnumType}}(s string) {{.MapEnumType}} {
 func (g *Writer) writeStringParsingMethod(rep enum.GenerationRequest) {
 	edefs := enumDefinitions(rep)
 	data := parseStringFunctionData{
-		MapEnumType:     wrapperType(rep.EnumIota.Type),
+		MapEnumType:     wrapperName(rep.EnumIota.Type),
 		EnumNameMap:     enumNameMap(rep.EnumIota.Type),
-		EnumType:        wrapperName(rep.EnumIota.Type),
+		EnumType:        strings.Camel(strings.Plural(rep.EnumIota.Type)),
 		Enums:           edefs,
 		CaseInsensitive: rep.CaseInsensitive,
 	}
@@ -913,7 +912,7 @@ var (
 	parseIntegerGenericFunctionTemplate = template.Must(template.New("parseIntegerGenericFunction").Parse(`
 
 // To{{.MapEnumType}} converts a numeric value to a {{.MapEnumType}}
-func numberTo{{.MapEnumType}}[T cmp.Ordered](num T) {{.MapEnumType}} {
+func numberTo{{.MapEnumType}}[T constraints.Integer | constraints.Float](num T) {{.MapEnumType}} {
 	f := float64(num)
     if math.Floor(f) != f {
         return invalid{{.MapEnumType}}
@@ -961,7 +960,7 @@ func (g *Writer) writeExhaustiveFunction(rep enum.GenerationRequest) {
 	edefs := enumDefinitions(rep)
 	eType := strings.Camel(rep.EnumIota.Type)
 	exhaustiveData := exhaustiveFunctionData{
-		EnumType:  eType,
+		EnumType:  wrapperName(rep.EnumIota.Type),
 		EnumTypes: strings.Plural(eType),
 		Enums:     edefs,
 	}

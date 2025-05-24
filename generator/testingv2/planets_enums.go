@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"fmt"
+	"golang.org/x/exp/constraints"
 	"iter"
 	"math"
 )
@@ -28,18 +29,18 @@ type SolarsystemPlanet struct {
 }
 
 type solarsystemPlanetsContainer struct {
-	UNKNOWN SolarsystemPlanets
-	MERCURY SolarsystemPlanets
-	VENUS   SolarsystemPlanets
-	EARTH   SolarsystemPlanets
-	MARS    SolarsystemPlanets
-	JUPITER SolarsystemPlanets
-	SATURN  SolarsystemPlanets
-	URANUS  SolarsystemPlanets
-	NEPTUNE SolarsystemPlanets
+	UNKNOWN SolarsystemPlanet
+	MERCURY SolarsystemPlanet
+	VENUS   SolarsystemPlanet
+	EARTH   SolarsystemPlanet
+	MARS    SolarsystemPlanet
+	JUPITER SolarsystemPlanet
+	SATURN  SolarsystemPlanet
+	URANUS  SolarsystemPlanet
+	NEPTUNE SolarsystemPlanet
 }
 
-var SolarsystemPlanet = solarsystemPlanetsContainer{
+var SolarsystemPlanets = solarsystemPlanetsContainer{
 	MERCURY: SolarsystemPlanet{
 		solarsystemPlanets:  mercury,
 		Gravity:             0.378,
@@ -130,22 +131,22 @@ var SolarsystemPlanet = solarsystemPlanetsContainer{
 	},
 }
 
-var invalidSolarsystemPlanets = SolarsystemPlanets{}
+var invalidSolarsystemPlanet = SolarsystemPlanet{}
 
-func (s solarsystemPlanetsContainer) allSlice() []SolarsystemPlanets {
-	return []SolarsystemPlanets{
-		SolarsystemPlanet.MERCURY,
-		SolarsystemPlanet.VENUS,
-		SolarsystemPlanet.EARTH,
-		SolarsystemPlanet.MARS,
-		SolarsystemPlanet.JUPITER,
-		SolarsystemPlanet.SATURN,
-		SolarsystemPlanet.URANUS,
-		SolarsystemPlanet.NEPTUNE,
+func (s solarsystemPlanetsContainer) allSlice() []SolarsystemPlanet {
+	return []SolarsystemPlanet{
+		SolarsystemPlanets.MERCURY,
+		SolarsystemPlanets.VENUS,
+		SolarsystemPlanets.EARTH,
+		SolarsystemPlanets.MARS,
+		SolarsystemPlanets.JUPITER,
+		SolarsystemPlanets.SATURN,
+		SolarsystemPlanets.URANUS,
+		SolarsystemPlanets.NEPTUNE,
 	}
 }
-func (s solarsystemPlanetsContainer) All() iter.Seq[SolarsystemPlanets] {
-	return func(yield func(SolarsystemPlanets) bool) {
+func (s solarsystemPlanetsContainer) All() iter.Seq[SolarsystemPlanet] {
+	return func(yield func(SolarsystemPlanet) bool) {
 		for _, v := range s.allSlice() {
 			if !yield(v) {
 				return
@@ -154,91 +155,91 @@ func (s solarsystemPlanetsContainer) All() iter.Seq[SolarsystemPlanets] {
 	}
 }
 
-func ParseSolarsystemPlanets(input any) (SolarsystemPlanets, error) {
-	var res = invalidSolarsystemPlanets
+func ParseSolarsystemPlanet(input any) (SolarsystemPlanet, error) {
+	var res = invalidSolarsystemPlanet
 	switch v := input.(type) {
-	case SolarsystemPlanets:
+	case SolarsystemPlanet:
 		return v, nil
 	case string:
-		res = stringToSolarsystemPlanets(v)
+		res = stringToSolarsystemPlanet(v)
 	case fmt.Stringer:
-		res = stringToSolarsystemPlanets(v.String())
+		res = stringToSolarsystemPlanet(v.String())
 	case []byte:
-		res = stringToSolarsystemPlanets(string(v))
+		res = stringToSolarsystemPlanet(string(v))
 	case int:
-		res = numberToSolarsystemPlanets(v)
+		res = numberToSolarsystemPlanet(v)
 	case int8:
-		res = numberToSolarsystemPlanets(v)
+		res = numberToSolarsystemPlanet(v)
 	case int16:
-		res = numberToSolarsystemPlanets(v)
+		res = numberToSolarsystemPlanet(v)
 	case int32:
-		res = numberToSolarsystemPlanets(v)
+		res = numberToSolarsystemPlanet(v)
 	case int64:
-		res = numberToSolarsystemPlanets(v)
+		res = numberToSolarsystemPlanet(v)
 	case uint:
-		res = numberToSolarsystemPlanets(v)
+		res = numberToSolarsystemPlanet(v)
 	case uint8:
-		res = numberToSolarsystemPlanets(v)
+		res = numberToSolarsystemPlanet(v)
 	case uint16:
-		res = numberToSolarsystemPlanets(v)
+		res = numberToSolarsystemPlanet(v)
 	case uint32:
-		res = numberToSolarsystemPlanets(v)
+		res = numberToSolarsystemPlanet(v)
 	case uint64:
-		res = numberToSolarsystemPlanets(v)
+		res = numberToSolarsystemPlanet(v)
 	case float32:
-		res = numberToSolarsystemPlanets(v)
+		res = numberToSolarsystemPlanet(v)
 	case float64:
-		res = numberToSolarsystemPlanets(v)
+		res = numberToSolarsystemPlanet(v)
 	default:
 		return res, fmt.Errorf("invalid type %T", input)
 	}
-	if res == invalidSolarsystemPlanets {
+	if res == invalidSolarsystemPlanet {
 		return res, fmt.Errorf("invalid value %v", input)
 	}
 	return res, nil
 }
 
-var solarsystemPlanetsNameMap = map[string]SolarsystemPlanets{
-	"Mercury":     SolarsystemPlanet.MERCURY,
-	"warmone":     SolarsystemPlanet.MERCURY,
-	"Venus":       SolarsystemPlanet.VENUS,
-	"verywarmone": SolarsystemPlanet.VENUS,
-	"Earth":       SolarsystemPlanet.EARTH,
-	"chillin":     SolarsystemPlanet.EARTH,
-	"Mars":        SolarsystemPlanet.MARS,
-	"Jupiter":     SolarsystemPlanet.JUPITER,
-	"Saturn":      SolarsystemPlanet.SATURN,
-	"Uranus":      SolarsystemPlanet.URANUS,
-	"Neptune":     SolarsystemPlanet.NEPTUNE,
+var solarsystemPlanetsNameMap = map[string]SolarsystemPlanet{
+	"Mercury":     SolarsystemPlanets.MERCURY,
+	"warmone":     SolarsystemPlanets.MERCURY,
+	"Venus":       SolarsystemPlanets.VENUS,
+	"verywarmone": SolarsystemPlanets.VENUS,
+	"Earth":       SolarsystemPlanets.EARTH,
+	"chillin":     SolarsystemPlanets.EARTH,
+	"Mars":        SolarsystemPlanets.MARS,
+	"Jupiter":     SolarsystemPlanets.JUPITER,
+	"Saturn":      SolarsystemPlanets.SATURN,
+	"Uranus":      SolarsystemPlanets.URANUS,
+	"Neptune":     SolarsystemPlanets.NEPTUNE,
 }
 
-func stringToSolarsystemPlanets(s string) SolarsystemPlanets {
+func stringToSolarsystemPlanet(s string) SolarsystemPlanet {
 	if t, ok := solarsystemPlanetsNameMap[s]; ok {
 		return t
 	}
-	return invalidSolarsystemPlanets
+	return invalidSolarsystemPlanet
 }
 
-// ToSolarsystemPlanets converts a numeric value to a SolarsystemPlanets
-func numberToSolarsystemPlanets[T cmp.Ordered](num T) SolarsystemPlanets {
+// ToSolarsystemPlanet converts a numeric value to a SolarsystemPlanet
+func numberToSolarsystemPlanet[T constraints.Integer | constraints.Float](num T) SolarsystemPlanet {
 	f := float64(num)
 	if math.Floor(f) != f {
-		return invalidSolarsystemPlanets
+		return invalidSolarsystemPlanet
 	}
 	i := int(f)
-	if i <= 0 || i > len(SolarsystemPlanet.allSlice()) {
-		return invalidSolarsystemPlanets
+	if i <= 0 || i > len(SolarsystemPlanets.allSlice()) {
+		return invalidSolarsystemPlanet
 	}
-	return SolarsystemPlanet.allSlice()[i-1]
+	return SolarsystemPlanets.allSlice()[i-1]
 }
 
-func ExhaustiveSolarsystemPlanets(f func(SolarsystemPlanets)) {
+func ExhaustiveSolarsystemPlanets(f func(SolarsystemPlanet)) {
 	for _, p := range SolarsystemPlanets.allSlice() {
 		f(p)
 	}
 }
 
-var validSolarsystemPlanets = map[SolarsystemPlanets]bool{
+var validSolarsystemPlanets = map[SolarsystemPlanet]bool{
 	SolarsystemPlanets.MERCURY: true,
 	SolarsystemPlanets.VENUS:   true,
 	SolarsystemPlanets.EARTH:   true,
@@ -249,19 +250,19 @@ var validSolarsystemPlanets = map[SolarsystemPlanets]bool{
 	SolarsystemPlanets.NEPTUNE: true,
 }
 
-// IsValid checks whether the SolarsystemPlanets value is valid.
+// IsValid checks whether the SolarsystemPlanet value is valid.
 // A valid value is one that is defined in the original enum and not marked as invalid.
-func (p SolarsystemPlanets) IsValid() bool {
+func (p SolarsystemPlanet) IsValid() bool {
 	return validSolarsystemPlanets[p]
 }
 
-func (p SolarsystemPlanets) MarshalJSON() ([]byte, error) {
+func (p SolarsystemPlanet) MarshalJSON() ([]byte, error) {
 	return []byte(p.String()), nil
 }
 
-func (p *SolarsystemPlanets) UnmarshalJSON(b []byte) error {
+func (p *SolarsystemPlanet) UnmarshalJSON(b []byte) error {
 	b = bytes.Trim(bytes.Trim(b, "\""), "\"")
-	newp, err := ParseSolarsystemPlanets(b)
+	newp, err := ParseSolarsystemPlanet(b)
 	if err != nil {
 		return err
 	}
@@ -269,12 +270,12 @@ func (p *SolarsystemPlanets) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (p SolarsystemPlanets) MarshalText() ([]byte, error) {
+func (p SolarsystemPlanet) MarshalText() ([]byte, error) {
 	return []byte(p.String()), nil
 }
 
-func (p *SolarsystemPlanets) UnmarshalText(b []byte) error {
-	newp, err := ParseSolarsystemPlanets(b)
+func (p *SolarsystemPlanet) UnmarshalText(b []byte) error {
+	newp, err := ParseSolarsystemPlanet(b)
 	if err != nil {
 		return err
 	}
@@ -282,8 +283,8 @@ func (p *SolarsystemPlanets) UnmarshalText(b []byte) error {
 	return nil
 }
 
-func (p *SolarsystemPlanets) Scan(value any) error {
-	newp, err := ParseSolarsystemPlanets(value)
+func (p *SolarsystemPlanet) Scan(value any) error {
+	newp, err := ParseSolarsystemPlanet(value)
 	if err != nil {
 		return err
 	}
@@ -291,16 +292,16 @@ func (p *SolarsystemPlanets) Scan(value any) error {
 	return nil
 }
 
-func (p SolarsystemPlanets) Value() (driver.Value, error) {
+func (p SolarsystemPlanet) Value() (driver.Value, error) {
 	return p.String(), nil
 }
 
-func (p SolarsystemPlanets) MarshalBinary() ([]byte, error) {
+func (p SolarsystemPlanet) MarshalBinary() ([]byte, error) {
 	return []byte(p.String()), nil
 }
 
-func (p *SolarsystemPlanets) UnmarshalBinary(b []byte) error {
-	newp, err := ParseSolarsystemPlanets(b)
+func (p *SolarsystemPlanet) UnmarshalBinary(b []byte) error {
+	newp, err := ParseSolarsystemPlanet(b)
 	if err != nil {
 		return err
 	}
@@ -310,19 +311,19 @@ func (p *SolarsystemPlanets) UnmarshalBinary(b []byte) error {
 
 const solarsystemplanetsNames = "MercuryVenusEarthMarsJupiterSaturnUranusNeptune"
 
-var solarsystemplanetsNamesMap = map[SolarsystemPlanets]string{
-	SolarsystemPlanet.MERCURY: solarsystemplanetsNames[0:7],
-	SolarsystemPlanet.VENUS:   solarsystemplanetsNames[7:12],
-	SolarsystemPlanet.EARTH:   solarsystemplanetsNames[12:17],
-	SolarsystemPlanet.MARS:    solarsystemplanetsNames[17:21],
-	SolarsystemPlanet.JUPITER: solarsystemplanetsNames[21:28],
-	SolarsystemPlanet.SATURN:  solarsystemplanetsNames[28:34],
-	SolarsystemPlanet.URANUS:  solarsystemplanetsNames[34:40],
-	SolarsystemPlanet.NEPTUNE: solarsystemplanetsNames[40:47],
+var solarsystemplanetsNamesMap = map[SolarsystemPlanet]string{
+	SolarsystemPlanets.MERCURY: solarsystemplanetsNames[0:7],
+	SolarsystemPlanets.VENUS:   solarsystemplanetsNames[7:12],
+	SolarsystemPlanets.EARTH:   solarsystemplanetsNames[12:17],
+	SolarsystemPlanets.MARS:    solarsystemplanetsNames[17:21],
+	SolarsystemPlanets.JUPITER: solarsystemplanetsNames[21:28],
+	SolarsystemPlanets.SATURN:  solarsystemplanetsNames[28:34],
+	SolarsystemPlanets.URANUS:  solarsystemplanetsNames[34:40],
+	SolarsystemPlanets.NEPTUNE: solarsystemplanetsNames[40:47],
 }
 
 // String implements the Stringer interface.
-func (p SolarsystemPlanets) String() string {
+func (p SolarsystemPlanet) String() string {
 	if str, ok := solarsystemplanetsNamesMap[p]; ok {
 		return str
 	}

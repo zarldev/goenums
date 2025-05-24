@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/zarldev/goenums/enum"
@@ -84,17 +85,17 @@ func main() {
 		}
 	}
 	writer.Write(ctx, reqs)
-	// 	for p := range Planets.All() {
-	// 		fmt.Println(p.String())
-	// 	}
+	for p := range SolarsystemPlanets.All() {
+		fmt.Println(p.String())
+	}
 
-	//	for i := range 10 {
-	//		fmt.Println("i: ", i)
-	//		ps, err := ParsePlanet(i)
-	//		if err != nil {
-	//			fmt.Print("error: ", err.Error())
-	//			continue
-	//		}
-	//		fmt.Println(ps.String())
-	//	}
+	for i := range 10 {
+		fmt.Println("i: ", i)
+		ps, err := ParseSolarsystemPlanet(i)
+		if err != nil {
+			fmt.Print("error: ", err.Error())
+			continue
+		}
+		fmt.Println(ps.String())
+	}
 }
