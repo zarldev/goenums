@@ -71,6 +71,10 @@ jobs:
       run: go test -v --race ./...
     - name: run tests to generate coverage profile
       run: go test -v -coverprofile=coverage.out ./... 
+    - name: filter coverage profile to exclude examples
+      run: |
+        grep -v "github.com/zarldev/goenums/example" coverage.out > coverage_filtered.out || true
+        mv coverage_filtered.out coverage.out
     - name: coverage
       uses: vladopajic/go-test-coverage@v2
       with:
