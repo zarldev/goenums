@@ -21,7 +21,17 @@ jobs:
         cache-dependency-path: 'go.sum'
     - name: gofmt check with simplify
       id: gofmt
-      run: go list -f '{{.Dir}}' ./... | grep -v testdata | xargs -I {} find {} -maxdepth 1 -name '*.go' | xargs gofmt -s -l | tee gofmt.out | grep .
+      run: |
+        set +e  # Don't exit on error temporarily
+        UNFORMATTED=$(go list -f '{{.Dir}}' ./... | grep -v testdata | xargs -I {} find {} -maxdepth 1 -name '*.go' | xargs gofmt -s -l)
+        set -e  # Re-enable exit on error
+        if [ -n "$UNFORMATTED" ]; then
+          echo "The following files need formatting:"
+          echo "$UNFORMATTED"
+          exit 1
+        else
+          echo "✅ All files are properly formatted"
+        fi
   vetting:
     runs-on: ubuntu-latest
     steps:
