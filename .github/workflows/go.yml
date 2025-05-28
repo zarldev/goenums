@@ -43,10 +43,6 @@ jobs:
         cache-dependency-path: 'go.sum'
     - name: go vet
       run: go vet -c 5 ./...
-    - name: run tests
-      run: go test -v --race ./...
-    - name: build
-      run: go build -v -o goenums goenums.go
   linting:
     needs: [formatting, vetting]
     runs-on: ubuntu-latest
@@ -71,8 +67,10 @@ jobs:
       with:
         go-version-file: 'go.mod'
         cache-dependency-path: 'go.sum'
-    - name: run tests
+    - name: run tests with race detector
       run: go test -v --race ./...
+    - name: run tests to generate coverage profile
+      run: go test -v -coverprofile=coverage.out ./... 
     - name: coverage
       uses: vladopajic/go-test-coverage@v2
       with:
