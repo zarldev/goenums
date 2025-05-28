@@ -21,7 +21,7 @@ jobs:
         cache-dependency-path: 'go.sum'
     - name: gofmt check with simplify
       id: gofmt
-      run: go fmt -s -l . > gofmt.out
+      run: gofmt -s -l . > gofmt.out
     - name: gofmt check with simplify
       run: |
         result=$(cat gofmt.out| grep -v 'internal/testdata' | tee gofmt.out | grep .)
