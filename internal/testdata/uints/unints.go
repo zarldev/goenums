@@ -6,7 +6,7 @@ const (
 	Low      priority = 0
 	Medium   priority = 127
 	High     priority = 200
-	Critical priority = 255 // Maximum uint8 value
+	Critical priority = 255
 )
 
 type portNumber uint16
@@ -18,7 +18,7 @@ const (
 	Telnet  portNumber = 23
 	SMTP    portNumber = 25
 	DNS     portNumber = 53
-	MaxPort portNumber = 65535 // Maximum uint16 value
+	MaxPort portNumber = 65535
 )
 
 type ipAddress uint32

@@ -84,19 +84,24 @@ func parseFlags() (flags, []string) {
 }
 
 const (
-	logoTemplateBody = `
+	colorReset       = "\033[0m"
+	colorBlue        = "\033[34m"
+	colorCyan        = "\033[36m"
+	colorYellow      = "\033[33m"
+	colorGreen       = "\033[32m"
+	logoTemplateBody = colorBlue + `
    ____ _____  ___  ____  __  ______ ___  _____
   / __ '/ __ \/ _ \/ __ \/ / / / __ '__ \/ ___/
  / /_/ / /_/ /  __/ / / / /_/ / / / / / (__  ) 
  \__, /\____/\___/_/ /_/\__,_/_/ /_/ /_/____/  
-/____/ 
-`
-	versionTemplateBody = `
-    https://zarldev.github.io/goenums
+/____/
+` + colorReset
+	versionTemplateBody = colorCyan + `
+    https://zarldev.github.io/goenums ` + colorReset + colorGreen + `
        version :: {{.Version}}
        build   :: {{.Build}}
        commit  :: {{.Commit}}
-`
+` + colorReset
 )
 
 var (
@@ -203,16 +208,16 @@ func main() {
 			generator.WithWriter(writer))
 		slog.Default().Info("starting parsing and generation")
 		if err := gen.ParseAndWrite(ctx); err != nil {
-			if errors.Is(err, generator.ErrFailedToParse) {
+			if errors.Is(err, enum.ErrParseSource) {
 				slog.Default().Error("unable to parse file", slog.String("filename", filename))
 				slog.Default().Error("please ensure that the file is a valid input file")
 				slog.Default().Error("for the selected parser")
 			}
-			if errors.Is(err, generator.ErrNoEnumsFound) {
+			if errors.Is(err, enum.ErrNoEnumsFound) {
 				slog.Default().Error("no enums found in file", slog.String("filename", filename))
 				slog.Default().Error("please ensure that the file contains enum definitions")
 			}
-			if errors.Is(err, generator.ErrGeneratorFailedToGenerate) {
+			if errors.Is(err, enum.ErrWriteOutput) {
 				slog.Default().Error("could not generate output")
 				slog.Default().Error("please ensure that the output destination is writable")
 				slog.Default().Error("and that input enums contain only valid characters")

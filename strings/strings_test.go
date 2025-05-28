@@ -111,6 +111,11 @@ func TestPlural(t *testing.T) {
 			input:    "DOG_HOUSE",
 			expected: "DOG_HOUSES",
 		},
+		{
+			name:     "uppercase irregular word",
+			input:    "MAN",
+			expected: "MEN",
+		},
 	}
 
 	for _, tt := range tests {
@@ -119,7 +124,6 @@ func TestPlural(t *testing.T) {
 			if ctx.Err() != nil {
 				t.Skip("context cancelled")
 			}
-
 			got := strings.Plural(tt.input)
 			if got != tt.expected {
 				t.Errorf("for input %q: got %q, expected %q",
@@ -132,7 +136,6 @@ func TestPlural(t *testing.T) {
 func TestCamelCase(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
-
 	tests := []struct {
 		name     string
 		input    string
@@ -161,6 +164,41 @@ func TestCamelCase(t *testing.T) {
 		{
 			name:     "with underscores",
 			input:    "dog_house",
+			expected: "DogHouse",
+		},
+		{
+			name:     "with dashes",
+			input:    "dog-house",
+			expected: "DogHouse",
+		},
+		{
+			name:     "with dots",
+			input:    "dog.house",
+			expected: "DogHouse",
+		},
+		{
+			name:     "with em-dashes",
+			input:    "dog—house",
+			expected: "DogHouse",
+		},
+		{
+			name:     "with en-dashes",
+			input:    "dog–house",
+			expected: "DogHouse",
+		},
+		{
+			name:     "with spaces",
+			input:    "dog house",
+			expected: "DogHouse",
+		},
+		{
+			name:     "with trailing spaces",
+			input:    "dog house ",
+			expected: "DogHouse",
+		},
+		{
+			name:     "with leading spaces",
+			input:    " dog house",
 			expected: "DogHouse",
 		},
 	}

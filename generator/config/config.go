@@ -12,6 +12,8 @@
 // system, ensuring all components respect the same settings.
 package config
 
+import "github.com/zarldev/goenums/enum"
+
 // Configuration holds all the settings that control enum generation behavior.
 // It is passed to both parsers and generators to ensure consistent behavior
 // throughout the generation process.
@@ -40,4 +42,20 @@ type Configuration struct {
 
 	// Filenames is the list of paths provided to the reader
 	Filenames []string
+
+	// Handlers defines the behavior of the enum generation process.
+	handlers *enum.Handlers
+}
+
+func (c *Configuration) Handlers() enum.Handlers {
+	if c.handlers != nil {
+		return *c.handlers
+	}
+	return enum.Handlers{
+		JSON:   true,
+		Text:   true,
+		YAML:   true,
+		SQL:    true,
+		Binary: true,
+	}
 }

@@ -1,5 +1,5 @@
 # Build variables
-VERSION := v0.3.8
+VERSION := v0.4.0
 BUILD_TIME := $(shell date +%Y%m%d-%H:%M:%S)
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 GIT_DIRTY := $(shell if [ -n "$$(git status --porcelain)" ]; then echo "-dirty"; fi)
@@ -98,10 +98,9 @@ test:
 	go test -v ./...
 
 test-coverage:
-	go test -coverprofile=coverage.out ./...
-	go tool cover -html=coverage.out
-	rm coverage.out
-	
+	go test ./... -coverprofile=./cover.out -covermode=atomic -coverpkg=./...
+	go-test-coverage --config=./.testcoverage.yml
+
 generate:
 	go generate ./...
 

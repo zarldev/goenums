@@ -19,7 +19,6 @@ package generator
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/zarldev/goenums/enum"
@@ -27,23 +26,11 @@ import (
 	"github.com/zarldev/goenums/generator/gofile"
 )
 
-var (
-	// ErrFailedToParse indicates a general parsing failure occurred.
-	// This error wraps more specific parsing errors.
-	ErrFailedToParse = errors.New("failed to parse")
-	// ErrGeneratorFailedToGenerate indicates output generation failed.
-	// This error wraps more specific generation errors.
-	ErrGeneratorFailedToGenerate = errors.New("failed to generate")
-	// ErrNoEnumsFound indicates no enums were found in the provided sources.
-	ErrNoEnumsFound = errors.New("no enums found")
-)
-
 // Source represents an input source for enum definitions.
 // It provides content to be parsed and identifies its origin.
 type Source interface {
 	// Content retrieves the raw data to be parsed
 	Content() ([]byte, error)
-
 	// Filename returns an identifier for the source
 	Filename() string
 }
@@ -96,34 +83,17 @@ func New(opts ...GeneratorOption) *Generator {
 // It returns an error if either step fails.
 func (g *Generator) ParseAndWrite(ctx context.Context) error {
 	if ctx.Err() != nil {
-		return fmt.Errorf("%w: %w", ErrFailedToParse, ctx.Err())
+		return fmt.Errorf("%w: %w", enum.ErrParseSource, ctx.Err())
 	}
-	enums, err := g.parser.Parse(ctx)
+	genr, err := g.parser.Parse(ctx)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrFailedToParse, err)
-	}
-	if len(enums) == 0 {
-		return ErrNoEnumsFound
+		return fmt.Errorf("%w: %w", enum.ErrParseSource, err)
 	}
 	if ctx.Err() != nil {
-		return fmt.Errorf("%w: %w", ErrGeneratorFailedToGenerate, ctx.Err())
+		return fmt.Errorf("%w: %w", enum.ErrParseSource, ctx.Err())
 	}
-	genr := make([]enum.GenerationRequest, len(enums))
-	for i, e := range enums {
-		genr[i] = enum.GenerationRequest{
-			Package:         "",
-			EnumIota:        e,
-			Version:         "",
-			SourceFilename:  "",
-			OutputFilename:  "",
-			Failfast:        false,
-			Legacy:          false,
-			CaseInsensitive: false,
-		}
-	}
-
-	if err = g.writer.Write(ctx, enums); err != nil {
-		return fmt.Errorf("%w: %w", ErrGeneratorFailedToGenerate, err)
+	if err = g.writer.Write(ctx, genr); err != nil {
+		return fmt.Errorf("%w: %w", enum.ErrWriteOutput, err)
 	}
 	return nil
 }

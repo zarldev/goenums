@@ -20,50 +20,64 @@ import (
 	"strings"
 	"time"
 	"unicode"
-
-	"github.com/zarldev/goenums/enum"
 )
 
 // irregularToPlural contains mappings for words that don't follow standard English
 // pluralization rules, ensuring correct pluralization for special cases.
 var irregularToPlural = map[string]string{
-	"man":      "men",
-	"woman":    "women",
-	"child":    "children",
-	"foot":     "feet",
-	"tooth":    "teeth",
-	"goose":    "geese",
-	"mouse":    "mice",
-	"ox":       "oxen",
-	"person":   "people",
-	"index":    "indices",
-	"matrix":   "matrices",
-	"vertex":   "vertices",
-	"datum":    "data",
-	"medium":   "media",
-	"analysis": "analyses",
-	"crisis":   "crises",
-	"status":   "statuses",
+	"man":        "men",
+	"woman":      "women",
+	"child":      "children",
+	"foot":       "feet",
+	"tooth":      "teeth",
+	"goose":      "geese",
+	"mouse":      "mice",
+	"ox":         "oxen",
+	"person":     "people",
+	"index":      "indices",
+	"matrix":     "matrices",
+	"vertex":     "vertices",
+	"datum":      "data",
+	"medium":     "media",
+	"analysis":   "analyses",
+	"crisis":     "crises",
+	"status":     "statuses",
+	"alias":      "aliases",
+	"basis":      "bases",
+	"criterion":  "criteria",
+	"phenomenon": "phenomena",
+	"syllabus":   "syllabi",
+	"thesis":     "theses",
+	"bus":        "buses",
+	"glass":      "glasses",
 }
 
 var irregularPluralsToSingular = map[string]string{
-	"men":      "man",
-	"women":    "woman",
-	"children": "child",
-	"feet":     "foot",
-	"teeth":    "tooth",
-	"geese":    "goose",
-	"mice":     "mouse",
-	"oxen":     "ox",
-	"people":   "person",
-	"indices":  "index",
-	"matrices": "matrix",
-	"vertices": "vertex",
-	"data":     "datum",
-	"media":    "medium",
-	"analyses": "analysis",
-	"crises":   "crisis",
-	"statuses": "status",
+	"men":       "man",
+	"women":     "woman",
+	"children":  "child",
+	"feet":      "foot",
+	"teeth":     "tooth",
+	"geese":     "goose",
+	"mice":      "mouse",
+	"oxen":      "ox",
+	"people":    "person",
+	"indices":   "index",
+	"matrices":  "matrix",
+	"vertices":  "vertex",
+	"data":      "datum",
+	"media":     "medium",
+	"analyses":  "analysis",
+	"crises":    "crisis",
+	"statuses":  "status",
+	"aliases":   "alias",
+	"bases":     "basis",
+	"criteria":  "criterion",
+	"phenomena": "phenomenon",
+	"syllabi":   "syllabus",
+	"theses":    "thesis",
+	"buses":     "bus",
+	"glasses":   "glass",
 }
 
 func SplitBySpace(input string) (string, string) {
@@ -78,22 +92,22 @@ func SplitBySpace(input string) (string, string) {
 		}
 		return input, ""
 	}
-	parts := strings.SplitN(input, " ", 2)
-	if len(parts) == 1 {
-		return parts[0], ""
+	before, after, found := strings.Cut(input, " ")
+	if !found {
+		return before, ""
 	}
-	return parts[0], parts[1]
+	return before, after
 }
 
 // detectCase returns a function that applies original case from src to the target string
 func detectCase(src string) func(string) string {
 	if src == strings.ToUpper(src) {
 		// ALL UPPER
-		return func(s string) string { return strings.ToUpper(s) }
+		return strings.ToUpper
 	}
 	if src == strings.ToLower(src) {
 		// all lower
-		return func(s string) string { return strings.ToLower(s) }
+		return strings.ToLower
 	}
 	// Capitalized (Title Case)
 	if len(src) > 0 && unicode.IsUpper(rune(src[0])) && src[1:] == strings.ToLower(src[1:]) {
@@ -118,17 +132,19 @@ func detectCase(src string) func(string) string {
 		}
 		return s
 	}
-
 }
 
 func alreadyPlural(s string) bool {
-	if strings.HasSuffix(s, "s") || strings.HasSuffix(s, "es") {
-		return true
-	}
 	if _, ok := irregularPluralsToSingular[s]; ok {
 		return true
 	}
 	if _, ok := irregularPluralsToSingular[strings.ToLower(s)]; ok {
+		return true
+	}
+	if _, ok := irregularToPlural[strings.ToLower(s)]; ok {
+		return false
+	}
+	if strings.HasSuffix(s, "s") || strings.HasSuffix(s, "es") {
 		return true
 	}
 	return false
@@ -365,10 +381,38 @@ func CamelCase(in string) string {
 	if len(in) == 0 {
 		return ""
 	}
+	in = strings.TrimSpace(in)
+	if strings.Contains(in, "_") {
+		return camel(in, "_")
+	}
+	if strings.Contains(in, " ") {
+		return camel(in, " ")
+	}
+	if strings.Contains(in, "-") {
+		return camel(in, "-")
+	}
+	if strings.Contains(in, "-") {
+		return camel(in, "-")
+	}
+	if strings.Contains(in, "—") {
+		return camel(in, "—")
+	}
+	if strings.Contains(in, "–") {
+		return camel(in, "–")
+	}
+	if strings.Contains(in, ".") {
+		return camel(in, ".")
+	}
+	runes := []rune(in)
+	if len(runes) > 0 {
+		return string(unicode.ToUpper(runes[0])) + string(runes[1:])
+	}
+	return in
+}
 
-	parts := strings.Split(in, "_")
+func camel(in string, sp string) string {
+	parts := strings.Split(in, sp)
 	var result strings.Builder
-
 	for _, part := range parts {
 		if part == "" {
 			continue
@@ -379,7 +423,6 @@ func CamelCase(in string) string {
 			result.WriteString(string(runes[1:]))
 		}
 	}
-
 	return result.String()
 }
 
@@ -523,35 +566,18 @@ func ReplaceAll(s, o, n string) string {
 	return strings.ReplaceAll(s, o, n)
 }
 
-const (
-	initialBufferSize = 512
-	enumExtraBuffer   = 100
-)
-
 // EnumBuilder is a wrapper around strings.Builder with preallocated buffer size.
 // It is used to build the enum string representation.
 type EnumBuilder struct {
 	b *strings.Builder
 }
 
-func (b *EnumBuilder) Write(p []byte) (n int, err error) {
+func (b *EnumBuilder) Write(p []byte) (int, error) {
 	return b.b.Write(p)
 }
 
 type EnumWriter struct {
 	io.Writer
-}
-
-func (w *EnumWriter) Write(p []byte) (n int, err error) {
-	return w.Writer.Write(p)
-}
-
-type WriterOption func(*EnumWriter)
-
-func WithWriter(w io.Writer) WriterOption {
-	return func(e *EnumWriter) {
-		e.Writer = w
-	}
 }
 
 func NewEnumWriter(opts ...WriterOption) *EnumWriter {
@@ -564,18 +590,20 @@ func NewEnumWriter(opts ...WriterOption) *EnumWriter {
 	return e
 }
 
-func AsType(v any) string {
-	return fmt.Sprintf("%T", v)
+func (w *EnumWriter) Write(p []byte) (int, error) {
+	return w.Writer.Write(p)
 }
 
-// NewEnumBuilder creates a new EnumBuilder with an initial allocated buffer size
-// based on the number of enums and their alias lengths.
-func NewEnumBuilder(reps enum.Representation) *EnumBuilder {
-	var b strings.Builder
+type WriterOption func(*EnumWriter)
 
-	return &EnumBuilder{
-		b: &b,
+func WithWriter(w io.Writer) WriterOption {
+	return func(e *EnumWriter) {
+		e.Writer = w
 	}
+}
+
+func AsType(v any) string {
+	return fmt.Sprintf("%T", v)
 }
 
 // WriteString writes the string s to the EnumBuilder
@@ -726,67 +754,44 @@ type Number interface {
 func Ify(v any) string {
 	switch v := v.(type) {
 	case string:
-		return v
+		return `"` + v + `"`
+	case []rune:
+		return `"` + string(v) + `"`
 	case []byte:
-		return string(v)
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
-		return ifyNumber(v)
+		return `"` + string(v) + `"`
 	case bool:
 		return strconv.FormatBool(v)
 	case time.Time:
 		return v.Format(time.RFC3339)
 	case time.Duration:
-		return v.String()
+		hrs := v.Hours()
+		mins := v.Minutes()
+		secs := v.Seconds()
+		var b strings.Builder
+		if hrs > 0 {
+			b.WriteString("time.Hour * ")
+			b.WriteString(strconv.FormatFloat(float64(hrs), 'f', -1, 64))
+			return b.String()
+		}
+		if mins > 0 {
+			b.WriteString("time.Minute * ")
+			b.WriteString(strconv.FormatFloat(float64(mins), 'f', -1, 64))
+			return b.String()
+		}
+		if secs > 0 {
+			b.WriteString("time.Second * ")
+			b.WriteString(strconv.FormatFloat(float64(secs), 'f', -1, 64))
+			return b.String()
+		}
+		return b.String()
 	case fmt.Stringer:
-		return v.String()
+		return `"` + v.String() + `"`
 	default:
 		return fmt.Sprintf("%v", v)
 	}
 }
 
-// ifyNumber formats a number to string with scientific notation for large values
-func ifyNumber(n any) string {
-	// Helper function to format float64 values
-	format := func(f float64) string {
-		absF := math.Abs(f)
-		if absF >= 1e6 || (absF < 1e-6 && absF > 0) {
-			return strconv.FormatFloat(f, 'e', 2, 64)
-		}
-		return strconv.FormatFloat(f, 'f', -1, 64)
-	}
-
-	// Handle different numeric types
-	switch v := n.(type) {
-	case int:
-		return format(float64(v))
-	case int8:
-		return format(float64(v))
-	case int16:
-		return format(float64(v))
-	case int32:
-		return format(float64(v))
-	case int64:
-		return format(float64(v))
-	case uint:
-		return format(float64(v))
-	case uint8:
-		return format(float64(v))
-	case uint16:
-		return format(float64(v))
-	case uint32:
-		return format(float64(v))
-	case uint64:
-		return format(float64(v))
-	case float32:
-		return format(float64(v))
-	case float64:
-		return format(v)
-	default:
-		return fmt.Sprintf("%v", n)
-	}
-}
-
-// Generic version that can be used when type is known at compile time
+// IfiableNumeric is a generic version that can be used when type is known at compile time
 func IfiableNumeric[T Number](n T) string {
 	f := float64(n)
 	absF := math.Abs(f)

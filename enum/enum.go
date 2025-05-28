@@ -14,7 +14,13 @@
 package enum
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"fmt"
+	"slices"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -27,11 +33,16 @@ type Parser interface {
 	// Parse analyzes the content from a source and returns structured enum representations.
 	// It transforms input data into a format-agnostic model that can be used
 	// for code generation. The context allows for cancellation and timeout control.
-	Parse(ctx context.Context) ([]EnumIota, error)
+	Parse(ctx context.Context) ([]GenerationRequest, error)
 }
 
+// GenerationRequest represents a request to generate an enum implementation.
+// It contains all the information needed to generate the implementation,
+// including the package name, imports, enum type and value information,
+// and configuration options.
 type GenerationRequest struct {
 	Package         string
+	Imports         []string
 	EnumIota        EnumIota
 	Version         string
 	SourceFilename  string
@@ -42,6 +53,15 @@ type GenerationRequest struct {
 	Handlers        Handlers
 }
 
+func (e *GenerationRequest) IsValid() bool {
+	return e.Package != "" &&
+		e.EnumIota.Type != "" &&
+		e.Version != "" &&
+		e.SourceFilename != ""
+}
+
+// Handlers represents the configuration options for the enum generation process.
+// Flags to implement specific interfaces
 type Handlers struct {
 	JSON   bool
 	Text   bool
@@ -50,16 +70,23 @@ type Handlers struct {
 	Binary bool
 }
 
+// Command returns the command string for the enum generation process.
+// It constructs the command string based on the configuration options.
 func (r GenerationRequest) Command() string {
-	command := ""
-	if r.Failfast {
-		command += "-f "
-	}
-	if r.Legacy {
-		command += "-l "
-	}
-	if r.CaseInsensitive {
-		command += "-i "
+	var b bytes.Buffer
+	command := " "
+	if r.Failfast || r.Legacy || r.CaseInsensitive {
+		b.WriteString("-")
+		if r.Failfast {
+			b.WriteString("f")
+		}
+		if r.Legacy {
+			b.WriteString("l")
+		}
+		if r.CaseInsensitive {
+			b.WriteString("i")
+		}
+		command = b.String()
 	}
 	return command
 }
@@ -77,6 +104,10 @@ type EnumIota struct {
 type Field struct {
 	Name  string
 	Value any
+}
+
+func (f *Field) Valid() bool {
+	return f.Name != "" && f.Value != nil
 }
 
 type Enum struct {
@@ -112,103 +143,385 @@ type Writer interface {
 	Write(ctx context.Context, enums []GenerationRequest) error
 }
 
-// Representation is a comprehensive model that encapsulates all information needed
-// to generate an enum implementation.
-//
-// A Representation serves as the central data transfer object in the generation pipeline,
-// containing everything a Writer needs to generate output artifacts without having to
-// refer back to the original source.
-type Representation struct {
-	// Metadata about the generation process and the source of the enum definitions.
-	Version        string
-	GenerationTime time.Time
+func ParseEnumAliases(s string) []string {
+	if !strings.Contains(s, ",") {
+		// Handle single case without slice allocation
+		trimmed := strings.TrimSpace(s)
+		if len(trimmed) >= 2 && trimmed[0] == '"' && trimmed[len(trimmed)-1] == '"' {
+			trimmed = trimmed[1 : len(trimmed)-1]
+		}
+		return []string{trimmed}
+	}
 
-	// Configuration options for the generation process.
-	Failfast        bool
-	Legacy          bool
-	CaseInsensitive bool
-
-	// Information about the enum type being generated.
-	PackageName    string
-	TypeInfo       TypeInfo
-	MinValue       int
-	Enums          []Enum
-	SourceFilename string
-	OutputFilename string
+	aliases := strings.Split(s, ",")
+	// Process in-place to avoid second allocation
+	j := 0
+	for _, alias := range aliases {
+		alias = strings.TrimSpace(alias)
+		if len(alias) == 0 {
+			continue
+		}
+		if len(alias) >= 2 && alias[0] == '"' && alias[len(alias)-1] == '"' {
+			alias = alias[1 : len(alias)-1]
+		}
+		aliases[j] = alias
+		j++
+	}
+	return aliases[:j] // Return slice of actual length
 }
 
-// Enum represents a single enum value within an enum type representation. It combines the
-// core information about the enum constant (name, value, etc.), type-specific metadata,
-// and the original raw content from which it was parsed. This structure provides a
-// complete view of an enum value for code generation purposes.
-type EnumOld struct {
-	Info     Info
-	TypeInfo TypeInfo
-	Raw      Raw
+var (
+	ErrFieldEmptyValue = errors.New("empty field value")
+)
+
+func ParseEnumFields(s string, enumIota EnumIota) ([]Field, error) {
+	fieldValues := strings.Split(s, ",")
+	if len(fieldValues) == 1 && fieldValues[0] == "" {
+		return []Field{}, nil
+	}
+
+	fcount := len(fieldValues)
+	minLen := min(fcount, len(enumIota.Fields))
+
+	// Use capacity, append as we go - this is the big win
+	enumFields := make([]Field, 0, minLen)
+
+	for i := range minLen {
+		valRaw := strings.TrimSpace(fieldValues[i])
+		if valRaw == "" {
+			return []Field{}, ErrFieldEmptyValue
+		}
+
+		val, err := ParseValue(valRaw, enumIota.Fields[i].Value)
+		if err != nil {
+			return []Field{}, err
+		}
+
+		if val == nil {
+			return []Field{}, ErrFieldEmptyValue
+		}
+
+		if str, ok := val.(string); ok && str == "" {
+			return []Field{}, ErrFieldEmptyValue
+		}
+
+		fie := Field{
+			Name:  enumIota.Fields[i].Name,
+			Value: val,
+		}
+		if fie.Valid() {
+			enumFields = append(enumFields, fie) // Only append valid fields
+		}
+	}
+	return enumFields, nil
 }
 
-// Raw contains the unprocessed textual content associated with an enum.
-// It preserves the original comments and documentation from the input source.
-type Raw struct {
-	// Comment is the raw comment associated with the enum constant
-	Comment string
-	// TypeComment is the raw comment associated with the enum type declaration
-	TypeComment string
+var (
+	ErrParseValue      = errors.New("failed to parse value")
+	ErrParseSource     = errors.New("failed to parse source")
+	ErrNoEnumsFound    = errors.New("no valid enums found")
+	ErrWriteOutput     = errors.New("failed to write output")
+	ErrUnsupportedType = errors.New("unsupported type")
+)
+
+func ParseValue[T any](valRaw string, defaultVal T) (T, error) {
+	var zero T
+	switch any(defaultVal).(type) {
+	case bool:
+		val, err := strconv.ParseBool(valRaw)
+		if err != nil {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
+		}
+		v, ok := any(val).(T)
+		if !ok {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		}
+		return v, nil
+	case float64:
+		val, err := strconv.ParseFloat(valRaw, 64)
+		if err != nil {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
+		}
+		v, ok := any(val).(T)
+		if !ok {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		}
+		return v, nil
+	case float32:
+		val, err := strconv.ParseFloat(valRaw, 32)
+		if err != nil {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
+		}
+		v, ok := any(float32(val)).(T)
+		if !ok {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		}
+		return v, nil
+	case int:
+		val, err := strconv.Atoi(valRaw)
+		if err != nil {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
+		}
+		v, ok := any(val).(T)
+		if !ok {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		}
+		return v, nil
+	case int64:
+		val, err := strconv.ParseInt(valRaw, 10, 64)
+		if err != nil {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
+		}
+		v, ok := any(val).(T)
+		if !ok {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		}
+		return v, nil
+	case int32:
+		val, err := strconv.ParseInt(valRaw, 10, 32)
+		if err != nil {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
+		}
+		v, ok := any(int32(val)).(T)
+		if !ok {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		}
+		return v, nil
+	case int16:
+		val, err := strconv.ParseInt(valRaw, 10, 16)
+		if err != nil {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
+		}
+		v, ok := any(int16(val)).(T)
+		if !ok {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		}
+		return v, nil
+	case int8:
+		val, err := strconv.ParseInt(valRaw, 10, 8)
+		if err != nil {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
+		}
+		v, ok := any(int8(val)).(T)
+		if !ok {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		}
+		return v, nil
+	case uint:
+		val, err := strconv.ParseUint(valRaw, 10, 64)
+		if err != nil {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
+		}
+		v, ok := any(uint(val)).(T)
+		if !ok {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		}
+		return v, nil
+	case uint64:
+		val, err := strconv.ParseUint(valRaw, 10, 64)
+		if err != nil {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
+		}
+		v, ok := any(val).(T)
+		if !ok {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		}
+		return v, nil
+	case uint32:
+		val, err := strconv.ParseUint(valRaw, 10, 32)
+		if err != nil {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
+		}
+		v, ok := any(uint32(val)).(T)
+		if !ok {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		}
+		return v, nil
+	case uint16:
+		val, err := strconv.ParseUint(valRaw, 10, 16)
+		if err != nil {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
+		}
+		v, ok := any(uint16(val)).(T)
+		if !ok {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		}
+		return v, nil
+	case uint8:
+		val, err := strconv.ParseUint(valRaw, 10, 8)
+		if err != nil {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
+		}
+		v, ok := any(uint8(val)).(T)
+		if !ok {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		}
+		return v, nil
+	case string:
+		if len(valRaw) >= 2 && valRaw[0] == '"' && valRaw[len(valRaw)-1] == '"' {
+			v, ok := any(valRaw[1 : len(valRaw)-1]).(T)
+			if !ok {
+				return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+			}
+			return v, nil
+		}
+		v, ok := any(valRaw).(T)
+		if !ok {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		}
+		return v, nil
+	case time.Time:
+		val, err := time.Parse(time.RFC3339, valRaw)
+		if err != nil {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
+		}
+		v, ok := any(val).(T)
+		if !ok {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		}
+		return v, nil
+	case time.Duration:
+		val, err := time.ParseDuration(valRaw)
+		if err != nil {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
+		}
+		v, ok := any(val).(T)
+		if !ok {
+			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		}
+		return v, nil
+	default:
+		return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+	}
 }
 
-// Info contains the core identifying information for an enum constant.
-// It includes various name formats (camel case, lowercase, etc.) for versatility
-// in different output contexts, the integer value of the enum, and a flag
-// indicating whether this is a valid enum value or represents an invalid sentinel.
-type Info struct {
-	// Name is the original identifier for the enum constant
-	Name string
-	// Alias provides an optional alternative name for the enum
-	Alias string
-	// Aliases provides a list of alternative names for the enum
-	Aliases []string
-	// Camel is the camel-case representation of the name
-	Camel string
-	// Lower is the lowercase representation of the name
-	Lower string
-	// Upper is the uppercase representation of the name
-	Upper string
-	// Value is the integer value assigned to this enum constant
-	Value int
-	// Valid indicates whether this is a regular enum value (true) or an invalid sentinel (false)
-	Valid bool
+func ExtractImports(enumIotas []EnumIota) []string {
+	totalFields := 0
+	for _, enumIota := range enumIotas {
+		totalFields += len(enumIota.Fields)
+	}
+	imports := make([]string, 0, totalFields)
+	for _, enumIota := range enumIotas {
+		for _, field := range enumIota.Fields {
+			str := fmt.Sprintf("%T", field.Value)
+			if strings.Contains(str, ".") {
+				imports = append(imports, strings.Split(str, ".")[0])
+			}
+		}
+	}
+	slices.Sort(imports)
+	return slices.Compact(imports)
 }
 
-// TypeInfo contains metadata about the enum type itself rather than individual values.
-// It captures naming information in various formats, index offset information, and
-// details about any non-iota enum values. This information is essential for generating
-// type declarations and shared enum functionality.
-type TypeInfo struct {
-	// Index is the starting offset value for the enum constants
-	Index int
-	// Name is the original type name
-	Name string
-	// Camel is the camel-case representation of the type name
-	Camel string
-	// Lower is the lowercase representation of the type name
-	Lower string
-	// Upper is the uppercase representation of the type name
-	Upper string
-	// Plural is the pluralized form of the type name
-	Plural string
-	// PluralCamel is the camel-case representation of the pluralized type name
-	PluralCamel string
-	// NameTypePair contains information about enum values that don't use iota identifer
-	NameTypePair []NameTypePair
+func ExtractFields(comment string) (string, string, []Field) {
+	fields := make([]Field, 0)
+	comment = strings.TrimSpace(comment)
+	open, closer := " ", " "
+	if comment == "" {
+		return open, closer, fields
+	}
+	fieldVals := strings.Split(comment, ",")
+	for _, val := range fieldVals {
+		field := strings.TrimSpace(val)
+		open, closer = OpenCloser(field)
+
+		var nO, nC, tO, tC int
+		var n, f string
+
+		if open == " " {
+			extra := strings.Split(field, " ")
+			if len(extra) > 1 {
+				n = extra[0]
+				f = extra[1]
+			} else {
+				f = extra[0]
+			}
+			fields = append(fields, Field{
+				Name:  n,
+				Value: FieldToType(f),
+			})
+			continue
+		}
+
+		nO = strings.Index(field, open)
+		if nO == -1 {
+			continue
+		}
+		nC = strings.Index(field[nO:], closer) + nO
+		if nC == -1 {
+			continue
+		}
+		tO = nO + len(open)
+		tC = nC
+		n = field[:nO]
+		f = field[tO:tC]
+		fields = append(fields, Field{
+			Name:  n,
+			Value: FieldToType(f),
+		})
+	}
+	return open, closer, fields
 }
 
-// NameTypePair represents a non-iota identified enum constant with explicit type and value.
-// This structure captures constants that are defined as part of the incremental iota pattern.
-type NameTypePair struct {
-	// Name is the identifier of the enum constant
-	Name string
-	// Type is the explicit type of the enum constant
-	Type string
-	// Value is the explicit value expression of the enum constant
-	Value string
+func OpenCloser(field string) (string, string) {
+	open := " "
+	closer := " "
+	if strings.Contains(field, "[") {
+		open = "["
+		closer = "]"
+	} else if strings.Contains(field, "(") {
+		open = "("
+		closer = ")"
+	}
+	return open, closer
+}
+
+func FieldToType(field string) any {
+	f := strings.TrimSpace(field)
+	switch f {
+	case "bool":
+		return false
+	case "int":
+		return 0
+	case "string":
+		return ""
+	case "time.Duration":
+		return time.Duration(0)
+	case "time.Time":
+		return time.Time{}
+	case "float64":
+		return 0.0
+	case "float32":
+		return float32(0.0)
+	case "int64":
+		return int64(0)
+	case "int32":
+		return int32(0)
+	case "int16":
+		return int16(0)
+	case "int8":
+		return int8(0)
+	case "uint64":
+		return uint64(0)
+	case "uint32":
+		return uint32(0)
+	case "uint16":
+		return uint16(0)
+	case "uint8":
+		return uint8(0)
+	case "uint":
+		return uint(0)
+	case "byte":
+		return byte(0)
+	case "rune":
+		return rune(0)
+	case "complex64":
+		return complex64(0)
+	case "complex128":
+		return complex128(0)
+	case "uintptr":
+		return uintptr(0)
+	default:
+		return nil
+	}
 }

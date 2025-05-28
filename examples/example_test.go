@@ -12,7 +12,7 @@ import (
 // Example showing how to access enum values
 func Example_basicUsage() {
 	// Access enum constants safely
-	myStatus := validation.Statuses.PASSED
+	myStatus := validation.Statuses.BOOKED
 
 	// Convert to string
 	fmt.Println("Status:", myStatus.String())
@@ -31,7 +31,7 @@ func Example_basicUsage() {
 	}
 
 	// Output:
-	// Status: PASSED
+	// Status: BOOKED
 	// Valid status: SKIPPED
 }
 
@@ -60,6 +60,7 @@ func Example_iteration() {
 
 	// Output:
 	// All statuses:
+	// - FAILED
 	// - PASSED
 	// - SKIPPED
 	// - SCHEDULED
@@ -82,7 +83,11 @@ func Example_jsonHandling() {
 	}
 
 	// Marshal to JSON
-	data, _ := json.Marshal(task)
+	data, err := json.Marshal(task)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
 	fmt.Println("JSON:", string(data))
 
 	// Unmarshal from JSON

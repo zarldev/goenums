@@ -29,9 +29,13 @@ You should see the `goenums` logo and current version displayed:
    ____ _____  ___  ____  __  ______ ___  _____
   / __ '/ __ \/ _ \/ __ \/ / / / __ '__ \/ ___/
  / /_/ / /_/ /  __/ / / / /_/ / / / / / (__  ) 
- \__, /\____/\___/_/ /_/\__,_/_/ /_/ /_/____/
+ \__, /\____/\___/_/ /_/\__,_/_/ /_/ /_/____/  
 /____/
-                version: v0.3.8
+
+    https://zarldev.github.io/goenums 
+       version :: v0.4.0
+       build   :: 20250528-00:39:58
+       commit  :: 1b2f884-dirty
 ```
 
 # Prerequisites
