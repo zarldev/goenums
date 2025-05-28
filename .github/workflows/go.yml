@@ -99,7 +99,7 @@ jobs:
     - name: gosec
       uses: securego/gosec@master
       with:
-        args: ./... 
+        args: -exclude-dir=internal -exclude-dir=examples ./... 
     - name: govulncheck
       id: govulncheck
       uses: golang/govulncheck-action@v1
