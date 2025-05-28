@@ -16,9 +16,6 @@ func validatePath(name string) error {
 	if strings.Contains(cleaned, "..") {
 		return ErrInvalidPath
 	}
-	if filepath.IsAbs(cleaned) {
-		return ErrInvalidPath
-	}
 	return nil
 }
 
