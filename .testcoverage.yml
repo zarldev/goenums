@@ -28,7 +28,8 @@ exclude:
   paths:
     - internal/testdata/.*
     - examples/.*
-    - ^pkg/bar     # exclude package `pkg/bar`
+    - examples/*/.*
+
 
 # File name of go-test-coverage breakdown file, which can be used to 
 # analyze coverage difference.

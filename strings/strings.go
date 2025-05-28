@@ -231,6 +231,7 @@ func Singularise(iotaType string) string {
 }
 
 func Singularize(word string) string {
+	word = strings.TrimSpace(word)
 	if _, ok := irregularPluralsToSingular[word]; ok {
 		return irregularPluralsToSingular[word]
 	}

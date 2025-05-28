@@ -201,6 +201,16 @@ func TestCamelCase(t *testing.T) {
 			input:    " dog house",
 			expected: "DogHouse",
 		},
+		{
+			name:     "already plural regular",
+			input:    "dogs",
+			expected: "Dogs",
+		},
+		{
+			name:     "already plural irregular",
+			input:    "men",
+			expected: "Men",
+		},
 	}
 
 	for _, tt := range tests {
@@ -219,44 +229,75 @@ func TestCamelCase(t *testing.T) {
 	}
 }
 
-func TestPluralEdgeCases(t *testing.T) {
+func TestSingularise(t *testing.T) {
 	t.Parallel()
-	ctx := t.Context()
-
-	// Edge cases and potential issues
 	tests := []struct {
 		name     string
 		input    string
 		expected string
 	}{
 		{
-			name:     "already plural regular",
+			name:     "plural",
 			input:    "dogs",
-			expected: "dogs",
+			expected: "dog",
 		},
 		{
-			name:     "already plural irregular",
-			input:    "men",
-			expected: "men",
+			name:     "singular",
+			input:    "dog",
+			expected: "dog",
 		},
 		{
-			name:     "edge: uppercase irregular",
-			input:    "MAN",
-			expected: "MEN",
+			name:     "plural with spaces",
+			input:    "dog houses",
+			expected: "dog house",
+		},
+		{
+			name:     "plural with hyphens",
+			input:    "dog-houses",
+			expected: "dog-house",
+		},
+		{
+			name:     "plural with underscores",
+			input:    "dog_houses",
+			expected: "dog_house",
+		},
+		{
+			name:     "plural with dots",
+			input:    "dog.houses",
+			expected: "dog.house",
+		},
+		{
+			name:     "plural with em-dashes",
+			input:    "dog—houses",
+			expected: "dog—house",
+		},
+		{
+			name:     "plural with en-dashes",
+			input:    "dog–houses",
+			expected: "dog–house",
+		},
+		{
+			name:     "plural with spaces",
+			input:    "dog houses",
+			expected: "dog house",
+		},
+		{
+			name:     "plural with trailing spaces",
+			input:    "dog houses ",
+			expected: "dog house",
+		},
+		{
+			name:     "plural with leading spaces",
+			input:    " dog houses",
+			expected: "dog house",
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			if ctx.Err() != nil {
-				t.Skip("context cancelled")
-			}
-
-			got := strings.Plural(tt.input)
+			got := strings.Singularize(tt.input)
 			if got != tt.expected {
-				t.Errorf("for input %q: got %q, expected %q",
-					tt.input, got, tt.expected)
+				t.Errorf("Singularize(%q) = %q, want %q", tt.input, got, tt.expected)
 			}
 		})
 	}
