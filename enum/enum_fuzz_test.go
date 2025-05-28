@@ -34,8 +34,13 @@ func FuzzParseValue_Int(f *testing.F) {
 	f.Add("9223372036854775807")  // max int64
 	f.Add("-9223372036854775808") // min int64
 	f.Add("abc")                  // invalid
-
+	f.Add("\U00045a2f")
+	var i int
 	f.Fuzz(func(t *testing.T, input string) {
+		i++
+		if i%1000 == 0 {
+			t.Logf("Sample input #%d: %q", i, input)
+		}
 		_, err := enum.ParseValue(input, 0)
 		if err != nil && !errors.Is(err, enum.ErrParseValue) {
 			t.Errorf("parse value(%q, 0) returned error: %v", input, err)

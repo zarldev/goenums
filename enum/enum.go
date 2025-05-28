@@ -355,6 +355,8 @@ func ParseValue[T any](valRaw string, defaultVal T) (T, error) {
 		if v, ok := any(val).(T); ok {
 			return v, nil
 		}
+	default:
+		return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
 	}
 	return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
 }

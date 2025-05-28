@@ -18,72 +18,83 @@ func TestParseValue(t *testing.T) {
 		input      string
 		defaultVal any
 		want       any
-		wantErr    bool
+		err        error
 	}{
 		// Boolean tests
-		{"bool true", "true", false, true, false},
-		{"bool false", "false", false, false, false},
-		{"bool invalid", "maybe", false, false, true},
-		{"bool 1", "1", false, true, false},
-		{"bool 0", "0", false, false, false},
+		{"bool true", "true", false, true, nil},
+		{"bool false", "false", false, false, nil},
+		{"bool invalid", "maybe", false, false, enum.ErrParseValue},
+		{"bool 1", "1", false, true, nil},
+		{"bool 0", "0", false, false, nil},
 
 		// Integer tests
-		{"int valid", "42", 0, 42, false},
-		{"int negative", "-42", 0, -42, false},
-		{"int invalid", "not-a-number", 0, 0, true},
-		{"int64 valid", "9223372036854775807", int64(0), int64(9223372036854775807), false},
-		{"int32 valid", "2147483647", int32(0), int32(2147483647), false},
-		{"int16 valid", "32767", int16(0), int16(32767), false},
-		{"int8 valid", "127", int8(0), int8(127), false},
+		{"int valid", "42", 0, 42, nil},
+		{"int negative", "-42", 0, -42, nil},
+		{"int invalid", "not-a-number", 0, 0, enum.ErrParseValue},
+		{"int64 valid", "9223372036854775807", int64(0), int64(9223372036854775807), nil},
+		{"int64 negative", "-9223372036854775808", int64(0), int64(-9223372036854775808), nil},
+		{"int32 valid", "2147483647", int32(0), int32(2147483647), nil},
+		{"int32 negative", "-2147483648", int32(0), int32(-2147483648), nil},
+		{"int16 valid", "32767", int16(0), int16(32767), nil},
+		{"int16 negative", "-32768", int16(0), int16(-32768), nil},
+		{"int8 valid", "127", int8(0), int8(127), nil},
+		{"int8 negative", "-128", int8(0), int8(-128), nil},
+		{"int overflow", "9223372036854775808", int64(0), int64(0), enum.ErrParseValue},
+		{"int unicode", "\U00045a2f", int64(0), int64(0), enum.ErrParseValue},
 
 		// Unsigned integer tests
-		{"uint valid", "42", uint(0), uint(42), false},
-		{"uint64 valid", "18446744073709551615", uint64(0), uint64(18446744073709551615), false},
-		{"uint32 valid", "4294967295", uint32(0), uint32(4294967295), false},
-		{"uint16 valid", "65535", uint16(0), uint16(65535), false},
-		{"uint8 valid", "255", uint8(0), uint8(255), false},
-		{"uint negative", "-1", uint(0), uint(0), true},
+		{"uint valid", "42", uint(0), uint(42), nil},
+		{"uint64 valid", "18446744073709551615", uint64(0), uint64(18446744073709551615), nil},
+		{"uint32 valid", "4294967295", uint32(0), uint32(4294967295), nil},
+		{"uint16 valid", "65535", uint16(0), uint16(65535), nil},
+		{"uint8 valid", "255", uint8(0), uint8(255), nil},
+		{"uint negative", "-1", uint(0), uint(0), enum.ErrParseValue},
+		{"uint overflow", "18446744073709551616", uint64(0), uint64(0), enum.ErrParseValue},
+		{"uint unicode", "\U00045a2f", uint64(0), uint64(0), enum.ErrParseValue},
 
 		// Float tests
-		{"float64 valid", "3.14", 0.0, 3.14, false},
-		{"float64 scientific", "1.23e-4", 0.0, 1.23e-4, false},
-		{"float64 invalid", "not-a-float", 0.0, 0.0, true},
-		{"float32 valid", "3.14", float32(0), float32(3.14), false},
-		{"float32 invalid", "not-a-float", float32(0), float32(0), true},
+		{"float64 valid", "3.14", 0.0, 3.14, nil},
+		{"float64 scientific", "1.23e-4", 0.0, 1.23e-4, nil},
+		{"float64 invalid", "not-a-float", 0.0, 0.0, enum.ErrParseValue},
+		{"float32 valid", "3.14", float32(0), float32(3.14), nil},
+		{"float32 invalid", "not-a-float", float32(0), float32(0), enum.ErrParseValue},
 
 		// String tests
-		{"string quoted", `"hello"`, "", "hello", false},
-		{"string unquoted", "hello", "", "hello", false},
-		{"string empty quoted", `""`, "", "", false},
-		{"string empty", "", "", "", false},
-		{"string with spaces", "hello world", "", "hello world", false},
+		{"string quoted", `"hello"`, "", "hello", nil},
+		{"string unquoted", "hello", "", "hello", nil},
+		{"string empty quoted", `""`, "", "", nil},
+		{"string empty", "", "", "", nil},
+		{"string with spaces", "hello world", "", "hello world", nil},
 
 		// Time tests
-		{"time.Duration valid", "1h30m", time.Duration(0), 90 * time.Minute, false},
-		{"time.Duration seconds", "45s", time.Duration(0), 45 * time.Second, false},
-		{"time.Duration invalid", "invalid-duration", time.Duration(0), time.Duration(0), true},
+		{"time.Duration valid", "1h30m", time.Duration(0), 90 * time.Minute, nil},
+		{"time.Duration seconds", "45s", time.Duration(0), 45 * time.Second, nil},
+		{"time.Duration invalid", "invalid-duration", time.Duration(0), time.Duration(0), enum.ErrParseValue},
 		{
 			"time.Time valid",
 			"2023-01-01T00:00:00Z",
 			time.Time{},
 			time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC),
-			false,
+			nil,
 		},
-		{"time.Time invalid", "not-a-time", time.Time{}, time.Time{}, true},
+		{"time.Time invalid", "not-a-time", time.Time{}, time.Time{}, enum.ErrParseValue},
 
 		// Unsupported type
-		{"unsupported type", "value", struct{}{}, struct{}{}, true},
+		{"unsupported type", "value", struct{}{}, struct{}{}, enum.ErrParseValue},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got, err := enum.ParseValue(tt.input, tt.defaultVal)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ParseValue() error = %v, wantErr %v", err, tt.wantErr)
+			if err != nil {
+				if !errors.Is(err, tt.err) {
+					t.Errorf("ParseValue() error = %v, wantErr %v", err, tt.err)
+					return
+				}
 				return
 			}
-			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ParseValue() = %v, want %v", got, tt.want)
 			}
 		})
@@ -135,15 +146,16 @@ func TestParseEnumFields(t *testing.T) {
 			enumIota: enum.EnumIota{
 				Fields: []enum.Field{
 					{Name: "Number", Value: 0},
-					{Name: "Flag", Value: false},
+					{Name: "Flag", Value: nil},
 					{Name: "Text", Value: ""},
 				},
 			},
 			want: []enum.Field{
 				{Name: "Number", Value: 42},
-				{Name: "Flag", Value: true},
 				{Name: "Text", Value: "hello"},
+				{Name: "Flag", Value: "extra"},
 			},
+			err: enum.ErrParseValue,
 		},
 		{
 			name:  "valid float fields",
@@ -191,7 +203,7 @@ func TestParseEnumFields(t *testing.T) {
 			enumIota: enum.EnumIota{
 				Fields: []enum.Field{
 					{Name: "Number", Value: 0},
-					{Name: "Flag", Value: false},
+					{Name: "Flag", Value: nil},
 					{Name: "Text", Value: ""},
 				},
 			},
@@ -213,13 +225,16 @@ func TestParseEnumFields(t *testing.T) {
 			enumIota: enum.EnumIota{
 				Fields: []enum.Field{
 					{Name: "Number", Value: 0},
-					{Name: "Flag", Value: false},
+					{Name: "Flag", Value: nil},
 				},
 			},
 			want: []enum.Field{
 				{Name: "Number", Value: 42},
-				{Name: "Flag", Value: true},
+				{Name: "Flag", Value: enum.ErrParseValue},
+				{Name: "Text", Value: "hello"},
+				{Name: "Message", Value: "extra"},
 			},
+			err: enum.ErrParseValue,
 		},
 		{
 			name:  "fewer fields than input",
@@ -227,7 +242,7 @@ func TestParseEnumFields(t *testing.T) {
 			enumIota: enum.EnumIota{
 				Fields: []enum.Field{
 					{Name: "Number", Value: 0},
-					{Name: "Flag", Value: false},
+					{Name: "Flag", Value: nil},
 					{Name: "Text", Value: ""},
 				},
 			},
@@ -248,8 +263,11 @@ func TestParseEnumFields(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got, err := enum.ParseEnumFields(tt.input, tt.enumIota)
-			if err != nil && !errors.Is(err, tt.err) {
-				t.Errorf("parseEnumFields() error = %v, wantErr %v", err, tt.err)
+			if err != nil {
+				if !errors.Is(err, tt.err) {
+					t.Errorf("parseEnumFields() error = %v, wantErr %v", err, tt.err)
+					return
+				}
 				return
 			}
 			if !slices.EqualFunc(got, tt.want,
