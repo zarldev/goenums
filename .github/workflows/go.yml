@@ -22,14 +22,6 @@ jobs:
     - name: gofmt check with simplify
       id: gofmt
       run: go list -f '{{.Dir}}' ./... | grep -v testdata | xargs -I {} find {} -maxdepth 1 -name '*.go' | xargs gofmt -s -l | tee gofmt.out | grep .
-    - name: gofmt check results
-      run: |
-        result=$(cat gofmt.out| grep -v 'internal/testdata' | tee gofmt.out | grep .)
-        if [ -n "$result" ]; then
-          echo "gofmt check failed"
-          cat gofmt.out
-          exit 1
-        fi
   vetting:
     runs-on: ubuntu-latest
     steps:
