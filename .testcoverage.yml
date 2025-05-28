@@ -29,6 +29,7 @@ exclude:
     - internal/testdata/.*
     - examples/.*
     - examples/*/.*
+    - goenums.go
 
 
 # File name of go-test-coverage breakdown file, which can be used to 

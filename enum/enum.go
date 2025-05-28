@@ -74,7 +74,7 @@ type Handlers struct {
 // It constructs the command string based on the configuration options.
 func (r GenerationRequest) Command() string {
 	var b bytes.Buffer
-	command := " "
+	b.WriteString(" ")
 	if r.Failfast || r.Legacy || r.CaseInsensitive {
 		b.WriteString("-")
 		if r.Failfast {
@@ -86,9 +86,8 @@ func (r GenerationRequest) Command() string {
 		if r.CaseInsensitive {
 			b.WriteString("i")
 		}
-		command = b.String()
 	}
-	return command
+	return b.String()
 }
 
 type EnumIota struct {
@@ -232,167 +231,132 @@ func ParseValue[T any](valRaw string, defaultVal T) (T, error) {
 		if err != nil {
 			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
 		}
-		v, ok := any(val).(T)
-		if !ok {
-			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		if v, ok := any(val).(T); ok {
+			return v, nil
 		}
-		return v, nil
 	case float64:
 		val, err := strconv.ParseFloat(valRaw, 64)
 		if err != nil {
 			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
 		}
-		v, ok := any(val).(T)
-		if !ok {
-			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		if v, ok := any(val).(T); ok {
+			return v, nil
 		}
-		return v, nil
 	case float32:
 		val, err := strconv.ParseFloat(valRaw, 32)
 		if err != nil {
 			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
 		}
-		v, ok := any(float32(val)).(T)
-		if !ok {
-			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		if v, ok := any(float32(val)).(T); ok {
+			return v, nil
 		}
-		return v, nil
 	case int:
 		val, err := strconv.Atoi(valRaw)
 		if err != nil {
 			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
 		}
-		v, ok := any(val).(T)
-		if !ok {
-			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		if v, ok := any(val).(T); ok {
+			return v, nil
 		}
-		return v, nil
 	case int64:
 		val, err := strconv.ParseInt(valRaw, 10, 64)
 		if err != nil {
 			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
 		}
-		v, ok := any(val).(T)
-		if !ok {
-			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		if v, ok := any(val).(T); ok {
+			return v, nil
 		}
-		return v, nil
 	case int32:
 		val, err := strconv.ParseInt(valRaw, 10, 32)
 		if err != nil {
 			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
 		}
-		v, ok := any(int32(val)).(T)
-		if !ok {
-			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		if v, ok := any(int32(val)).(T); ok {
+			return v, nil
 		}
-		return v, nil
 	case int16:
 		val, err := strconv.ParseInt(valRaw, 10, 16)
 		if err != nil {
 			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
 		}
-		v, ok := any(int16(val)).(T)
-		if !ok {
-			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		if v, ok := any(int16(val)).(T); ok {
+			return v, nil
 		}
-		return v, nil
 	case int8:
 		val, err := strconv.ParseInt(valRaw, 10, 8)
 		if err != nil {
 			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
 		}
-		v, ok := any(int8(val)).(T)
-		if !ok {
-			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		if v, ok := any(int8(val)).(T); ok {
+			return v, nil
 		}
-		return v, nil
 	case uint:
 		val, err := strconv.ParseUint(valRaw, 10, 64)
 		if err != nil {
 			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
 		}
-		v, ok := any(uint(val)).(T)
-		if !ok {
-			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		if v, ok := any(uint(val)).(T); ok {
+			return v, nil
 		}
-		return v, nil
 	case uint64:
 		val, err := strconv.ParseUint(valRaw, 10, 64)
 		if err != nil {
 			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
 		}
-		v, ok := any(val).(T)
-		if !ok {
-			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		if v, ok := any(val).(T); ok {
+			return v, nil
 		}
-		return v, nil
 	case uint32:
 		val, err := strconv.ParseUint(valRaw, 10, 32)
 		if err != nil {
 			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
 		}
-		v, ok := any(uint32(val)).(T)
-		if !ok {
-			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		if v, ok := any(uint32(val)).(T); ok {
+			return v, nil
 		}
-		return v, nil
 	case uint16:
 		val, err := strconv.ParseUint(valRaw, 10, 16)
 		if err != nil {
 			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
 		}
-		v, ok := any(uint16(val)).(T)
-		if !ok {
-			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		if v, ok := any(uint16(val)).(T); ok {
+			return v, nil
 		}
-		return v, nil
 	case uint8:
 		val, err := strconv.ParseUint(valRaw, 10, 8)
 		if err != nil {
 			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
 		}
-		v, ok := any(uint8(val)).(T)
-		if !ok {
-			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
-		}
-		return v, nil
-	case string:
-		if len(valRaw) >= 2 && valRaw[0] == '"' && valRaw[len(valRaw)-1] == '"' {
-			v, ok := any(valRaw[1 : len(valRaw)-1]).(T)
-			if !ok {
-				return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
-			}
+		if v, ok := any(uint8(val)).(T); ok {
 			return v, nil
 		}
-		v, ok := any(valRaw).(T)
-		if !ok {
-			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+	case string:
+		if len(valRaw) >= 2 && valRaw[0] == '"' && valRaw[len(valRaw)-1] == '"' {
+			if v, ok := any(valRaw[1 : len(valRaw)-1]).(T); ok {
+				return v, nil
+			}
 		}
-		return v, nil
+		if v, ok := any(valRaw).(T); ok {
+			return v, nil
+		}
 	case time.Time:
 		val, err := time.Parse(time.RFC3339, valRaw)
 		if err != nil {
 			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
 		}
-		v, ok := any(val).(T)
-		if !ok {
-			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		if v, ok := any(val).(T); ok {
+			return v, nil
 		}
-		return v, nil
 	case time.Duration:
 		val, err := time.ParseDuration(valRaw)
 		if err != nil {
 			return zero, fmt.Errorf("%w: %w", ErrParseValue, err)
 		}
-		v, ok := any(val).(T)
-		if !ok {
-			return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
+		if v, ok := any(val).(T); ok {
+			return v, nil
 		}
-		return v, nil
-	default:
-		return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
 	}
+	return zero, fmt.Errorf("%w: %w", ErrParseValue, ErrUnsupportedType)
 }
 
 func ExtractImports(enumIotas []EnumIota) []string {

@@ -99,7 +99,13 @@ test:
 
 test-coverage:
 	go test ./... -coverprofile=./cover.out -covermode=atomic -coverpkg=./...
+	@echo "Filtering coverage profile to exclude examples..."
+	@grep -v "github.com/zarldev/goenums/example" cover.out > cover_filtered.out 2>/dev/null || cp cover.out cover_filtered.out
+	@mv cover_filtered.out cover.out
 	go-test-coverage --config=./.testcoverage.yml
+	@echo "Generating HTML coverage report..."
+	go tool cover -html=cover.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
 
 generate:
 	go generate ./...
