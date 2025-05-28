@@ -3,6 +3,7 @@ package gofile_test
 
 import (
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/zarldev/goenums/file"
@@ -12,15 +13,16 @@ import (
 
 func TestWriter_Write(t *testing.T) {
 	t.Parallel()
-	for _, tt := range testdata.InputOutputTestCases {
+	testcases := slices.Clone(testdata.InputOutputTestCases)
+	for _, tt := range testcases {
 		t.Run(tt.Name, func(t *testing.T) {
 			t.Parallel()
 			memfs := file.NewMemFS()
 			writer := gofile.NewWriter(
-				gofile.WithWriterConfig(tt.Config),
+				gofile.WithWriterConfiguration(tt.Config),
 				gofile.WithFileSystem(memfs))
 
-			err := writer.Write(t.Context(), tt.Representations)
+			err := writer.Write(t.Context(), tt.GenerationRequests)
 			if err != nil && !errors.Is(err, tt.Err) {
 				t.Errorf("unexpected error: %v", err)
 				return

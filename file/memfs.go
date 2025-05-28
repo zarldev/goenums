@@ -96,30 +96,6 @@ func (m *MemFS) Create(name string) (io.WriteCloser, error) {
 	}, nil
 }
 
-// Remove deletes a file from the in-memory filesystem.
-// Returns fs.ErrNotExist if the file doesn't exist.
-func (m *MemFS) Remove(name string) error {
-	if name == "" {
-		return fs.ErrInvalid
-	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if _, exists := m.files[name]; !exists {
-		return fs.ErrNotExist
-	}
-	delete(m.files, name)
-	return nil
-}
-
-// Close clears all files from the in-memory filesystem.
-// This can be used to reset the filesystem to an empty state.
-func (m *MemFS) Close() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	clear(m.files)
-	return nil
-}
-
 // Stat implements fs.StatFS by returning file information
 // for a file in the in-memory filesystem.
 // Returns fs.ErrNotExist if the file doesn't exist.

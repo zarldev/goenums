@@ -1,72 +1,72 @@
-package gofile_test
+package generator_test
 
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/zarldev/goenums/enum"
+	"github.com/zarldev/goenums/generator/config"
 	"github.com/zarldev/goenums/generator/gofile"
 	"github.com/zarldev/goenums/internal/testdata"
 	"github.com/zarldev/goenums/source"
 )
 
-func TestGoFileParser_Parse(t *testing.T) {
+func TestParserContract_Parse(t *testing.T) {
 	t.Parallel()
-	var testcases []testdata.InputOutputTest
-	testcases = append(testcases, testdata.InputOutputTest{
-		Name:   "not go code",
-		Source: source.FromFileSystem(testdata.FS, "notgocode/notgocode.go"),
-		Config: testdata.DefaultConfig,
-		Err:    gofile.ErrParseGoSource,
-	})
-	testcases = append(testcases, testdata.InputOutputTest{
-		Name:   "no valid enums found",
-		Source: source.FromFileSystem(testdata.FS, "noenums/noenums.go"),
-		Config: testdata.DefaultConfig,
-		Err:    enum.ErrNoEnumsFound,
-	})
-	for _, tc := range testcases {
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			tc.SetParser(gofile.NewParser(
-				gofile.WithParserConfiguration(tc.Config),
-				gofile.WithSource(tc.Source)))
-			parser := tc.Parser()
-			representations, err := parser.Parse(t.Context())
-			if !errors.Is(err, tc.Err) {
-				t.Errorf("unexpected error: %v expected %v", err, tc.Err)
-				return
-			}
-			if len(representations) != len(tc.GenerationRequests) {
-				t.Errorf("expected %d enum representations, got %d", len(tc.GenerationRequests), len(representations))
-				return
-			}
-			for _, rep := range representations {
-				if rep.Package == "" {
-					t.Errorf("missing package name in %s", tc.Name)
+	contractTests := slices.Clone(testdata.InputOutputTestCases)
+	testcase := struct {
+		Name   string
+		Parser func(cfg config.Configuration, src enum.Source) enum.Parser
+		Err    error
+	}{
+		Name: "gofile parser full contract test",
+		Parser: func(cfg config.Configuration, src enum.Source) enum.Parser {
+			return gofile.NewParser(
+				gofile.WithParserConfiguration(cfg),
+				gofile.WithSource(src))
+		},
+		Err: enum.ErrParseValue,
+	}
+	t.Run(testcase.Name, func(t *testing.T) {
+		t.Parallel()
+		for _, ct := range contractTests {
+			ct.SetParser(testcase.Parser(ct.Config, ct.Source))
+			t.Run(ct.Name, func(t *testing.T) {
+				t.Parallel()
+				parser := ct.Parser()
+				representations, err := parser.Parse(t.Context())
+				if !errors.Is(err, ct.Err) {
+					t.Errorf("unexpected error: %v expected %v", err, ct.Err)
 					return
 				}
-				validateTypeInfo(t, rep.EnumIota)
-				if len(rep.EnumIota.Enums) == 0 {
-					t.Errorf("no enum values in %s for type %s", tc.Name, rep.EnumIota.Type)
+				if len(representations) != len(ct.GenerationRequests) {
+					t.Errorf("expected %d enum representations, got %d", len(ct.GenerationRequests), len(representations))
 					return
 				}
-			}
-		})
-	}
-}
-
-func TestGoFileParser_ParseWithCancelContext(t *testing.T) {
-	t.Parallel()
-	parser := gofile.NewParser(gofile.WithSource(
-		source.FromFileSystem(testdata.FS, "planets/planets.go")))
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
-	_, err := parser.Parse(ctx)
-	if err != nil && !errors.Is(err, context.Canceled) {
-		t.Errorf("expected context.Canceled error, got %v", err)
-	}
+				for _, rep := range representations {
+					if rep.Package == "" {
+						t.Errorf("missing package name in %s", ct.Name)
+						return
+					}
+					validateTypeInfo(t, rep.EnumIota)
+					if len(rep.EnumIota.Enums) == 0 {
+						t.Errorf("no enum values in %s for type %s", ct.Name, rep.EnumIota.Type)
+						return
+					}
+				}
+			})
+			t.Run(ct.Name+" with canceled context", func(t *testing.T) {
+				ctx, cancel := context.WithCancel(t.Context())
+				cancel()
+				_, err := ct.Parser().Parse(ctx)
+				if err != nil && !errors.Is(err, context.Canceled) {
+					t.Errorf("expected context.Canceled error, got %v", err)
+				}
+			})
+		}
+	})
 }
 
 func TestParser_ErrorHandling(t *testing.T) {
@@ -134,7 +134,7 @@ func TestParser_SpecificScenarios(t *testing.T) {
 			name:                 "values only",
 			file:                 "values/planets.go",
 			expectedEnumIotas:    1,
-			expectedEnumsInFirst: 9,
+			expectedEnumsInFirst: 9, // unknown through neptune
 			shouldHaveFields:     true,
 		},
 	}
@@ -146,12 +146,10 @@ func TestParser_SpecificScenarios(t *testing.T) {
 				gofile.WithSource(source.FromFileSystem(testdata.FS, tt.file)),
 				gofile.WithParserConfiguration(testdata.DefaultConfig),
 			)
-
 			result, err := parser.Parse(t.Context())
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-
 			if len(result) != tt.expectedEnumIotas {
 				t.Errorf("expected %d enum iotas, got %d",
 					tt.expectedEnumIotas, len(result))
@@ -175,7 +173,7 @@ func TestParser_SpecificScenarios(t *testing.T) {
 // Benchmark tests
 func BenchmarkParser_Parse(b *testing.B) {
 	parser := gofile.NewParser(
-		gofile.WithSource(source.FromFileSystem(testdata.FS, "attributes/planets.go")),
+		gofile.WithSource(source.FromFileSystem(testdata.FS, "planets/planets.go")),
 		gofile.WithParserConfiguration(testdata.DefaultConfig),
 	)
 	ctx := b.Context()

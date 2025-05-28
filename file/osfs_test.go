@@ -25,7 +25,7 @@ func TestOSReadWriteFileFS_WriteAndRead(t *testing.T) {
 	}{
 		{
 			name:    "basic write and read",
-			path:    "test.txt",
+			path:    "./test.txt",
 			content: []byte("test content"),
 		},
 		{

@@ -2,15 +2,16 @@ package testdata
 
 import (
 	"embed"
+	"time"
 
 	"io"
 	"io/fs"
 	"testing"
-	"time"
 
 	"github.com/zarldev/goenums/enum"
 	"github.com/zarldev/goenums/file"
 	"github.com/zarldev/goenums/generator/config"
+	"github.com/zarldev/goenums/generator/gofile"
 	"github.com/zarldev/goenums/source"
 )
 
@@ -78,1170 +79,592 @@ func (fs TestDataFS) ReadFile(name string) ([]byte, error) {
 type InputOutputTest struct {
 	Name string
 
-	Config          config.Configuration
-	Source          enum.Source
-	ExpectedFiles   []string
-	Representations []enum.Representation
-	Err             error
-	Validate        func(t *testing.T, fs file.ReadStatFS)
+	Config             config.Configuration
+	Source             enum.Source
+	p                  enum.Parser
+	ExpectedFiles      []string
+	GenerationRequests []enum.GenerationRequest
+	Err                error
+	Validate           func(t *testing.T, fs file.ReadStatFS)
+}
+
+func (i *InputOutputTest) SetParser(p enum.Parser) {
+	i.p = p
+}
+
+func (i *InputOutputTest) Parser() enum.Parser {
+	if i.p != nil {
+		return i.p
+	}
+	return gofile.NewParser(
+		gofile.WithParserConfiguration(i.Config),
+		gofile.WithSource(i.Source))
 }
 
 var (
-	statusRepresentation = enum.Representation{
-		Version:        "v1.0.0",
-		GenerationTime: time.Now(),
-		PackageName:    "statuses",
-		SourceFilename: "invalid/status.go",
-		TypeInfo: enum.TypeInfo{
-			Name:        "status",
-			Camel:       "Status",
-			Lower:       "status",
-			Upper:       "STATUS",
-			Plural:      "statuses",
-			PluralCamel: "Statuses",
-			NameTypePair: []enum.NameTypePair{
+	statusRepresentation = enum.GenerationRequest{
+		Package: "validation",
+		Imports: []string{},
+		EnumIota: enum.EnumIota{
+			Type:       "status",
+			Comment:    "",
+			Fields:     []enum.Field{},
+			Opener:     " ",
+			Closer:     " ",
+			StartIndex: 0,
+			Enums: []enum.Enum{
 				{
-					Name:  "unknown",
-					Type:  "status",
-					Value: "0",
+					Name:    "FAILED",
+					Index:   0,
+					Fields:  []enum.Field{},
+					Aliases: []string{},
+					Valid:   true,
 				},
 				{
-					Name:  "failed",
-					Type:  "status",
-					Value: "1",
+					Name:    "PASSED",
+					Index:   1,
+					Fields:  []enum.Field{},
+					Aliases: []string{},
+					Valid:   true,
 				},
 				{
-					Name:  "passed",
-					Type:  "status",
-					Value: "2",
+					Name:    "SKIPPED",
+					Index:   2,
+					Fields:  []enum.Field{},
+					Aliases: []string{},
+					Valid:   true,
 				},
 				{
-					Name:  "skipped",
-					Type:  "status",
-					Value: "3",
+					Name:    "SCHEDULED",
+					Index:   3,
+					Fields:  []enum.Field{},
+					Aliases: []string{},
+					Valid:   true,
 				},
 				{
-					Name:  "scheduled",
-					Type:  "status",
-					Value: "4",
+					Name:    "RUNNING",
+					Index:   4,
+					Fields:  []enum.Field{},
+					Aliases: []string{},
+					Valid:   true,
 				},
 				{
-					Name:  "running",
-					Type:  "status",
-					Value: "5",
+					Name:    "BOOKED",
+					Index:   5,
+					Fields:  []enum.Field{},
+					Aliases: []string{},
+					Valid:   true,
 				},
 				{
-					Name:  "booked",
-					Type:  "status",
-					Value: "6",
+					Name:    "CANCELLED",
+					Index:   6,
+					Fields:  []enum.Field{},
+					Aliases: []string{},
+					Valid:   true,
+				},
+				{
+					Name:    "FAILED",
+					Index:   7,
+					Fields:  []enum.Field{},
+					Aliases: []string{},
+					Valid:   true,
+				},
+				{
+					Name:    "COMPLETED",
+					Index:   8,
+					Fields:  []enum.Field{},
+					Aliases: []string{},
+					Valid:   true,
 				},
 			},
 		},
-		Enums: []enum.Enum{
-			{
-				Info: enum.Info{
-					Name:  "unknown",
-					Upper: "UNKNOWN",
-					Alias: "unknown",
-					Value: 0,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "status",
-					Camel: "Status",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "unknown",
-							Type:  "status",
-							Value: "0",
-						},
-					},
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "failed",
-					Upper: "FAILED",
-					Alias: "failed",
-					Value: 1,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "status",
-					Camel: "Status",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "failed",
-							Type:  "status",
-							Value: "1",
-						},
-					},
-				},
-				Raw: enum.Raw{
-					Comment: "FAILED",
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "passed",
-					Upper: "PASSED",
-					Alias: "passed",
-					Value: 2,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "status",
-					Camel: "Status",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "passed",
-							Type:  "status",
-							Value: "2",
-						},
-					},
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "skipped",
-					Upper: "SKIPPED",
-					Alias: "skipped",
-					Value: 3,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "status",
-					Camel: "Status",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "skipped",
-							Type:  "status",
-							Value: "3",
-						},
-					},
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "scheduled",
-					Upper: "SCHEDULED",
-					Alias: "scheduled",
-					Value: 4,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "status",
-					Camel: "Status",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "scheduled",
-							Type:  "status",
-							Value: "4",
-						},
-					},
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "running",
-					Upper: "RUNNING",
-					Alias: "running",
-					Value: 5,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "status",
-					Camel: "Status",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "running",
-							Type:  "status",
-							Value: "5",
-						},
-					},
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "booked",
-					Upper: "BOOKED",
-					Alias: "booked",
-					Value: 6,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "status",
-					Camel: "Status",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "booked",
-							Type:  "status",
-							Value: "6",
-						},
-					},
-				},
-				Raw: enum.Raw{
-					Comment: "BOOKED",
-				},
-			},
-		},
+		Version:         "test",
+		SourceFilename:  "status.go",
+		OutputFilename:  "",
+		Failfast:        false,
+		Legacy:          false,
+		CaseInsensitive: false,
+		Handlers:        enum.Handlers{},
 	}
-	planetsRepresentation = enum.Representation{
-		Version:        "v1.0.0",
-		GenerationTime: time.Now(),
-		PackageName:    "planets",
-		SourceFilename: "attributes/planets.go",
-		TypeInfo: enum.TypeInfo{
-			Name:        "planet",
-			Camel:       "Planet",
-			Lower:       "planet",
-			Upper:       "PLANET",
-			Plural:      "planets",
-			PluralCamel: "Planets",
-			NameTypePair: []enum.NameTypePair{
+	planetsRepresentation = enum.GenerationRequest{
+		Package: "solarsystem",
+		Imports: []string{},
+		EnumIota: enum.EnumIota{
+			Type:       "planet",
+			Comment:    "",
+			Fields:     []enum.Field{},
+			Opener:     " ",
+			Closer:     " ",
+			StartIndex: 0,
+			Enums: []enum.Enum{
 				{
-					Name:  "unknown",
-					Type:  "planet",
-					Value: "0",
+					Name:    "MERCURY",
+					Index:   0,
+					Fields:  []enum.Field{},
+					Aliases: []string{},
+					Valid:   true,
 				},
 				{
-					Name:  "mercury",
-					Type:  "planet",
-					Value: "1",
+					Name:    "VENUS",
+					Index:   1,
+					Fields:  []enum.Field{},
+					Aliases: []string{},
+					Valid:   true,
 				},
 				{
-					Name:  "venus",
-					Type:  "planet",
-					Value: "2",
+					Name:    "EARTH",
+					Index:   2,
+					Fields:  []enum.Field{},
+					Aliases: []string{},
+					Valid:   true,
 				},
 				{
-					Name:  "earth",
-					Type:  "planet",
-					Value: "3",
+					Name:    "MARS",
+					Index:   3,
+					Fields:  []enum.Field{},
+					Aliases: []string{},
+					Valid:   true,
 				},
 				{
-					Name:  "mars",
-					Type:  "planet",
-					Value: "4",
+					Name:    "JUPITER",
+					Index:   4,
+					Fields:  []enum.Field{},
+					Aliases: []string{},
+					Valid:   true,
 				},
 				{
-					Name:  "jupiter",
-					Type:  "planet",
-					Value: "5",
+					Name:    "SATURN",
+					Index:   5,
+					Fields:  []enum.Field{},
+					Aliases: []string{},
+					Valid:   true,
 				},
 				{
-					Name:  "saturn",
-					Type:  "planet",
-					Value: "6",
+					Name:    "URANUS",
+					Index:   6,
+					Fields:  []enum.Field{},
+					Aliases: []string{},
+					Valid:   true,
 				},
 				{
-					Name:  "uranus",
-					Type:  "planet",
-					Value: "7",
-				},
-				{
-					Name:  "neptune",
-					Type:  "planet",
-					Value: "8",
+					Name:    "NEPTUNE",
+					Index:   7,
+					Fields:  []enum.Field{},
+					Aliases: []string{},
+					Valid:   true,
 				},
 			},
 		},
-		Enums: []enum.Enum{
-			{
-				Info: enum.Info{
-					Name:  "unknown",
-					Upper: "UNKNOWN",
-					Alias: "unknown",
-					Value: 0,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "planet",
-					Camel: "Planet",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "unknown",
-							Type:  "planet",
-							Value: "0",
-						},
-					},
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "mercury",
-					Upper: "MERCURY",
-					Alias: "mercury",
-					Value: 1,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "planet",
-					Camel: "Planet",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "mercury",
-							Type:  "planet",
-							Value: "1",
-						},
-					},
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "venus",
-					Upper: "VENUS",
-					Alias: "venus",
-					Value: 2,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "planet",
-					Camel: "Planet",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "venus",
-							Type:  "planet",
-							Value: "2",
-						},
-					},
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "earth",
-					Upper: "EARTH",
-					Alias: "earth",
-					Value: 3,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "planet",
-					Camel: "Planet",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "earth",
-							Type:  "planet",
-							Value: "3",
-						},
-					},
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "mars",
-					Upper: "MARS",
-					Alias: "mars",
-					Value: 4,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "planet",
-					Camel: "Planet",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "mars",
-							Type:  "planet",
-							Value: "4",
-						},
-					},
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "jupiter",
-					Upper: "JUPITER",
-					Alias: "jupiter",
-					Value: 5,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "planet",
-					Camel: "Planet",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "jupiter",
-							Type:  "planet",
-							Value: "5",
-						},
-					},
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "saturn",
-					Upper: "SATURN",
-					Alias: "saturn",
-					Value: 6,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "planet",
-					Camel: "Planet",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "saturn",
-							Type:  "planet",
-							Value: "6",
-						},
-					},
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "uranus",
-					Upper: "URANUS",
-					Alias: "uranus",
-					Value: 7,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "planet",
-					Camel: "Planet",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "uranus",
-							Type:  "planet",
-							Value: "7",
-						},
-					},
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "neptune",
-					Upper: "NEPTUNE",
-					Alias: "neptune",
-					Value: 8,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "planet",
-					Camel: "Planet",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "neptune",
-							Type:  "planet",
-							Value: "8",
-						},
-					},
-				},
-				Raw: enum.Raw{
-					Comment: "NEPTUNE",
-				},
-			},
-		},
+		Version:         "test",
+		SourceFilename:  "planets.go",
+		OutputFilename:  "",
+		Failfast:        false,
+		Legacy:          false,
+		CaseInsensitive: false,
+		Handlers:        enum.Handlers{},
 	}
-	saleRepresentation = enum.Representation{
-		Version:        "v1.0.0",
-		GenerationTime: time.Now(),
-		PackageName:    "sale",
-		SourceFilename: "time/sale.go",
-		TypeInfo: enum.TypeInfo{
-			Name:        "sale",
-			Camel:       "Sale",
-			Lower:       "sale",
-			Upper:       "SALE",
-			Plural:      "sales",
-			PluralCamel: "Sales",
-			NameTypePair: []enum.NameTypePair{
-				{
-					Name:  "sales",
-					Type:  "sale",
-					Value: "0",
-				},
-				{
-					Name:  "percentage",
-					Type:  "sale",
-					Value: "1",
-				},
-				{
-					Name:  "amount",
-					Type:  "sale",
-					Value: "2",
-				},
-				{
-					Name:  "giveaway",
-					Type:  "sale",
-					Value: "3",
-				},
-			},
+	saleRepresentation = enum.GenerationRequest{
+		Package:         "sale",
+		Version:         "test",
+		SourceFilename:  "sale.go",
+		OutputFilename:  "",
+		Failfast:        false,
+		Legacy:          false,
+		CaseInsensitive: false,
+		Handlers: enum.Handlers{
+			JSON:   true,
+			Text:   true,
+			YAML:   true,
+			SQL:    true,
+			Binary: true,
 		},
-		Enums: []enum.Enum{
-			{
-				Info: enum.Info{
-					Name:  "sales",
-					Upper: "SALES",
-					Alias: "sales",
-					Value: 0,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "sale",
-					Camel: "Sale",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "sales",
-							Type:  "sale",
-							Value: "0",
-						},
-					},
-				},
-				Raw: enum.Raw{
-					Comment: "SALES",
-				},
+		Imports: []string{},
+		EnumIota: enum.EnumIota{
+			Type:    "sale",
+			Comment: "",
+			Fields: []enum.Field{
+				{Name: "Duration", Value: time.Duration(0)},
+				{Name: "Amount", Value: 0},
 			},
-			{
-				Info: enum.Info{
-					Name:  "percentage",
-					Upper: "PERCENTAGE",
-					Alias: "percentage",
-					Value: 1,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "sale",
-					Camel: "Sale",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "percentage",
-							Type:  "sale",
-							Value: "1",
-						},
-					},
-					Index: 1,
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "amount",
-					Upper: "AMOUNT",
-					Alias: "amount",
-					Value: 2,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "sale",
-					Camel: "Sale",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "amount",
-							Type:  "sale",
-							Value: "2",
-						},
-					},
-					Index: 2,
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "giveaway",
-					Upper: "GIVEAWAY",
-					Alias: "giveaway",
-					Value: 3,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "sale",
-					Camel: "Sale",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "giveaway",
-							Type:  "sale",
-							Value: "3",
-						},
-					},
-					Index: 3,
-				},
-				Raw: enum.Raw{
-					Comment: "GIVEAWAY",
-				},
-			},
-		},
-	}
-	ticketsRepresentation = enum.Representation{
-		Version:        "v1.0.0",
-		GenerationTime: time.Now(),
-		PackageName:    "tickets",
-		SourceFilename: "tickets/tickets.go",
-		TypeInfo: enum.TypeInfo{
-			Name:        "ticket",
-			Camel:       "Ticket",
-			Lower:       "ticket",
-			Upper:       "TICKET",
-			Plural:      "tickets",
-			PluralCamel: "Tickets",
-			NameTypePair: []enum.NameTypePair{
+			Opener:     "",
+			Closer:     "",
+			StartIndex: 0,
+			Enums: []enum.Enum{
 				{
-					Name:  "unknown",
-					Type:  "ticket",
-					Value: "0",
-				},
-				{
-					Name:  "open",
-					Type:  "ticket",
-					Value: "1",
-				},
-				{
-					Name:  "closed",
-					Type:  "ticket",
-					Value: "2",
-				},
-				{
-					Name:  "cancelled",
-					Type:  "ticket",
-					Value: "3",
-				},
-				{
-					Name:  "expired",
-					Type:  "ticket",
-					Value: "4",
-				},
-			},
-		},
-		Enums: []enum.Enum{
-			{
-				Info: enum.Info{
-					Name:  "unknown",
-					Upper: "UNKNOWN",
-					Alias: "unknown",
-					Value: 0,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "ticket",
-					Camel: "Ticket",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "unknown",
-							Type:  "ticket",
-							Value: "0",
-						},
-					},
+					Name:  "SALE",
 					Index: 0,
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "open",
-					Upper: "OPEN",
-					Alias: "open",
-					Value: 1,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "ticket",
-					Camel: "Ticket",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "open",
-							Type:  "ticket",
-							Value: "1",
-						},
+					Fields: []enum.Field{
+						{Name: "Duration", Value: "48h"},
+						{Name: "Amount", Value: "25"},
 					},
+					Aliases: []string{},
+					Valid:   true,
+				},
+				{
+					Name:  "DISCOUNT",
 					Index: 1,
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "closed",
-					Upper: "CLOSED",
-					Alias: "closed",
-					Value: 2,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "ticket",
-					Camel: "Ticket",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "closed",
-							Type:  "ticket",
-							Value: "2",
-						},
+					Fields: []enum.Field{
+						{Name: "Duration", Value: "72h"},
+						{Name: "Amount", Value: "50"},
 					},
+					Aliases: []string{},
+					Valid:   true,
+				},
+				{
+					Name:  "REFUND",
 					Index: 2,
-				},
-				Raw: enum.Raw{
-					Comment: "CLOSED",
-				},
-			},
-		},
-	}
-	ordersRepresentation = enum.Representation{
-		Version:        "v1.0.0",
-		GenerationTime: time.Now(),
-		PackageName:    "orders",
-		SourceFilename: "aliases/orders.go",
-		TypeInfo: enum.TypeInfo{
-			Name:        "order",
-			Camel:       "Order",
-			Lower:       "order",
-			Upper:       "ORDER",
-			Plural:      "orders",
-			PluralCamel: "Orders",
-			NameTypePair: []enum.NameTypePair{
-				{
-					Name:  "created",
-					Type:  "order",
-					Value: "0",
-				},
-				{
-					Name:  "approved",
-					Type:  "order",
-					Value: "1",
-				},
-				{
-					Name:  "processing",
-					Type:  "order",
-					Value: "2",
-				},
-				{
-					Name:  "readyToShip",
-					Type:  "order",
-					Value: "3",
-				},
-				{
-					Name:  "shipped",
-					Type:  "order",
-					Value: "4",
-				},
-				{
-					Name:  "delivered",
-					Type:  "order",
-					Value: "5",
-				},
-				{
-					Name:  "cancelled",
-					Type:  "order",
-					Value: "6",
-				},
-			},
-		},
-		Enums: []enum.Enum{
-			{
-				Info: enum.Info{
-					Name:  "created",
-					Upper: "CREATED",
-					Alias: "created",
-					Value: 0,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "order",
-					Camel: "Order",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "created",
-							Type:  "order",
-							Value: "0",
-						},
-					}, Index: 0,
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "approved",
-					Upper: "APPROVED",
-					Alias: "approved",
-					Value: 1,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "order",
-					Camel: "Order",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "approved",
-							Type:  "order",
-							Value: "1",
-						},
+					Fields: []enum.Field{
+						{Name: "Duration", Value: "0s"},
+						{Name: "Amount", Value: "100"},
 					},
-					Index: 1,
+					Aliases: []string{},
+					Valid:   true,
 				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "processing",
-					Upper: "PROCESSING",
-					Alias: "processing",
-					Value: 2,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "order",
-					Camel: "Order",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "processing",
-							Type:  "order",
-							Value: "2",
-						},
-					},
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "readyToShip",
-					Upper: "READY_TO_SHIP",
-					Alias: "readyToShip",
-					Value: 3,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "order",
-					Camel: "Order",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "readyToShip",
-							Type:  "order",
-							Value: "3",
-						},
-					},
+				{
+					Name:  "GIVEAWAY",
 					Index: 3,
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "shipped",
-					Upper: "SHIPPED",
-					Alias: "shipped",
-					Value: 4,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "order",
-					Camel: "Order",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "shipped",
-							Type:  "order",
-							Value: "4",
-						},
+					Fields: []enum.Field{
+						{Name: "Duration", Value: "0s"},
+						{Name: "Amount", Value: "100"},
 					},
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "delivered",
-					Upper: "DELIVERED",
-					Alias: "delivered",
-					Value: 5,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "order",
-					Camel: "Order",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "delivered",
-							Type:  "order",
-							Value: "5",
-						},
-					},
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "cancelled",
-					Upper: "CANCELLED",
-					Alias: "cancelled",
-					Value: 6,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "order",
-					Camel: "Order",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "cancelled",
-							Type:  "order",
-							Value: "6",
-						},
-					},
-					Index: 6,
-				},
-			},
-		},
-	}
-	skipValuesRepresentation = enum.Representation{
-		Version:        "testdata",
-		GenerationTime: time.Now(),
-		PackageName:    "skipvalues",
-		SourceFilename: "skipvalues/versions_enums.go",
-		TypeInfo: enum.TypeInfo{
-			Name:        "version",
-			Camel:       "Version",
-			Lower:       "version",
-			Upper:       "VERSION",
-			Plural:      "versions",
-			PluralCamel: "Versions",
-			NameTypePair: []enum.NameTypePair{
-				{
-					Name:  "v1",
-					Type:  "version",
-					Value: "1",
+					Aliases: []string{},
+					Valid:   true,
 				},
 				{
-					Name:  "v3",
-					Type:  "version",
-					Value: "3",
-				},
-				{
-					Name:  "v5",
-					Type:  "version",
-					Value: "5",
-				},
-				{
-					Name:  "v7",
-					Type:  "version",
-					Value: "7",
-				},
-			},
-		},
-		Enums: []enum.Enum{
-			{
-				Info: enum.Info{
-					Name:  "v1",
-					Upper: "V1",
-					Alias: "V1",
-					Value: 1,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "version",
-					Camel: "Version",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "v1",
-							Type:  "version",
-							Value: "1",
-						},
-					},
-					Index: 1,
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "v3",
-					Upper: "V3",
-					Alias: "V3",
-					Value: 3,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "version",
-					Camel: "Version",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "v3",
-							Type:  "version",
-							Value: "3",
-						},
-					},
-					Index: 3,
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "v4",
-					Upper: "V4",
-					Alias: "V4",
-					Value: 4,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "version",
-					Camel: "Version",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "v4",
-							Type:  "version",
-							Value: "4",
-						},
-					},
+					Name:  "CANCELLED",
 					Index: 4,
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "v5",
-					Upper: "V5",
-					Alias: "V5",
-					Value: 5,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "version",
-					Camel: "Version",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "v5",
-							Type:  "version",
-							Value: "5",
-						},
+					Fields: []enum.Field{
+						{Name: "Duration", Value: "0s"},
+						{Name: "Amount", Value: "0"},
 					},
-					Index: 5,
-				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "v7",
-					Upper: "V7",
-					Alias: "V7",
-					Value: 7,
-					Valid: true,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:  "version",
-					Camel: "Version",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "v7",
-							Type:  "version",
-							Value: "7",
-						},
-					},
-					Index: 7,
+					Aliases: []string{},
+					Valid:   true,
 				},
 			},
 		},
 	}
-	discountRepresentation = enum.Representation{
-		Version:        "testdata",
-		GenerationTime: time.Now(),
-		PackageName:    "discounts",
-		SourceFilename: "discounts/discounts_enums.go",
-		TypeInfo: enum.TypeInfo{
-			Name:        "discount",
-			Camel:       "Discount",
-			Lower:       "discount",
-			Upper:       "DISCOUNT",
-			Plural:      "discounts",
-			PluralCamel: "Discounts",
-			NameTypePair: []enum.NameTypePair{
+	ticketsRepresentation = enum.GenerationRequest{
+		Package: "tickets",
+		Imports: []string{},
+		EnumIota: enum.EnumIota{
+			Type:    "ticket",
+			Comment: "// comment string, validstate bool",
+			Fields: []enum.Field{
+				{Name: "comment", Value: ""},
+				{Name: "validstate", Value: false},
+			},
+			Opener:     " ",
+			Closer:     " ",
+			StartIndex: 0,
+			Enums: []enum.Enum{
 				{
-					Name:  "none",
-					Type:  "discount",
-					Value: "0",
+					Name:  "unknown",
+					Index: 0,
+					Fields: []enum.Field{
+						{Name: "comment", Value: "Ticket not found"},
+						{Name: "validstate", Value: false},
+					},
+					Aliases: []string{"Not Found", "Missing"},
+					Valid:   false,
 				},
 				{
-					Name:  "sale",
-					Type:  "discount",
-					Value: "1",
+					Name:  "created",
+					Index: 1,
+					Fields: []enum.Field{
+						{Name: "comment", Value: "Ticket created successfully"},
+						{Name: "validstate", Value: true},
+					},
+					Aliases: []string{"Created Successfully", "Created"},
+					Valid:   true,
 				},
 				{
-					Name:  "percentage",
-					Type:  "discount",
-					Value: "2",
+					Name:  "pending",
+					Index: 2,
+					Fields: []enum.Field{
+						{Name: "comment", Value: "Ticket is being processed"},
+						{Name: "validstate", Value: true},
+					},
+					Aliases: []string{"In Progress", "Pending"},
+					Valid:   true,
 				},
 				{
-					Name:  "amount",
-					Type:  "discount",
-					Value: "3",
+					Name:  "approval_pending",
+					Index: 3,
+					Fields: []enum.Field{
+						{Name: "comment", Value: "Ticket is pending approval"},
+						{Name: "validstate", Value: true},
+					},
+					Aliases: []string{"Pending Approval", "Approval Pending"},
+					Valid:   true,
 				},
 				{
-					Name:  "giveaway",
-					Type:  "discount",
-					Value: "4",
+					Name:  "approval_accepted",
+					Index: 4,
+					Fields: []enum.Field{
+						{Name: "comment", Value: "Ticket has been fully approved"},
+						{Name: "validstate", Value: true},
+					},
+					Aliases: []string{"Fully Approved", "Approval Accepted"},
+					Valid:   true,
+				},
+				{
+					Name:  "rejected",
+					Index: 5,
+					Fields: []enum.Field{
+						{Name: "comment", Value: "Ticket has been rejected"},
+						{Name: "validstate", Value: false},
+					},
+					Aliases: []string{"Has Been Rejected", "Rejected"},
+					Valid:   false,
+				},
+				{
+					Name:  "completed",
+					Index: 6,
+					Fields: []enum.Field{
+						{Name: "comment", Value: "Ticket has been completed"},
+						{Name: "validstate", Value: false},
+					},
+					Aliases: []string{"Successfully Completed", "Completed"},
+					Valid:   false,
 				},
 			},
 		},
+		Version:         "test",
+		SourceFilename:  "tickets.go",
+		OutputFilename:  "",
+		Failfast:        false,
+		Legacy:          false,
+		CaseInsensitive: false,
+		Handlers: enum.Handlers{
+			JSON:   true,
+			Text:   true,
+			YAML:   true,
+			SQL:    true,
+			Binary: true,
+		},
+	}
 
-		Enums: []enum.Enum{
-			{
-				Info: enum.Info{
-					Name:  "sale",
-					Upper: "SALE",
-					Alias: "sale",
-					Value: 1,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:        "discount",
-					Camel:       "Discount",
-					Lower:       "discount",
-					Upper:       "DISCOUNT",
-					Plural:      "discounts",
-					PluralCamel: "Discounts",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "sale",
-							Type:  "discount",
-							Value: "1",
-						},
+	ordersRepresentation = enum.GenerationRequest{
+		Package: "orders",
+		EnumIota: enum.EnumIota{
+			Type:       "order",
+			Comment:    "",
+			Fields:     []enum.Field{},
+			Opener:     " ",
+			Closer:     " ",
+			StartIndex: 0,
+			Enums: []enum.Enum{
+				{
+					Name:  "created",
+					Index: 0,
+					Fields: []enum.Field{
+						{Name: "Duration", Value: "24h"},
 					},
+					Aliases: []string{"CREATED"},
+					Valid:   true,
 				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "percentage",
-					Upper: "PERCENTAGE",
-					Alias: "percentage",
-					Value: 2,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:        "discount",
-					Camel:       "Discount",
-					Lower:       "discount",
-					Upper:       "DISCOUNT",
-					Plural:      "discounts",
-					PluralCamel: "Discounts",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "percentage",
-							Type:  "discount",
-							Value: "2",
-						},
+				{
+					Name:  "approved",
+					Index: 1,
+					Fields: []enum.Field{
+						{Name: "Duration", Value: "48h"},
 					},
+					Aliases: []string{"APPROVED"},
+					Valid:   true,
 				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "amount",
-					Upper: "AMOUNT",
-					Alias: "amount",
-					Value: 3,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:        "discount",
-					Camel:       "Discount",
-					Lower:       "discount",
-					Upper:       "DISCOUNT",
-					Plural:      "discounts",
-					PluralCamel: "Discounts",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "amount",
-							Type:  "discount",
-							Value: "3",
-						},
+				{
+					Name:  "processing",
+					Index: 2,
+					Fields: []enum.Field{
+						{Name: "Duration", Value: "72h"},
 					},
+					Aliases: []string{"PROCESSING"},
+					Valid:   true,
 				},
-			},
-			{
-				Info: enum.Info{
-					Name:  "giveaway",
-					Upper: "GIVEAWAY",
-					Alias: "giveaway",
-					Value: 4,
-				},
-				TypeInfo: enum.TypeInfo{
-					Name:        "discount",
-					Camel:       "Discount",
-					Lower:       "discount",
-					Upper:       "DISCOUNT",
-					Plural:      "discounts",
-					PluralCamel: "Discounts",
-					NameTypePair: []enum.NameTypePair{
-						{
-							Name:  "giveaway",
-							Type:  "discount",
-							Value: "4",
-						},
+				{
+					Name:  "readyToShip",
+					Index: 3,
+					Fields: []enum.Field{
+						{Name: "Duration", Value: "96h"},
 					},
+					Aliases: []string{"READY_TO_SHIP"},
+					Valid:   true,
+				},
+				{
+					Name:    "shipped",
+					Index:   4,
+					Fields:  []enum.Field{},
+					Aliases: []string{"SHIPPED"},
+					Valid:   true,
+				},
+				{
+					Name:    "delivered",
+					Index:   5,
+					Fields:  []enum.Field{},
+					Aliases: []string{"DELIVERED"},
+					Valid:   true,
+				},
+				{
+					Name:    "cancelled",
+					Index:   6,
+					Fields:  []enum.Field{},
+					Aliases: []string{"CANCELLED"},
+					Valid:   true,
 				},
 			},
 		},
+		Version:         "test",
+		SourceFilename:  "orders.go",
+		OutputFilename:  "",
+		Failfast:        false,
+		Legacy:          false,
+		CaseInsensitive: false,
+		Handlers: enum.Handlers{
+			JSON:   true,
+			Text:   true,
+			YAML:   true,
+			SQL:    true,
+			Binary: true,
+		},
+		Imports: []string{},
+	}
+	// package skipvalues
+
+	// type version int
+
+	// //go:generate goenums skipvalues.go
+	// const (
+	// 	V1 version = iota + 1
+	// 	_
+	// 	V3
+	// 	V4
+	// 	_
+	// 	_
+	// 	V7
+	// )
+
+	skipValuesRepresentation = enum.GenerationRequest{
+		Package: "skipvalues",
+		EnumIota: enum.EnumIota{
+			Type:       "version",
+			Comment:    "",
+			Fields:     []enum.Field{},
+			Opener:     " ",
+			Closer:     " ",
+			StartIndex: 1,
+			Enums: []enum.Enum{
+				{
+					Name:    "V1",
+					Index:   1,
+					Fields:  []enum.Field{},
+					Aliases: []string{},
+					Valid:   true,
+				},
+				{
+					Name:    "V3",
+					Index:   3,
+					Fields:  []enum.Field{},
+					Aliases: []string{},
+					Valid:   true,
+				},
+				{
+					Name:    "V4",
+					Index:   4,
+					Fields:  []enum.Field{},
+					Aliases: []string{},
+					Valid:   true,
+				},
+				{
+					Name:    "V7",
+					Index:   7,
+					Fields:  []enum.Field{},
+					Aliases: []string{},
+					Valid:   true,
+				},
+			},
+		},
+		Version:         "test",
+		SourceFilename:  "skipvalues.go",
+		OutputFilename:  "",
+		Failfast:        false,
+		Legacy:          false,
+		CaseInsensitive: false,
+		Handlers: enum.Handlers{
+			JSON:   true,
+			Text:   true,
+			YAML:   true,
+			SQL:    true,
+			Binary: true,
+		},
+		Imports: []string{},
+	}
+	//package discount
+	// type discountType int // Available bool, Started bool, Finished bool, Cancelled bool, Duration time.Duration
+
+	// const (
+	// 	sale       discountType = iota + 1 // false,true,true,false,172h
+	// 	percentage                         // false,false,false,false,24h
+	// 	amount                             // false,false,false,false,48h
+	// 	giveaway                           // true,true,false,false,72h
+	// )
+
+	discountRepresentation = enum.GenerationRequest{
+		Package: "discount",
+		EnumIota: enum.EnumIota{
+			Type:    "discountType",
+			Comment: "// Available bool, Started bool, Finished bool, Cancelled bool, Duration time.Duration",
+			Fields: []enum.Field{
+				{Name: "Available", Value: false},
+				{Name: "Started", Value: false},
+				{Name: "Finished", Value: false},
+				{Name: "Cancelled", Value: false},
+				{Name: "Duration", Value: time.Duration(0)},
+			},
+			Enums: []enum.Enum{
+				{
+					Name:    "sale",
+					Index:   1,
+					Fields:  []enum.Field{},
+					Aliases: []string{},
+					Valid:   true,
+				},
+				{
+					Name:    "percentage",
+					Index:   2,
+					Fields:  []enum.Field{},
+					Aliases: []string{},
+					Valid:   true,
+				},
+				{
+					Name:    "amount",
+					Index:   3,
+					Fields:  []enum.Field{},
+					Aliases: []string{},
+					Valid:   true,
+				},
+				{
+					Name:    "giveaway",
+					Index:   4,
+					Fields:  []enum.Field{},
+					Aliases: []string{},
+					Valid:   true,
+				},
+			},
+		},
+		Version:         "test",
+		SourceFilename:  "discount.go",
+		OutputFilename:  "",
+		Failfast:        false,
+		Legacy:          false,
+		CaseInsensitive: false,
+		Handlers: enum.Handlers{
+			JSON:   true,
+			Text:   true,
+			YAML:   true,
+			SQL:    true,
+			Binary: true,
+		},
+		Imports: []string{},
 	}
 )
 var (
@@ -1250,151 +673,151 @@ var (
 
 	InputOutputTestCases = []InputOutputTest{
 		{
-			Name:            "enum with invalid entry - status - default",
-			Source:          source.FromFileSystem(FS, "invalid/status.go"),
-			Config:          DefaultConfig,
-			ExpectedFiles:   []string{"invalid/statuses_enums.go"},
-			Representations: []enum.Representation{statusRepresentation},
+			Name:               "enum with invalid entry - status - default",
+			Source:             source.FromFileSystem(FS, "invalid/status.go"),
+			Config:             DefaultConfig,
+			ExpectedFiles:      []string{"invalid/statuses_enums.go"},
+			GenerationRequests: []enum.GenerationRequest{statusRepresentation},
 		},
 		{
-			Name:            "enum with invalid entry - status - failfast & legacy",
-			Source:          source.FromFileSystem(FS, "invalid/status.go"),
-			Config:          FailFastLegacyConfig,
-			ExpectedFiles:   []string{"invalid/statuses_enums.go"},
-			Representations: []enum.Representation{statusRepresentation},
+			Name:               "enum with invalid entry - status - failfast & legacy",
+			Source:             source.FromFileSystem(FS, "invalid/status.go"),
+			Config:             FailFastLegacyConfig,
+			ExpectedFiles:      []string{"invalid/statuses_enums.go"},
+			GenerationRequests: []enum.GenerationRequest{statusRepresentation},
 		},
 		{
-			Name:            "enum with invalid entry with alias - status - default",
-			Source:          source.FromFileSystem(FS, "invalid_alias/status.go"),
-			Config:          DefaultConfig,
-			ExpectedFiles:   []string{"invalid_alias/statuses_enums.go"},
-			Representations: []enum.Representation{statusRepresentation},
+			Name:               "enum with invalid entry with alias - status - default",
+			Source:             source.FromFileSystem(FS, "invalid_alias/status.go"),
+			Config:             DefaultConfig,
+			ExpectedFiles:      []string{"invalid_alias/statuses_enums.go"},
+			GenerationRequests: []enum.GenerationRequest{statusRepresentation},
 		},
 		{
-			Name:            "enum with invalid entry with alias - status - failfast & legacy",
-			Source:          source.FromFileSystem(FS, "invalid_alias/status.go"),
-			Config:          FailFastLegacyConfig,
-			ExpectedFiles:   []string{"invalid_alias/statuses_enums.go"},
-			Representations: []enum.Representation{statusRepresentation},
+			Name:               "enum with invalid entry with alias - status - failfast & legacy",
+			Source:             source.FromFileSystem(FS, "invalid_alias/status.go"),
+			Config:             FailFastLegacyConfig,
+			ExpectedFiles:      []string{"invalid_alias/statuses_enums.go"},
+			GenerationRequests: []enum.GenerationRequest{statusRepresentation},
 		},
 		{
-			Name:            "enum with attributes - planets - default",
-			Source:          source.FromFileSystem(FS, "attributes/planets.go"),
-			Config:          DefaultConfig,
-			ExpectedFiles:   []string{"attributes/planets_enums.go"},
-			Representations: []enum.Representation{planetsRepresentation},
+			Name:               "enum with attributes - planets - default",
+			Source:             source.FromFileSystem(FS, "attributes/planets.go"),
+			Config:             DefaultConfig,
+			ExpectedFiles:      []string{"attributes/planets_enums.go"},
+			GenerationRequests: []enum.GenerationRequest{planetsRepresentation},
 		},
 		{
-			Name:            "enum with attributes - planets - failfast & legacy",
-			Source:          source.FromFileSystem(FS, "attributes/planets.go"),
-			Config:          FailFastLegacyConfig,
-			ExpectedFiles:   []string{"attributes/planets_enums.go"},
-			Representations: []enum.Representation{planetsRepresentation},
+			Name:               "enum with attributes - planets - failfast & legacy",
+			Source:             source.FromFileSystem(FS, "attributes/planets.go"),
+			Config:             FailFastLegacyConfig,
+			ExpectedFiles:      []string{"attributes/planets_enums.go"},
+			GenerationRequests: []enum.GenerationRequest{planetsRepresentation},
 		},
 		{
-			Name:            "enum with values - planets gravity only value - default",
-			Source:          source.FromFileSystem(FS, "values/planets.go"),
-			Config:          DefaultConfig,
-			ExpectedFiles:   []string{"values/planets_enums.go"},
-			Representations: []enum.Representation{planetsRepresentation},
+			Name:               "enum with values - planets gravity only value - default",
+			Source:             source.FromFileSystem(FS, "values/planets.go"),
+			Config:             DefaultConfig,
+			ExpectedFiles:      []string{"values/planets_enums.go"},
+			GenerationRequests: []enum.GenerationRequest{planetsRepresentation},
 		},
 		{
-			Name:            "enum with values only - sale discount types - default",
-			Source:          source.FromFileSystem(FS, "values_only/discount.go"),
-			Config:          DefaultConfig,
-			ExpectedFiles:   []string{"values_only/discounttypes_enums.go"},
-			Representations: []enum.Representation{discountRepresentation},
+			Name:               "enum with values only - sale discount types - default",
+			Source:             source.FromFileSystem(FS, "values_only/discount.go"),
+			Config:             DefaultConfig,
+			ExpectedFiles:      []string{"values_only/discounttypes_enums.go"},
+			GenerationRequests: []enum.GenerationRequest{discountRepresentation},
 		},
 		{
-			Name:            "enum with values - planets gravity only value - failfast & legacy",
-			Source:          source.FromFileSystem(FS, "values/planets.go"),
-			Config:          FailFastLegacyConfig,
-			ExpectedFiles:   []string{"values/planets_enums.go"},
-			Representations: []enum.Representation{planetsRepresentation},
+			Name:               "enum with values - planets gravity only value - failfast & legacy",
+			Source:             source.FromFileSystem(FS, "values/planets.go"),
+			Config:             FailFastLegacyConfig,
+			ExpectedFiles:      []string{"values/planets_enums.go"},
+			GenerationRequests: []enum.GenerationRequest{planetsRepresentation},
 		},
 		{
-			Name:            "enum with time - sales - default",
-			Config:          DefaultConfig,
-			Source:          source.FromFileSystem(FS, "time/sale.go"),
-			ExpectedFiles:   []string{"time/sales_enums.go"},
-			Representations: []enum.Representation{saleRepresentation},
+			Name:               "enum with time - sales - default",
+			Config:             DefaultConfig,
+			Source:             source.FromFileSystem(FS, "time/sale.go"),
+			ExpectedFiles:      []string{"time/sales_enums.go"},
+			GenerationRequests: []enum.GenerationRequest{saleRepresentation},
 		},
 		{
-			Name:            "enum with time - sales - failfast & legacy",
-			Config:          FailFastLegacyConfig,
-			Source:          source.FromFileSystem(FS, "time/sale.go"),
-			ExpectedFiles:   []string{"time/sales_enums.go"},
-			Representations: []enum.Representation{saleRepresentation},
+			Name:               "enum with time - sales - failfast & legacy",
+			Config:             FailFastLegacyConfig,
+			Source:             source.FromFileSystem(FS, "time/sale.go"),
+			ExpectedFiles:      []string{"time/sales_enums.go"},
+			GenerationRequests: []enum.GenerationRequest{saleRepresentation},
 		},
 		{
-			Name:            "enum with quoted strings - tickets - default",
-			Source:          source.FromFileSystem(FS, "quotes/tickets.go"),
-			Config:          DefaultConfig,
-			ExpectedFiles:   []string{"quotes/tickets_enums.go"},
-			Representations: []enum.Representation{ticketsRepresentation},
+			Name:               "enum with quoted strings - tickets - default",
+			Source:             source.FromFileSystem(FS, "quotes/tickets.go"),
+			Config:             DefaultConfig,
+			ExpectedFiles:      []string{"quotes/tickets_enums.go"},
+			GenerationRequests: []enum.GenerationRequest{ticketsRepresentation},
 		},
 		{
-			Name:            "enum with plural type - discount - failfast & legacy",
-			Config:          FailFastLegacyConfig,
-			Source:          source.FromFileSystem(FS, "time/sale.go"),
-			ExpectedFiles:   []string{"time/sales_enums.go"},
-			Representations: []enum.Representation{saleRepresentation},
+			Name:               "enum with plural type - discount - failfast & legacy",
+			Config:             FailFastLegacyConfig,
+			Source:             source.FromFileSystem(FS, "time/sale.go"),
+			ExpectedFiles:      []string{"time/sales_enums.go"},
+			GenerationRequests: []enum.GenerationRequest{saleRepresentation},
 		},
 		{
-			Name:            "enum with plural type - discount - default",
-			Source:          source.FromFileSystem(FS, "plural/discount.go"),
-			Config:          DefaultConfig,
-			ExpectedFiles:   []string{"plural/discounttypes_enums.go"},
-			Representations: []enum.Representation{saleRepresentation},
+			Name:               "enum with plural type - discount - default",
+			Source:             source.FromFileSystem(FS, "plural/discount.go"),
+			Config:             DefaultConfig,
+			ExpectedFiles:      []string{"plural/discounttypes_enums.go"},
+			GenerationRequests: []enum.GenerationRequest{saleRepresentation},
 		},
 		{
-			Name:            "enum with quoted strings - tickets - failfast & legacy",
-			Source:          source.FromFileSystem(FS, "quotes/tickets.go"),
-			Config:          FailFastLegacyConfig,
-			ExpectedFiles:   []string{"quotes/tickets_enums.go"},
-			Representations: []enum.Representation{ticketsRepresentation},
+			Name:               "enum with quoted strings - tickets - failfast & legacy",
+			Source:             source.FromFileSystem(FS, "quotes/tickets.go"),
+			Config:             FailFastLegacyConfig,
+			ExpectedFiles:      []string{"quotes/tickets_enums.go"},
+			GenerationRequests: []enum.GenerationRequest{ticketsRepresentation},
 		},
 		{
-			Name:            "enum with aliases - orders - default",
-			Source:          source.FromFileSystem(FS, "aliases/orders.go"),
-			Config:          DefaultConfig,
-			ExpectedFiles:   []string{"aliases/orders_enums.go"},
-			Representations: []enum.Representation{ordersRepresentation},
+			Name:               "enum with aliases - orders - default",
+			Source:             source.FromFileSystem(FS, "aliases/orders.go"),
+			Config:             DefaultConfig,
+			ExpectedFiles:      []string{"aliases/orders_enums.go"},
+			GenerationRequests: []enum.GenerationRequest{ordersRepresentation},
 		},
 		{
-			Name:            "enum with aliases - orders - failfast & legacy",
-			Source:          source.FromFileSystem(FS, "aliases/orders.go"),
-			Config:          FailFastLegacyConfig,
-			ExpectedFiles:   []string{"aliases/orders_enums.go"},
-			Representations: []enum.Representation{ordersRepresentation},
+			Name:               "enum with aliases - orders - failfast & legacy",
+			Source:             source.FromFileSystem(FS, "aliases/orders.go"),
+			Config:             FailFastLegacyConfig,
+			ExpectedFiles:      []string{"aliases/orders_enums.go"},
+			GenerationRequests: []enum.GenerationRequest{ordersRepresentation},
 		},
 		{
-			Name:            "multiple enums in one file - default",
-			Source:          source.FromFileSystem(FS, "multiple/multiple.go"),
-			Config:          DefaultConfig,
-			ExpectedFiles:   []string{"multiple/statuses_enums.go", "multiple/orders_enums.go"},
-			Representations: []enum.Representation{statusRepresentation, ordersRepresentation},
+			Name:               "multiple enums in one file - default",
+			Source:             source.FromFileSystem(FS, "multiple/multiple.go"),
+			Config:             DefaultConfig,
+			ExpectedFiles:      []string{"multiple/statuses_enums.go", "multiple/orders_enums.go"},
+			GenerationRequests: []enum.GenerationRequest{statusRepresentation, ordersRepresentation},
 		},
 		{
-			Name:            "multiple enums in one file - failfast & legacy",
-			Source:          source.FromFileSystem(FS, "multiple/multiple.go"),
-			Config:          FailFastLegacyConfig,
-			ExpectedFiles:   []string{"multiple/statuses_enums.go", "multiple/orders_enums.go"},
-			Representations: []enum.Representation{statusRepresentation, ordersRepresentation},
+			Name:               "multiple enums in one file - failfast & legacy",
+			Source:             source.FromFileSystem(FS, "multiple/multiple.go"),
+			Config:             FailFastLegacyConfig,
+			ExpectedFiles:      []string{"multiple/statuses_enums.go", "multiple/orders_enums.go"},
+			GenerationRequests: []enum.GenerationRequest{statusRepresentation, ordersRepresentation},
 		},
 		{
-			Name:            "enum with skip values - default",
-			Source:          source.FromFileSystem(FS, "skipvalues/skipvalues.go"),
-			Config:          DefaultConfig,
-			ExpectedFiles:   []string{"skipvalues/versions_enums.go"},
-			Representations: []enum.Representation{skipValuesRepresentation},
+			Name:               "enum with skip values - default",
+			Source:             source.FromFileSystem(FS, "skipvalues/skipvalues.go"),
+			Config:             DefaultConfig,
+			ExpectedFiles:      []string{"skipvalues/versions_enums.go"},
+			GenerationRequests: []enum.GenerationRequest{skipValuesRepresentation},
 		},
 		{
-			Name:            "enum with skip values - failfast & legacy",
-			Source:          source.FromFileSystem(FS, "skipvalues/skipvalues.go"),
-			Config:          FailFastLegacyConfig,
-			ExpectedFiles:   []string{"skipvalues/versions_enums.go"},
-			Representations: []enum.Representation{skipValuesRepresentation},
+			Name:               "enum with skip values - failfast & legacy",
+			Source:             source.FromFileSystem(FS, "skipvalues/skipvalues.go"),
+			Config:             FailFastLegacyConfig,
+			ExpectedFiles:      []string{"skipvalues/versions_enums.go"},
+			GenerationRequests: []enum.GenerationRequest{skipValuesRepresentation},
 		},
 		{
 			Name:   "non-existent file",

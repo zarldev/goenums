@@ -1,5 +1,5 @@
 # Build variables
-VERSION := v0.3.8
+VERSION := v0.4.0
 BUILD_TIME := $(shell date +%Y%m%d-%H:%M:%S)
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 GIT_DIRTY := $(shell if [ -n "$$(git status --porcelain)" ]; then echo "-dirty"; fi)
@@ -98,10 +98,15 @@ test:
 	go test -v ./...
 
 test-coverage:
-	go test -coverprofile=coverage.out ./...
-	go tool cover -html=coverage.out
-	rm coverage.out
-	
+	go test ./... -coverprofile=./cover.out -covermode=atomic -coverpkg=./...
+	@echo "Filtering coverage profile to exclude examples..."
+	@grep -v "github.com/zarldev/goenums/example" cover.out > cover_filtered.out 2>/dev/null || cp cover.out cover_filtered.out
+	@mv cover_filtered.out cover.out
+	go-test-coverage --config=./.testcoverage.yml
+	@echo "Generating HTML coverage report..."
+	go tool cover -html=cover.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
+
 generate:
 	go generate ./...
 
