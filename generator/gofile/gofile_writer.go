@@ -12,6 +12,7 @@ import (
 	"slices"
 	"text/template"
 	"time"
+	"unicode"
 
 	"github.com/zarldev/goenums/enum"
 	"github.com/zarldev/goenums/file"
@@ -138,8 +139,8 @@ var (
 	jsonMarshalStr = `
 // MarshalJSON implements the json.Marshaler interface for {{ .WrapperName }}.
 // It returns the JSON representation of the enum value as a byte slice.
-func (p {{ .WrapperName }}) MarshalJSON() ([]byte, error) {
-	return []byte( "\"" + p.String() + "\""), nil 
+func ({{ .Receiver }} {{ .WrapperName }}) MarshalJSON() ([]byte, error) {
+	return []byte( "\"" + {{ .Receiver }}.String() + "\""), nil 
 }
 	`
 	jsonMarshalTemplate = template.Must(template.New("jsonMarshal").Parse(jsonMarshalStr))
@@ -148,13 +149,13 @@ func (p {{ .WrapperName }}) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements the json.Unmarshaler interface for {{ .WrapperName }}.
 // It parses the JSON representation of the enum value from the byte slice.
 // It returns an error if the input is not a valid JSON representation.
-func (p *{{ .WrapperName }}) UnmarshalJSON(b []byte) error {
+func ({{ .Receiver }} *{{ .WrapperName }}) UnmarshalJSON(b []byte) error {
 	b = bytes.Trim(bytes.Trim(b, "\""), "\"")
-	newp, err := Parse{{ .WrapperName }}(b)
+	new{{ .Receiver }}, err := Parse{{ .WrapperName }}(b)
 	if err != nil {
 		return err
 	}
-	*p = newp
+	*{{ .Receiver }} = new{{ .Receiver }}
 	return nil
 }
 `
@@ -162,13 +163,14 @@ func (p *{{ .WrapperName }}) UnmarshalJSON(b []byte) error {
 	textMarshalStr        = `
 // MarshalText implements the encoding.TextMarshaler interface for {{ .WrapperName }}.
 // It returns the string representation of the enum value as a byte slice
-func (p {{ .WrapperName }}) MarshalText() ([]byte, error) {
-	return []byte("\"" +  p.String() + "\""), nil
+func ({{ .Receiver }} {{ .WrapperName }}) MarshalText() ([]byte, error) {
+	return []byte("\"" + {{ .Receiver }}.String() + "\""), nil
 }
 `
 )
 
 type interfaceFunctionData struct {
+	Receiver    string
 	WrapperName string
 	EnumName    string
 	EnumType    string
@@ -176,10 +178,22 @@ type interfaceFunctionData struct {
 
 func newInterfaceFunctionData(rep enum.GenerationRequest) interfaceFunctionData {
 	return interfaceFunctionData{
+		Receiver:    receiver(rep.EnumIota.Type),
 		WrapperName: wrapperName(rep.EnumIota.Type),
 		EnumName:    strings.ToUpper(rep.EnumIota.Type),
 		EnumType:    enumType(rep),
 	}
+}
+
+func receiver(enumType string) string {
+	if strings.Contains(enumType, ".") {
+		return strings.Split(enumType, ".")[0]
+	}
+	if len(enumType) == 0 {
+		return "r"
+	}
+	firstChar := enumType[0]
+	return string(unicode.ToLower(rune(firstChar)))
 }
 
 func (g *Writer) writeJSONMarshalMethod(rep enum.GenerationRequest) {
@@ -197,12 +211,12 @@ var (
 // UnmarshalText implements the encoding.TextUnmarshaler interface for {{ .WrapperName }}.
 // It parses the string representation of the enum value from the byte slice.
 // It returns an error if the byte slice does not contain a valid enum value.
-func (p *{{ .WrapperName }}) UnmarshalText(b []byte) error {
-	newp, err := Parse{{ .WrapperName }}(b)
+func ({{ .Receiver }} *{{ .WrapperName }}) UnmarshalText(b []byte) error {
+	new{{ .Receiver }}, err := Parse{{ .WrapperName }}(b)
 	if err != nil {
 		return err
 	}
-	*p = newp
+	*{{ .Receiver }} = new{{ .Receiver }}
 	return nil
 }
 `
@@ -221,8 +235,8 @@ var (
 	binaryMarshalStr = `
 // MarshalBinary implements the encoding.BinaryMarshaler interface for {{ .WrapperName }}.
 // It returns the binary representation of the enum value as a byte slice.
-func (p {{ .WrapperName }}) MarshalBinary() ([]byte, error) {
-	return []byte("\"" + p.String() + "\""), nil
+func ({{ .Receiver }} {{ .WrapperName }}) MarshalBinary() ([]byte, error) {
+	return []byte("\"" + {{ .Receiver }}.String() + "\""), nil
 }
 `
 	binaryMarshalTemplate = template.Must(template.New("binaryMarshal").Parse(binaryMarshalStr))
@@ -231,12 +245,12 @@ func (p {{ .WrapperName }}) MarshalBinary() ([]byte, error) {
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface for {{ .WrapperName }}.
 // It parses the binary representation of the enum value from the byte slice.
 // It returns an error if the byte slice does not contain a valid enum value.
-func (p *{{ .WrapperName }}) UnmarshalBinary(b []byte) error {
-	newp, err := Parse{{ .WrapperName }}(b)
+func ({{ .Receiver }} *{{ .WrapperName }}) UnmarshalBinary(b []byte) error {
+	new{{ .Receiver }}, err := Parse{{ .WrapperName }}(b)
 	if err != nil {
 		return err
 	}
-	*p = newp
+	*{{ .Receiver }} = new{{ .Receiver }}
 	return nil
 }
 `
@@ -256,8 +270,8 @@ var (
 // MarshalYAML implements the yaml.Marshaler interface for {{ .WrapperName }}.
 // It returns the string representation of the enum value.
 // It returns an error if the enum value is invalid.				
-func (p {{ .WrapperName }}) MarshalYAML() (any, error) {
-	return p.String(), nil
+func ({{ .Receiver }} {{ .WrapperName }}) MarshalYAML() (any, error) {
+	return {{ .Receiver }}.String(), nil
 }
 `
 	yamlMarshalTemplate = template.Must(template.New("yamlMarshal").Parse(yamlMarshalStr))
@@ -266,13 +280,13 @@ func (p {{ .WrapperName }}) MarshalYAML() (any, error) {
 // UnmarshalYAML implements the yaml.Unmarshaler interface for {{ .WrapperName }}.
 // It parses the string representation of the enum value from the YAML node.
 // It returns an error if the YAML node does not contain a valid enum value.
-func (p *{{ .WrapperName }}) UnmarshalYAML(ctx context.Context, f func(any) error) error {
+func ({{ .Receiver }} *{{ .WrapperName }}) UnmarshalYAML(ctx context.Context, f func(any) error) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
 	}
-	return f(p.String())
+	return f({{ .Receiver }}.String())
 }
 `
 	yamlUnmarshalTemplate = template.Must(template.New("yamlUnmarshal").Parse(yamlUnmarshalStr))
@@ -291,12 +305,12 @@ var (
 // Scan implements the database/sql.Scanner interface for {{ .WrapperName }}.
 // It parses the string representation of the enum value from the database row.
 // It returns an error if the row does not contain a valid enum value.
-func (p *{{ .WrapperName }}) Scan(value any) error {
-	newp, err := Parse{{ .WrapperName }}(value)
+func ({{ .Receiver }} *{{ .WrapperName }}) Scan(value any) error {
+	new{{ .Receiver }}, err := Parse{{ .WrapperName }}(value)
 	if err != nil {
 		return err
 	}
-	*p = newp
+	*{{ .Receiver }} = new{{ .Receiver }}
 	return nil
 }
 `
@@ -305,8 +319,8 @@ func (p *{{ .WrapperName }}) Scan(value any) error {
 	valueStr = `
 // Value implements the database/sql/driver.Valuer interface for {{ .WrapperName }}.
 // It returns the string representation of the enum value.
-func (p {{ .WrapperName }}) Value() (driver.Value, error) {
-	return p.String(), nil
+func ({{ .Receiver }} {{ .WrapperName }}) Value() (driver.Value, error) {
+	return {{ .Receiver }}.String(), nil
 }
 `
 	valueTemplate = template.Must(template.New("value").Parse(valueStr))
@@ -363,17 +377,18 @@ var {{ .EnumLower }}NamesMap = map[{{ .WrapperName }}]string{
 
 // String implements the Stringer interface.
 // It returns the canonical absolute name of the enum value.
-func (p {{ .WrapperName }}) String() string {
-    if str, ok := {{ .EnumLower }}NamesMap[p]; ok {
+func ({{ .Receiver }} {{ .WrapperName }}) String() string {
+    if str, ok := {{ .EnumLower }}NamesMap[{{ .Receiver }}]; ok {
         return str
     }
-    return fmt.Sprintf("{{ .EnumLower }}(%d)", p.{{ .EnumIota }})
+    return fmt.Sprintf("{{ .EnumLower }}(%d)", {{ .Receiver }}.{{ .EnumIota }})
 }
 `
 	stringMethodTemplate = template.Must(template.New("stringMethod").Parse(stringMethodStr))
 )
 
 type stringMethodData struct {
+	Receiver        string
 	WrapperName     string
 	EnumLower       string
 	EnumIota        string
@@ -411,6 +426,7 @@ func (g *Writer) writeStringMethod(rep enum.GenerationRequest) {
 		}
 	}
 	d := stringMethodData{
+		Receiver:        receiver(rep.EnumIota.Type),
 		WrapperName:     wrapperName(rep.EnumIota.Type),
 		EnumLower:       strings.ToLower(rep.EnumIota.Type),
 		EnumIota:        rep.EnumIota.Type,
@@ -434,14 +450,15 @@ var valid{{ .EnumType }} = map[{{ .WrapperName }}]bool{
 
 // IsValid checks whether the {{ .EnumType }} value is valid.
 // A valid value is one that is defined in the original enum and not marked as invalid.
-func (p {{ .WrapperName }}) IsValid() bool {
-	return valid{{ .EnumType }}[p]
+func ({{ .Receiver }} {{ .WrapperName }}) IsValid() bool {
+	return valid{{ .EnumType }}[{{ .Receiver }}]
 }
 `
 	isValidTemplate = template.Must(template.New("isValid").Parse(isValidStr))
 )
 
 type isValidFunctionData struct {
+	Receiver    string
 	EnumType    string
 	WrapperName string
 	Enums       []enumDefinition
@@ -449,6 +466,7 @@ type isValidFunctionData struct {
 
 func (g *Writer) writeIsValidFunction(rep enum.GenerationRequest) {
 	g.writeTemplate(isValidTemplate, isValidFunctionData{
+		Receiver:    receiver(rep.EnumIota.Type),
 		EnumType:    enumType(rep),
 		WrapperName: wrapperName(rep.EnumIota.Type),
 		Enums:       enumDefinitions(rep),
@@ -777,17 +795,9 @@ func ({{.Receiver}} {{.ContainerType}}) All() iter.Seq[{{.WrapperName}}] {
 	allFunctionTemplate = template.Must(template.New("allFunction").Parse(allFunctionStr))
 )
 
-const defaultReceiver = "r"
-
 func (g *Writer) writeAllFunction(rep enum.GenerationRequest) {
-	r := strings.Lower1stCharacter(rep.EnumIota.Type)
-	if len(r) > 1 {
-		r = r[0:1]
-	} else {
-		r = defaultReceiver
-	}
 	allData := allFunctionData{
-		Receiver:      r,
+		Receiver:      receiver(rep.EnumIota.Type),
 		ContainerType: containerType(rep),
 		ContainerName: strings.Camel(strings.Plural(rep.EnumIota.Type)),
 		WrapperName:   wrapperName(rep.EnumIota.Type),

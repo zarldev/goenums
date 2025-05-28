@@ -40,8 +40,8 @@ You should see the `goenums` logo and current version displayed:
 
 # Prerequisites
 
- - Go 1.21+ for full functionality including iterator support
- - Go 1.18-1.21 use the -l flag to generate code without iterator support
+ - Go 1.23+ for full functionality including iterator support
+ - Go 1.18-1.23 use the -l flag to generate code without iterator support
 
 # Zero Dependencies
 

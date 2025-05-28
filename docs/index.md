@@ -12,7 +12,7 @@ title: goenums
 - **JSON Support**: Built-in marshaling and unmarshaling 
 - **Database Integration**: SQL Scanner and Valuer implementations
 - **Validation**: Methods to check for valid enum values
-- **Iteration**: Modern Go 1.21+ iteration support with legacy fallback
+- **Iteration**: Modern Go 1.23+ iteration support with legacy fallback
 - **Extensibility**: Add custom fields to enums via comments
 - **Exhaustive Handling**: Helper functions to ensure you handle all enum values
 - **Zero Dependencies**: Completely dependency-free, using only the Go standard library
