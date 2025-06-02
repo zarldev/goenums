@@ -507,7 +507,7 @@ func (g *Writer) writeNumberParsingMethods(rep enum.GenerationRequest) {
 }
 
 func enumType(rep enum.GenerationRequest) string {
-	return strings.Plural(strings.Camel(rep.EnumIota.Type))
+	return strings.Pluralise(strings.Camel(rep.EnumIota.Type))
 }
 
 var (
@@ -732,7 +732,7 @@ func (g *Writer) writeContainerDefinition(rep enum.GenerationRequest) {
 	cdef := containerDefinition{
 		WrapperName:   wrapperName(rep.EnumIota.Type),
 		ContainerType: containerType(rep),
-		ContainerName: strings.Camel(strings.Plural(rep.EnumIota.Type)),
+		ContainerName: strings.Pluralise(strings.Camel(rep.EnumIota.Type)),
 		EnumDefs:      edefs,
 	}
 	g.writeTemplate(containerDefinitionTemplate, cdef)
@@ -826,7 +826,7 @@ func (g *Writer) writeAllFunction(rep enum.GenerationRequest) {
 	allData := allFunctionData{
 		Receiver:      receiver(rep.EnumIota.Type),
 		ContainerType: containerType(rep),
-		ContainerName: strings.Camel(strings.Plural(rep.EnumIota.Type)),
+		ContainerName: strings.Pluralise(strings.Camel(rep.EnumIota.Type)),
 		WrapperName:   wrapperName(rep.EnumIota.Type),
 		EnumDefs:      enumDefinitions(rep),
 		Legacy:        rep.Configuration.Legacy,

@@ -112,7 +112,7 @@ func (p *Parser) buildGenerationRequests(enInfo enumInfo, packageName string, fi
 	genr := make([]enum.GenerationRequest, len(enInfo.Enums))
 	enumIotas := enInfo.Enums
 	for i, enumIota := range enumIotas {
-		lowerPlural := strings.Plural(strings.ToLower(enumIota.Type))
+		lowerPlural := strings.Pluralise(strings.ToLower(enumIota.Type))
 		genr[i] = enum.GenerationRequest{
 			Package:        packageName,
 			EnumIota:       enumIota,

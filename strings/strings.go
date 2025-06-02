@@ -154,6 +154,7 @@ func alreadyPlural(s string) bool {
 			parts := strings.Split(s, "-")
 			lastPart = parts[len(parts)-1]
 		case strings.Contains(s, " "):
+			s = TrimSpace(s)
 			parts := strings.Split(s, " ")
 			lastPart = parts[len(parts)-1]
 		}
@@ -193,68 +194,50 @@ func Singularise(iotaType string) string {
 	}
 	applyCase := detectCase(iotaType)
 	if !alreadyPlural(iotaType) {
-		return iotaType
+		return TrimSpace(iotaType)
 	}
 	// Handle snake_case
 	if strings.Contains(iotaType, "_") {
 		parts := strings.Split(iotaType, "_")
-		// singularize last part only
-		last := parts[len(parts)-1]
-		lowerLast := strings.ToLower(last)
-		var singularLast string
-		if s, ok := irregularPluralsToSingular[lowerLast]; ok {
-			singularLast = s
-		} else {
-			singularLast = Singularize(last)
-		}
-		// Apply case to the singularized part
-		lastCase := detectCase(last)
-		parts[len(parts)-1] = lastCase(singularLast)
-		return strings.Join(parts, "_")
+		processParts(parts)
+		return TrimSpace(strings.Join(parts, "_"))
 	}
 	// Handle spaces
 	if strings.Contains(iotaType, " ") {
+		iotaType = TrimSpace(iotaType)
 		parts := strings.Split(iotaType, " ")
-		// singularize last part only
-		last := parts[len(parts)-1]
-		lowerLast := strings.ToLower(last)
-		var singularLast string
-		if s, ok := irregularPluralsToSingular[lowerLast]; ok {
-			singularLast = s
-		} else {
-			singularLast = Singularize(last)
-		}
-		// Apply case to the singularized part
-		lastCase := detectCase(last)
-		parts[len(parts)-1] = lastCase(singularLast)
-		return strings.Join(parts, " ")
+		processParts(parts)
+		return TrimSpace(strings.Join(parts, " "))
 	}
 	// Handle kebab-case
 	if strings.Contains(iotaType, "-") {
 		parts := strings.Split(iotaType, "-")
-		// singularize last part only
-		last := parts[len(parts)-1]
-		lowerLast := strings.ToLower(last)
-		var singularLast string
-		if s, ok := irregularPluralsToSingular[lowerLast]; ok {
-			singularLast = s
-		} else {
-			singularLast = Singularize(last)
-		}
-		// Apply case to the singularized part
-		lastCase := detectCase(last)
-		parts[len(parts)-1] = lastCase(singularLast)
-		return strings.Join(parts, "-")
+		processParts(parts)
+		return TrimSpace(strings.Join(parts, "-"))
 	}
 	// Handle normal case
 	lowerIotaType := strings.ToLower(iotaType)
 	if s, ok := irregularPluralsToSingular[lowerIotaType]; ok {
 		return applyCase(s)
 	}
-	return applyCase(Singularize(lowerIotaType))
+	str := applyCase(singularise(lowerIotaType))
+	return TrimSpace(str)
 }
 
-func Singularize(word string) string {
+func processParts(parts []string) {
+	last := parts[len(parts)-1]
+	lowerLast := strings.ToLower(last)
+	var singularLast string
+	if s, ok := irregularPluralsToSingular[lowerLast]; ok {
+		singularLast = s
+	} else {
+		singularLast = singularise(last)
+	}
+	lastCase := detectCase(last)
+	parts[len(parts)-1] = lastCase(singularLast)
+}
+
+func singularise(word string) string {
 	word = strings.TrimSpace(word)
 	if _, ok := irregularPluralsToSingular[word]; ok {
 		return irregularPluralsToSingular[word]
@@ -268,52 +251,7 @@ func Singularize(word string) string {
 	if len(word) > 2 && word[len(word)-2:] == "ies" {
 		return word[:len(word)-3] + "y"
 	}
-	if len(word) > 1 && word[len(word)-1] == 'x' {
-		return word + "es"
-	}
 	return word
-}
-
-// Plural pluralizes a word or snake_case word with case preservation
-func Plural(iotaType string) string {
-	if iotaType == "" {
-		return ""
-	}
-
-	applyCase := detectCase(iotaType)
-
-	if alreadyPlural(iotaType) {
-		return iotaType
-	}
-
-	// Handle snake_case
-	if strings.Contains(iotaType, "_") {
-		parts := strings.Split(iotaType, "_")
-		// pluralize last part only
-		last := parts[len(parts)-1]
-
-		lowerLast := strings.ToLower(last)
-		var pluralLast string
-		if p, ok := irregularToPlural[lowerLast]; ok {
-			pluralLast = p
-		} else {
-			pluralLast = regularPlural(lowerLast)
-		}
-		parts[len(parts)-1] = applyCase(pluralLast)
-
-		return strings.Join(parts, "_")
-	}
-
-	lower := strings.ToLower(iotaType)
-	var plural string
-
-	if p, ok := irregularToPlural[lower]; ok {
-		plural = p
-	} else {
-		plural = regularPlural(lower)
-	}
-
-	return applyCase(plural)
 }
 
 // splitWords splits a CamelCase or PascalCase or ALLCAPS string into components
@@ -353,33 +291,6 @@ func matchCasing(src, dst string) string {
 	return string(dstRunes)
 }
 
-func Singular(input string) string {
-	words := splitWords(input)
-	if len(words) == 0 {
-		return input
-	}
-
-	last := words[len(words)-1]
-	lower := strings.ToLower(last)
-
-	var singular string
-	for s, p := range irregularToPlural {
-		if lower == p {
-			singular = s
-			break
-		}
-	}
-	if singular == "" && IsRegularPlural(lower) {
-		singular = lower[:len(lower)-1]
-	}
-	if singular == "" {
-		singular = lower
-	}
-	singularCased := matchCasing(last, singular)
-	words[len(words)-1] = singularCased
-	return strings.Join(words, "")
-}
-
 func IsRegularPlural(word string) bool {
 	if len(word) < 2 {
 		return false
@@ -407,9 +318,6 @@ func CamelCase(in string) string {
 	}
 	if strings.Contains(in, " ") {
 		return camel(in, " ")
-	}
-	if strings.Contains(in, "-") {
-		return camel(in, "-")
 	}
 	if strings.Contains(in, "-") {
 		return camel(in, "-")
@@ -714,27 +622,20 @@ func Pluralise(s string) string {
 	if len(s) == 1 {
 		return s + "s"
 	}
-
-	// Check if already plural
 	if isPlural(s) {
 		return s
 	}
 	lower := strings.ToLower(s)
 	if p, ok := irregularToPlural[lower]; ok {
-		// Apply original case pattern
 		if s == strings.ToUpper(s) {
 			return strings.ToUpper(p)
 		}
 		if s == strings.ToLower(s) {
 			return p
 		}
-		// Title case or mixed case
 		return matchCasing(s, p)
 	}
-
-	// Use regular pluralization
 	plural := regularPlural(lower)
-	// Apply original case pattern
 	if s == strings.ToUpper(s) {
 		return strings.ToUpper(plural)
 	}
@@ -762,14 +663,13 @@ func isRegularPlural(s string) bool {
 	}
 
 	lower := strings.ToLower(s)
-
-	// Check if it's an irregular word that's not actually plural
 	if _, ok := irregularToPlural[lower]; ok {
 		return false
 	}
 
-	// Words ending in 'ss', 'us', 'is' are usually not plural
-	if strings.HasSuffix(lower, "ss") || strings.HasSuffix(lower, "us") || strings.HasSuffix(lower, "is") {
+	if strings.HasSuffix(lower, "ss") ||
+		strings.HasSuffix(lower, "us") ||
+		strings.HasSuffix(lower, "is") {
 		return false
 	}
 
