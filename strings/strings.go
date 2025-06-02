@@ -144,7 +144,43 @@ func alreadyPlural(s string) bool {
 	if _, ok := irregularToPlural[strings.ToLower(s)]; ok {
 		return false
 	}
-	if strings.HasSuffix(s, "s") || strings.HasSuffix(s, "es") {
+
+	// For compound words (snake_case, kebab-case, space-separated), check the last part
+	if strings.Contains(s, "_") || strings.Contains(s, "-") || strings.Contains(s, " ") {
+		var lastPart string
+		if strings.Contains(s, "_") {
+			parts := strings.Split(s, "_")
+			lastPart = parts[len(parts)-1]
+		} else if strings.Contains(s, "-") {
+			parts := strings.Split(s, "-")
+			lastPart = parts[len(parts)-1]
+		} else if strings.Contains(s, " ") {
+			parts := strings.Split(s, " ")
+			lastPart = parts[len(parts)-1]
+		}
+
+		// Check if the last part is plural
+		lowerLast := strings.ToLower(lastPart)
+		if _, ok := irregularPluralsToSingular[lowerLast]; ok {
+			return true
+		}
+		if strings.HasSuffix(lowerLast, "s") && !strings.HasSuffix(lowerLast, "ss") &&
+			!strings.HasSuffix(lowerLast, "us") && !strings.HasSuffix(lowerLast, "is") {
+			return true
+		}
+		if strings.HasSuffix(lowerLast, "es") {
+			return true
+		}
+		return false
+	}
+
+	// Check if it's a regular plural (ends with s but not ss, us, is)
+	lower := strings.ToLower(s)
+	if strings.HasSuffix(lower, "s") && !strings.HasSuffix(lower, "ss") &&
+		!strings.HasSuffix(lower, "us") && !strings.HasSuffix(lower, "is") {
+		return true
+	}
+	if strings.HasSuffix(lower, "es") {
 		return true
 	}
 	return false
@@ -174,10 +210,12 @@ func Singularise(iotaType string) string {
 		} else {
 			singularLast = Singularize(last)
 		}
-		parts[len(parts)-1] = applyCase(singularLast)
+		// Apply case to the singularized part
+		lastCase := detectCase(last)
+		parts[len(parts)-1] = lastCase(singularLast)
 		return strings.Join(parts, "_")
 	}
-	// Handle camelCase
+	// Handle spaces
 	if strings.Contains(iotaType, " ") {
 		parts := strings.Split(iotaType, " ")
 		// singularize last part only
@@ -189,22 +227,9 @@ func Singularise(iotaType string) string {
 		} else {
 			singularLast = Singularize(last)
 		}
-		parts[len(parts)-1] = applyCase(singularLast)
-		return strings.Join(parts, " ")
-	}
-	// Handle PascalCase
-	if strings.Contains(iotaType, " ") {
-		parts := strings.Split(iotaType, " ")
-		// singularize last part only
-		last := parts[len(parts)-1]
-		lowerLast := strings.ToLower(last)
-		var singularLast string
-		if s, ok := irregularPluralsToSingular[lowerLast]; ok {
-			singularLast = s
-		} else {
-			singularLast = Singularize(last)
-		}
-		parts[len(parts)-1] = applyCase(singularLast)
+		// Apply case to the singularized part
+		lastCase := detectCase(last)
+		parts[len(parts)-1] = lastCase(singularLast)
 		return strings.Join(parts, " ")
 	}
 	// Handle kebab-case
@@ -219,7 +244,9 @@ func Singularise(iotaType string) string {
 		} else {
 			singularLast = Singularize(last)
 		}
-		parts[len(parts)-1] = applyCase(singularLast)
+		// Apply case to the singularized part
+		lastCase := detectCase(last)
+		parts[len(parts)-1] = lastCase(singularLast)
 		return strings.Join(parts, "-")
 	}
 	// Handle normal case
@@ -227,7 +254,7 @@ func Singularise(iotaType string) string {
 	if s, ok := irregularPluralsToSingular[lowerIotaType]; ok {
 		return applyCase(s)
 	}
-	return applyCase(Singularize(iotaType))
+	return applyCase(Singularize(lowerIotaType))
 }
 
 func Singularize(word string) string {
@@ -339,23 +366,18 @@ func Singular(input string) string {
 	lower := strings.ToLower(last)
 
 	var singular string
-	// Irregular plural
 	for s, p := range irregularToPlural {
 		if lower == p {
 			singular = s
 			break
 		}
 	}
-	// Regular plural
 	if singular == "" && IsRegularPlural(lower) {
 		singular = lower[:len(lower)-1]
 	}
-	// Fallback
 	if singular == "" {
 		singular = lower
 	}
-
-	// Match casing and rebuild
 	singularCased := matchCasing(last, singular)
 	words[len(words)-1] = singularCased
 	return strings.Join(words, "")
@@ -567,13 +589,14 @@ func ReplaceAll(s, o, n string) string {
 	return strings.ReplaceAll(s, o, n)
 }
 
-// EnumBuilder is a wrapper around strings.Builder with preallocated buffer size.
-// It is used to build the enum string representation.
 type EnumBuilder struct {
 	b *strings.Builder
 }
 
 func (b *EnumBuilder) Write(p []byte) (int, error) {
+	if b.b == nil {
+		b.b = &strings.Builder{}
+	}
 	return b.b.Write(p)
 }
 
@@ -668,16 +691,36 @@ func Pluralise(s string) string {
 	if len(s) == 1 {
 		return s + "s"
 	}
+
+	// Check if already plural
 	if isPlural(s) {
 		return s
 	}
-	if s, ok := pluraliseIrregular(s); ok {
-		return s
+
+	// Check irregular words first (case insensitive)
+	lower := strings.ToLower(s)
+	if p, ok := irregularToPlural[lower]; ok {
+		// Apply original case pattern
+		if s == strings.ToUpper(s) {
+			return strings.ToUpper(p)
+		}
+		if s == strings.ToLower(s) {
+			return p
+		}
+		// Title case or mixed case
+		return matchCasing(s, p)
 	}
-	if s, ok := pluraliseRegular(s); ok {
-		return s
+
+	// Use regular pluralization
+	plural := regularPlural(lower)
+	// Apply original case pattern
+	if s == strings.ToUpper(s) {
+		return strings.ToUpper(plural)
 	}
-	return s + "s"
+	if s == strings.ToLower(s) {
+		return plural
+	}
+	return matchCasing(s, plural)
 }
 
 func pluraliseIrregular(s string) (string, bool) {
@@ -708,14 +751,30 @@ func isPlural(s string) bool {
 }
 
 func isIrregularPlural(s string) bool {
-	_, ok := irregularToPlural[s]
+	_, ok := irregularPluralsToSingular[strings.ToLower(s)]
 	return ok
 }
 
 func isRegularPlural(s string) bool {
-	return strings.HasSuffix(s, "s") ||
-		strings.HasSuffix(s, "es") ||
-		strings.HasSuffix(s, "ies")
+	if len(s) < 2 {
+		return false
+	}
+
+	lower := strings.ToLower(s)
+
+	// Check if it's an irregular word that's not actually plural
+	if _, ok := irregularToPlural[lower]; ok {
+		return false
+	}
+
+	// Words ending in 'ss', 'us', 'is' are usually not plural
+	if strings.HasSuffix(lower, "ss") || strings.HasSuffix(lower, "us") || strings.HasSuffix(lower, "is") {
+		return false
+	}
+
+	return strings.HasSuffix(lower, "s") ||
+		strings.HasSuffix(lower, "es") ||
+		strings.HasSuffix(lower, "ies")
 }
 
 func Camel(s string) string {
@@ -769,17 +828,17 @@ func Ify(v any) string {
 		mins := v.Minutes()
 		secs := v.Seconds()
 		var b strings.Builder
-		if hrs > 0 {
+		if hrs != 0 {
 			b.WriteString("time.Hour * ")
 			b.WriteString(strconv.FormatFloat(float64(hrs), 'f', -1, 64))
 			return b.String()
 		}
-		if mins > 0 {
+		if mins != 0 {
 			b.WriteString("time.Minute * ")
 			b.WriteString(strconv.FormatFloat(float64(mins), 'f', -1, 64))
 			return b.String()
 		}
-		if secs > 0 {
+		if secs != 0 {
 			b.WriteString("time.Second * ")
 			b.WriteString(strconv.FormatFloat(float64(secs), 'f', -1, 64))
 			return b.String()

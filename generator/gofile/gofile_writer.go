@@ -155,7 +155,7 @@ var (
 )
 
 func (g *Writer) writeConstraints(rep enum.GenerationRequest) {
-	g.writeTemplate(constraintsTemplate, nil)
+	g.writeTemplate(constraintsTemplate, rep)
 }
 
 var (

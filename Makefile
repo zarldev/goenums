@@ -12,22 +12,22 @@ PRODLDFLAGS := -ldflags "-s -w -X github.com/zarldev/goenums/internal/version.CU
 FUZZ_TESTS := FuzzParseValue_String FuzzParseValue_Int FuzzParseValue_Bool FuzzParseValue_Float64 FuzzParseValue_Duration FuzzParseEnumAliases FuzzParseEnumFields FuzzExtractFields
 
 release-tag:
-	@echo "Checking for uncommitted changes..."
+	@echo "🔍 Checking for uncommitted changes..."
 	@if [ "$$(git status --porcelain | wc -l)" -ne "0" ]; then \
-		echo "Error: Working directory has uncommitted changes. Commit or stash them first."; \
+		echo "❌ Error: Working directory has uncommitted changes. Commit or stash them first."; \
 		exit 1; \
 	fi
-	@echo "Creating git tag $(VERSION)..."
+	@echo "🏷️  Creating git tag $(VERSION)..."
 	git tag -a $(VERSION) -m "Release $(VERSION)"
-	@echo "Tag created. Push with: git push origin $(VERSION)"
+	@echo "✅ Tag created. Push with: git push origin $(VERSION)"
 
 # Release build that ensures a clean state
 release-build: build-prod
-	@echo "Built release version $(VERSION)"
+	@echo "🚀 Built release version $(VERSION)"
 
 # Build all platforms from clean tagged state
 release-all: build-linux-archive build-darwin-archive build-windows-archive
-	@echo "Built all platforms and archived for release $(VERSION)"
+	@echo "🌍 Built all platforms and archived for release $(VERSION)"
 
 build-linux-archive: build-linux
 	mkdir -p dist
@@ -55,60 +55,78 @@ build-windows-archive: build-windows
 
 # Debug target to verify variable values
 debug-version:
-	@echo "VERSION: $(VERSION)"
-	@echo "BUILD_TIME: $(BUILD_TIME)"
-	@echo "GIT_COMMIT: $(GIT_COMMIT)"
-	@echo "GIT_DIRTY: $(GIT_DIRTY)"
-	@echo "LDFLAGS: $(LDFLAGS)"
+	@echo "🐛 Debug Information:"
+	@echo "   VERSION: $(VERSION)"
+	@echo "   BUILD_TIME: $(BUILD_TIME)"
+	@echo "   GIT_COMMIT: $(GIT_COMMIT)"
+	@echo "   GIT_DIRTY: $(GIT_DIRTY)"
+	@echo "   LDFLAGS: $(LDFLAGS)"
 
 # Build with clear output
 build: deps test
+	@echo "🔨 Building goenums..."
 	mkdir -p bin
 	go build  $(LDFLAGS) -o bin/goenums goenums.go
-	@echo "Build with version $(VERSION) ($(BUILD_TIME), $(GIT_COMMIT)$(GIT_DIRTY))"
+	@echo "✅ Build completed with version $(VERSION) ($(BUILD_TIME), $(GIT_COMMIT)$(GIT_DIRTY))"
 
 deps:
+	@echo "📦 Managing dependencies..."
 	go mod tidy
 	go mod verify
+	@echo "✅ Dependencies updated"
 
 # Production build command - explicitly uses the prod tag
 build-prod:
+	@echo "🏭 Building production binary..."
 	go build -trimpath -tags=prod $(PRODLDFLAGS) -o bin/goenums goenums.go
+	@echo "✅ Production build completed"
 
 # Other platform-specific builds
 build-linux: generate test
+	@echo "🐧 Building for Linux..."
 	GOOS=linux GOARCH=amd64 go build -tags=prod $(LDFLAGS) -o bin/linux/amd64/goenums goenums.go
 	GOOS=linux GOARCH=arm64 go build -tags=prod $(LDFLAGS) -o bin/linux/arm64/goenums goenums.go
+	@echo "✅ Linux builds completed"
 
 build-darwin: generate test
+	@echo "🍎 Building for macOS..."
 	GOOS=darwin GOARCH=amd64 go build -tags=prod $(LDFLAGS) -o bin/darwin/amd64/goenums goenums.go
 	GOOS=darwin GOARCH=arm64 go build -tags=prod $(LDFLAGS) -o bin/darwin/arm64/goenums goenums.go
+	@echo "✅ macOS builds completed"
 
 build-windows: generate test
+	@echo "🪟 Building for Windows..."
 	GOOS=windows GOARCH=amd64 go build -tags=prod $(LDFLAGS) -o bin/windows/amd64/goenums.exe goenums.go
+	@echo "✅ Windows build completed"
 
 install:
+	@echo "📥 Installing goenums..."
 	chmod +x bin/goenums
-	@echo "Installing to /usr/local/bin/goenums"
+	@echo "   Installing to /usr/local/bin/goenums"
 	@if [ -w /usr/local/bin ]; then \
 		cp bin/goenums /usr/local/bin/goenums; \
+		echo "✅ Installation completed"; \
 	else \
-		echo "Need sudo permission to install"; \
+		echo "🔐 Need sudo permission to install"; \
 		sudo cp bin/goenums /usr/local/bin/goenums; \
+		echo "✅ Installation completed"; \
 	fi
 
 test:
+	@echo "🧪 Running tests..."
 	go test -v ./...
+	@echo "✅ Tests completed"
 
 test-coverage:
+	@echo "📊 Running tests with coverage..."
 	go test ./... -coverprofile=./cover.out -covermode=atomic -coverpkg=./...
-	@echo "Filtering coverage profile to exclude examples..."
+	@echo "🔍 Filtering coverage profile to exclude examples..."
 	@grep -v "github.com/zarldev/goenums/example" cover.out > cover_filtered.out 2>/dev/null || cp cover.out cover_filtered.out
 	@mv cover_filtered.out cover.out
 	go-test-coverage --config=./.testcoverage.yml
-	@echo "Generating HTML coverage report..."
+	@echo "📈 Generating HTML coverage report..."
 	go tool cover -html=cover.out -o coverage.html
-	@echo "Coverage report generated: coverage.html"
+	@echo "✅ Coverage report generated: coverage.html"
 
 # Run all fuzz tests for 30 seconds each
 test-fuzz:
@@ -164,10 +182,14 @@ test-fuzz-quick:
 	echo "🎉 Quick fuzz tests completed!"
 
 generate:
+	@echo "⚙️  Running code generation..."
 	go generate ./...
+	@echo "✅ Code generation completed"
 
 clean:
+	@echo "🧹 Cleaning build artifacts..."
 	rm -rf bin/
+	@echo "✅ Clean completed"
 
 version: logo
 	@echo "              version: $(VERSION)"
@@ -175,7 +197,9 @@ version: logo
 	@echo "              commit:  $(GIT_COMMIT)$(GIT_DIRTY)"
 
 lint:
+	@echo "🔍 Running linter..."
 	golangci-lint run ./...
+	@echo "✅ Linting completed"
 
 logo:
 	@echo "   ____ _____  ___  ____  __  ______ ___  _____"
@@ -185,18 +209,38 @@ logo:
 	@echo "/____/ "
 
 help:
-	@echo "build             - build the goenums binary for current platform"
-	@echo "build-all         - build for all supported platforms"
-	@echo "build-linux       - build for Linux (amd64, arm64)"
-	@echo "build-darwin      - build for macOS (amd64, arm64)"
-	@echo "build-windows     - build for Windows (amd64)"
-	@echo "install           - install the goenums binary to /usr/local/go/bin *root/sudo required"
-	@echo "test              - run tests"
-	@echo "test-coverage     - run tests with coverage report"
-	@echo "test-fuzz         - run all fuzz tests for 30s each"
-	@echo "test-fuzz-quick   - run all fuzz tests for 10s each (development)"
-	@echo "test-fuzz-long    - run all fuzz tests for 2m each (thorough)"
-	@echo "generate          - run go generate"
-	@echo "clean             - remove build artifacts"
-	@echo "help              - print this help message"
-	@echo "version           - print the version"
+	@echo "📚 Available commands:"
+	@echo ""
+	@echo "🔨 Build Commands:"
+	@echo "  build             - build the goenums binary for current platform"
+	@echo "  build-prod        - build production binary with optimizations"
+	@echo "  build-linux       - build for Linux (amd64, arm64)"
+	@echo "  build-darwin      - build for macOS (amd64, arm64)"
+	@echo "  build-windows     - build for Windows (amd64)"
+	@echo "  build-all         - build for all supported platforms"
+	@echo ""
+	@echo "🚀 Release Commands:"
+	@echo "  release-tag       - create a git tag for release"
+	@echo "  release-build     - build release version"
+	@echo "  release-all       - build and archive all platforms"
+	@echo ""
+	@echo "🧪 Testing Commands:"
+	@echo "  test              - run tests"
+	@echo "  test-coverage     - run tests with coverage report"
+	@echo "  test-fuzz         - run all fuzz tests for 30s each"
+	@echo "  test-fuzz-quick   - run all fuzz tests for 10s each (development)"
+	@echo "  test-fuzz-long    - run all fuzz tests for 2m each (thorough)"
+	@echo ""
+	@echo "🛠️  Development Commands:"
+	@echo "  deps              - manage dependencies"
+	@echo "  generate          - run go generate"
+	@echo "  lint              - run linter"
+	@echo "  clean             - remove build artifacts"
+	@echo "  debug-version     - show build variables"
+	@echo ""
+	@echo "📦 Installation:"
+	@echo "  install           - install the goenums binary to /usr/local/bin"
+	@echo ""
+	@echo "ℹ️  Information:"
+	@echo "  help              - print this help message"
+	@echo "  version           - print the version"

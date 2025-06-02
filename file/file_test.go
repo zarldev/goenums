@@ -1,6 +1,7 @@
 package file_test
 
 import (
+	"context"
 	"errors"
 	"io"
 	"strings"
@@ -63,16 +64,63 @@ func TestWriteToFileAndFormatFS(t *testing.T) {
 			format:  false,
 			err:     nil,
 		},
+		{
+			name:    "write function error",
+			path:    "write-error.go",
+			content: "", // Will be ignored since writeFunc will error
+			format:  false,
+			err:     file.ErrWriteFile,
+		},
+		{
+			name:    "context cancelled before format",
+			path:    "context-cancel.go",
+			content: "package main\nfunc main() {}",
+			format:  true,
+			err:     nil, // Will be handled specially
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			fs := file.NewMemFS()
-			writeFunc := func(w io.Writer) error {
-				_, err := io.WriteString(w, tt.content)
-				return err
+
+			var writeFunc func(io.Writer) error
+			if tt.name == "write function error" {
+				// Test case for write function error
+				writeFunc = func(w io.Writer) error {
+					return errors.New("simulated write error")
+				}
+			} else if tt.name == "nil write func" {
+				// Test case for nil writeFunc
+				writeFunc = nil
+			} else {
+				writeFunc = func(w io.Writer) error {
+					_, err := io.WriteString(w, tt.content)
+					return err
+				}
 			}
-			err := file.WriteToFileAndFormatFS(t.Context(), fs, tt.path, tt.format, writeFunc)
+
+			// Handle context cancellation test case
+			ctx := t.Context()
+			if tt.name == "context cancelled before format" {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithCancel(ctx)
+				// Write the file first, then cancel context before format
+				tempWriteFunc := func(w io.Writer) error {
+					_, err := io.WriteString(w, tt.content)
+					cancel() // Cancel context after write but before format
+					return err
+				}
+				err := file.WriteToFileAndFormatFS(ctx, fs, tt.path, tt.format, tempWriteFunc)
+				// Should get context.Canceled error
+				if err == nil || !errors.Is(err, context.Canceled) {
+					t.Errorf("expected context.Canceled error, got %v", err)
+				}
+				return
+			}
+
+			err := file.WriteToFileAndFormatFS(ctx, fs, tt.path, tt.format, writeFunc)
 			if err != nil {
 				if tt.err != nil && !errors.Is(err, tt.err) {
 					t.Errorf("unexpected error: %v", err)

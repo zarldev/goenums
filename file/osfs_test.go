@@ -272,3 +272,73 @@ func TestOSReadWriteFileFS_Stat(t *testing.T) {
 		})
 	}
 }
+
+func TestOSReadWriteFileFS_PathValidation(t *testing.T) {
+	t.Parallel()
+	tempDir := t.TempDir()
+	osfs := &file.OSReadWriteFileFS{}
+
+	tests := []struct {
+		name      string
+		path      string
+		shouldErr bool
+	}{
+		{
+			name:      "valid path",
+			path:      "valid.txt",
+			shouldErr: false,
+		},
+		{
+			name:      "path with parent directory traversal",
+			path:      "../../../etc/passwd",
+			shouldErr: true,
+		},
+		{
+			name:      "path with current and parent directory",
+			path:      "./test/../../../etc/passwd",
+			shouldErr: true,
+		},
+		{
+			name:      "clean path with subdirectory",
+			path:      "subdir/file.txt",
+			shouldErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			fullPath := filepath.Join(tempDir, tt.path)
+
+			// Test ReadFile with path validation
+			_, err := osfs.ReadFile(tt.path)
+			if tt.shouldErr {
+				if err == nil || !errors.Is(err, file.ErrInvalidPath) {
+					t.Errorf("ReadFile expected ErrInvalidPath for path %q, got %v", tt.path, err)
+				}
+			}
+
+			// Test Open with path validation
+			_, err = osfs.Open(tt.path)
+			if tt.shouldErr {
+				if err == nil || !errors.Is(err, file.ErrInvalidPath) {
+					t.Errorf("Open expected ErrInvalidPath for path %q, got %v", tt.path, err)
+				}
+			}
+
+			// Test Create with path validation
+			f, err := osfs.Create(tt.path)
+			if tt.shouldErr {
+				if err == nil || !errors.Is(err, file.ErrInvalidPath) {
+					t.Errorf("Create expected ErrInvalidPath for path %q, got %v", tt.path, err)
+				}
+			} else if err == nil {
+				// Close the file and set up cleanup
+				f.Close()
+				t.Cleanup(func() {
+					os.Remove(fullPath)
+				})
+			}
+		})
+	}
+}
