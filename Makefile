@@ -15,7 +15,7 @@ FUZZ_TESTS := FuzzParseValue_String FuzzParseValue_Int FuzzParseValue_Bool FuzzP
 .DEFAULT_GOAL := build
 
 # Phony targets to avoid conflicts with files of the same name
-.PHONY: build build-prod build-linux build-darwin build-windows deps test test-coverage test-fuzz test-fuzz-quick test-fuzz-long generate clean install lint help version logo debug-version release-tag release-build release-all
+.PHONY: build build-prod build-linux build-darwin build-windows deps test test-coverage test-fuzz test-fuzz-quick test-fuzz-long generate clean install lint help version logo debug-version release-tag release-tag-force release-build release-all
 
 release-tag:
 	@echo "🔍 Checking for uncommitted changes..."
@@ -24,8 +24,29 @@ release-tag:
 		exit 1; \
 	fi
 	@echo "🏷️  Creating git tag $(VERSION)..."
+	@if git tag -l | grep -q "^$(VERSION)$$"; then \
+		echo "⚠️  Tag $(VERSION) already exists!"; \
+		echo "💡 Options:"; \
+		echo "   1. Delete existing tag: git tag -d $(VERSION)"; \
+		echo "   2. Update VERSION in Makefile to a new version"; \
+		echo "   3. Force recreate tag: make release-tag-force"; \
+		exit 1; \
+	fi
 	git tag -a $(VERSION) -m "Release $(VERSION)"
 	@echo "✅ Tag created. Push with: git push origin $(VERSION)"
+
+# Force recreate an existing tag (deletes and recreates)
+release-tag-force:
+	@echo "🔍 Checking for uncommitted changes..."
+	@if [ "$$(git status --porcelain | wc -l)" -ne "0" ]; then \
+		echo "❌ Error: Working directory has uncommitted changes. Commit or stash them first."; \
+		exit 1; \
+	fi
+	@echo "🗑️  Deleting existing tag $(VERSION) if it exists..."
+	@git tag -d $(VERSION) 2>/dev/null || true
+	@echo "🏷️  Creating git tag $(VERSION)..."
+	git tag -a $(VERSION) -m "Release $(VERSION)"
+	@echo "✅ Tag created. Push with: git push origin $(VERSION) --force"
 
 # Release build that ensures a clean state
 release-build: build-prod
@@ -227,6 +248,7 @@ help:
 	@echo ""
 	@echo "🚀 Release Commands:"
 	@echo "  release-tag       - create a git tag for release"
+	@echo "  release-tag-force - force recreate an existing git tag"
 	@echo "  release-build     - build release version"
 	@echo "  release-all       - build and archive all platforms"
 	@echo ""
