@@ -8,6 +8,9 @@ GIT_DIRTY := $(shell if [ -n "$$(git status --porcelain)" ]; then echo "-dirty";
 LDFLAGS := -ldflags "-X github.com/zarldev/goenums/internal/version.CURRENT='$(VERSION)' -X github.com/zarldev/goenums/internal/version.BUILD='$(BUILD_TIME)' -X github.com/zarldev/goenums/internal/version.COMMIT='$(GIT_COMMIT)$(GIT_DIRTY)'"
 PRODLDFLAGS := -ldflags "-s -w -X github.com/zarldev/goenums/internal/version.CURRENT='$(VERSION)' -X github.com/zarldev/goenums/internal/version.BUILD='$(BUILD_TIME)' -X github.com/zarldev/goenums/internal/version.COMMIT='$(GIT_COMMIT)$(GIT_DIRTY)'"
 
+# Fuzz test names
+FUZZ_TESTS := FuzzParseValue_String FuzzParseValue_Int FuzzParseValue_Bool FuzzParseValue_Float64 FuzzParseValue_Duration FuzzParseEnumAliases FuzzParseEnumFields FuzzExtractFields
+
 release-tag:
 	@echo "Checking for uncommitted changes..."
 	@if [ "$$(git status --porcelain | wc -l)" -ne "0" ]; then \
@@ -107,6 +110,59 @@ test-coverage:
 	go tool cover -html=cover.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
 
+# Run all fuzz tests for 30 seconds each
+test-fuzz:
+	@echo "🧪 Running fuzz tests (30s each)..."
+	@total=$$(echo "$(FUZZ_TESTS)" | wc -w); \
+	current=1; \
+	for test in $(FUZZ_TESTS); do \
+		echo "[$${current}/$${total}] Running $${test}..."; \
+		if go test -fuzz=$${test} -fuzztime=30s ./enum; then \
+			echo "✅ $${test} completed successfully"; \
+		else \
+			echo "❌ $${test} failed"; \
+			exit 1; \
+		fi; \
+		current=$$((current + 1)); \
+		echo ""; \
+	done; \
+	echo "🎉 All fuzz tests completed successfully!"
+
+# Run fuzz tests for a longer duration (useful for CI or thorough testing)
+test-fuzz-long:
+	@echo "🧪 Running extended fuzz tests (2m each)..."
+	@total=$$(echo "$(FUZZ_TESTS)" | wc -w); \
+	current=1; \
+	for test in $(FUZZ_TESTS); do \
+		echo "[$${current}/$${total}] Running $${test} for 2 minutes..."; \
+		if go test -fuzz=$${test} -fuzztime=2m ./enum; then \
+			echo "✅ $${test} completed successfully"; \
+		else \
+			echo "❌ $${test} failed"; \
+			exit 1; \
+		fi; \
+		current=$$((current + 1)); \
+		echo ""; \
+	done; \
+	echo "🎉 All extended fuzz tests completed successfully!"
+
+# Quick fuzz test run (10s each) for development
+test-fuzz-quick:
+	@echo "🧪 Running quick fuzz tests (10s each)..."
+	@total=$$(echo "$(FUZZ_TESTS)" | wc -w); \
+	current=1; \
+	for test in $(FUZZ_TESTS); do \
+		echo "[$${current}/$${total}] Running $${test}..."; \
+		if go test -fuzz=$${test} -fuzztime=10s ./enum; then \
+			echo "✅ $${test} completed"; \
+		else \
+			echo "❌ $${test} failed"; \
+			exit 1; \
+		fi; \
+		current=$$((current + 1)); \
+	done; \
+	echo "🎉 Quick fuzz tests completed!"
+
 generate:
 	go generate ./...
 
@@ -121,7 +177,6 @@ version: logo
 lint:
 	golangci-lint run ./...
 
-
 logo:
 	@echo "   ____ _____  ___  ____  __  ______ ___  _____"
 	@echo "  / __ '/ __ \/ _ \/ __ \/ / / / __ '__ \/ ___/"
@@ -129,17 +184,19 @@ logo:
 	@echo " \__, /\____/\___/_/ /_/\__,_/_/ /_/ /_/____/  "
 	@echo "/____/ "
 
-
 help:
-	@echo "build       - build the goenums binary for current platform"
-	@echo "build-all   - build for all supported platforms"
-	@echo "build-linux - build for Linux (amd64, arm64)"
-	@echo "build-darwin - build for macOS (amd64, arm64)"
-	@echo "build-windows - build for Windows (amd64)"
-	@echo "install     - install the goenums binary to /usr/local/go/bin *root/sudo required"
-	@echo "test        - run tests"
-	@echo "test-coverage - run tests with coverage report"
-	@echo "generate    - run go generate"
-	@echo "clean       - remove build artifacts"
-	@echo "help        - print this help message"
-	@echo "version     - print the version"
+	@echo "build             - build the goenums binary for current platform"
+	@echo "build-all         - build for all supported platforms"
+	@echo "build-linux       - build for Linux (amd64, arm64)"
+	@echo "build-darwin      - build for macOS (amd64, arm64)"
+	@echo "build-windows     - build for Windows (amd64)"
+	@echo "install           - install the goenums binary to /usr/local/go/bin *root/sudo required"
+	@echo "test              - run tests"
+	@echo "test-coverage     - run tests with coverage report"
+	@echo "test-fuzz         - run all fuzz tests for 30s each"
+	@echo "test-fuzz-quick   - run all fuzz tests for 10s each (development)"
+	@echo "test-fuzz-long    - run all fuzz tests for 2m each (thorough)"
+	@echo "generate          - run go generate"
+	@echo "clean             - remove build artifacts"
+	@echo "help              - print this help message"
+	@echo "version           - print the version"

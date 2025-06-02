@@ -111,28 +111,51 @@ func (g *Writer) writeEnumGenerationRequest(req enum.GenerationRequest) {
 	g.writeNumberParsingMethods(req)
 	g.writeExhaustiveFunction(req)
 	g.writeIsValidFunction(req)
-	if req.Handlers.JSON {
+	if req.Configuration.Handlers.JSON {
 		g.writeJSONMarshalMethod(req)
 		g.writeJSONUnmarshalMethod(req)
 	}
-	if req.Handlers.Text {
+	if req.Configuration.Handlers.Text {
 		g.writeTextMarshalMethod(req)
 		g.writeTextUnmarshalMethod(req)
 	}
-	if req.Handlers.SQL {
+	if req.Configuration.Handlers.SQL {
 		g.writeScanMethod(req)
 		g.writeValueMethod(req)
 	}
-	if req.Handlers.Binary {
+	if req.Configuration.Handlers.Binary {
 		g.writeBinaryMarshalMethod(req)
 		g.writeBinaryUnmarshalMethod(req)
 	}
-	if req.Handlers.YAML {
+	if req.Configuration.Handlers.YAML {
 		g.writeYAMLMarshalMethod(req)
 		g.writeYAMLUnmarshalMethod(req)
 	}
+	if req.Configuration.Constraints {
+		g.writeConstraints(req)
+	}
 	g.writeStringMethod(req)
 	g.writeCompileCheck(req)
+}
+
+var (
+	constraintsStr = `
+	 
+	type float interface {
+		float32 | float64
+	}
+	type integer interface {
+		int | int8 | int16 | int32 | int64 | uint | uint8 | uint16 | uint32 | uint64 | uintptr
+	}
+	type number interface {
+		integer | float
+	}
+`
+	constraintsTemplate = template.Must(template.New("constraints").Parse(constraintsStr))
+)
+
+func (g *Writer) writeConstraints(rep enum.GenerationRequest) {
+	g.writeTemplate(constraintsTemplate, nil)
 }
 
 var (
@@ -434,7 +457,7 @@ func (g *Writer) writeStringMethod(rep enum.GenerationRequest) {
 		NameString:      names.String(),
 		EnumDefs:        edefs,
 		NameOffsets:     nameOffsetsForTemplate,
-		CaseInsensitive: rep.CaseInsensitive,
+		CaseInsensitive: rep.Configuration.Insensitive,
 	}
 	g.writeTemplate(stringMethodTemplate, d)
 }
@@ -475,6 +498,7 @@ func (g *Writer) writeIsValidFunction(rep enum.GenerationRequest) {
 
 func (g *Writer) writeNumberParsingMethods(rep enum.GenerationRequest) {
 	g.writeTemplate(parseIntegerGenericFunctionTemplate, parseNumberFunctionData{
+		Constraints:   rep.Configuration.Constraints,
 		HasStartIndex: rep.EnumIota.StartIndex > 0,
 		StartIndex:    rep.EnumIota.StartIndex,
 		WrapperName:   wrapperName(rep.EnumIota.Type),
@@ -651,22 +675,25 @@ import (
 )
 
 func (g *Writer) writePackageAndImports(rep enum.GenerationRequest) {
+	externalImports := []string{}
 	imports := []string{"fmt", "bytes", "database/sql/driver", "math"}
 	imports = append(imports, rep.Imports...)
-	if !rep.Legacy {
+	if !rep.Configuration.Legacy {
 		imports = append(imports, "iter")
 	}
-	if rep.Handlers.YAML {
+	if rep.Configuration.Handlers.YAML {
 		imports = append(imports, "context")
 	}
-	if slices.Contains(imports, "golang.org/x/exp/constraints") {
-		imports = slices.DeleteFunc(imports, func(s string) bool {
-			return s == "golang.org/x/exp/constraints"
-		})
-		slices.Sort(imports)
+	if !rep.Configuration.Constraints {
+		if slices.Contains(imports, "golang.org/x/exp/constraints") {
+			imports = slices.DeleteFunc(imports, func(s string) bool {
+				return s == "golang.org/x/exp/constraints"
+			})
+			slices.Sort(imports)
+		}
+		externalImports = append(externalImports, "golang.org/x/exp/constraints")
 	}
 	slices.Sort(imports)
-	externalImports := []string{"golang.org/x/exp/constraints"}
 	g.writeTemplate(packageImportTemplate, packageImport{
 		PackageName:     rep.Package,
 		Imports:         imports,
@@ -727,7 +754,7 @@ func enumDefinitions(rep enum.GenerationRequest) []enumDefinition {
 			}
 		}
 		aliases := e.Aliases
-		if rep.CaseInsensitive {
+		if rep.Configuration.Insensitive {
 			for _, a := range e.Aliases {
 				lwr := strings.ToLower(a)
 				if lwr == a {
@@ -802,7 +829,7 @@ func (g *Writer) writeAllFunction(rep enum.GenerationRequest) {
 		ContainerName: strings.Camel(strings.Plural(rep.EnumIota.Type)),
 		WrapperName:   wrapperName(rep.EnumIota.Type),
 		EnumDefs:      enumDefinitions(rep),
-		Legacy:        rep.Legacy,
+		Legacy:        rep.Configuration.Legacy,
 	}
 	g.writeTemplate(allFunctionTemplate, allData)
 }
@@ -872,7 +899,7 @@ func (g *Writer) writeParseFunction(rep enum.GenerationRequest) {
 	g.writeTemplate(parseFunctionTemplate, parseFunctionData{
 		WrapperName: wrapperName(rep.EnumIota.Type),
 		Enums:       rep.EnumIota.Enums,
-		FailFast:    rep.Failfast,
+		FailFast:    rep.Configuration.Failfast,
 	})
 }
 
@@ -926,11 +953,12 @@ func (g *Writer) writeStringParsingMethod(rep enum.GenerationRequest) {
 		EnumNameMap:     enumNameMap(rep.EnumIota.Type),
 		EnumType:        enumType(rep),
 		Enums:           enumDefinitions(rep),
-		CaseInsensitive: rep.CaseInsensitive,
+		CaseInsensitive: rep.Configuration.Insensitive,
 	})
 }
 
 type parseNumberFunctionData struct {
+	Constraints   bool
 	WrapperName   string
 	EnumType      string
 	StartIndex    int
@@ -943,7 +971,11 @@ var (
 // numberTo{{.WrapperName}} converts a numeric value to a {{.WrapperName}}
 // It returns the {{.WrapperName}} representation of the enum value if the numeric value is valid
 // Otherwise, it returns invalid{{.WrapperName}}
+{{- if .Constraints }}
+	func numberTo{{.WrapperName}}[T number](num T) {{.WrapperName}} {
+{{- else }}
 func numberTo{{.WrapperName}}[T constraints.Integer | constraints.Float](num T) {{.WrapperName}} {
+{{- end }}
 	f := float64(num)
     if math.Floor(f) != f {
         return invalid{{.WrapperName}}

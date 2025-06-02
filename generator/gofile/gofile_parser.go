@@ -114,16 +114,13 @@ func (p *Parser) buildGenerationRequests(enInfo enumInfo, packageName string, fi
 	for i, enumIota := range enumIotas {
 		lowerPlural := strings.Plural(strings.ToLower(enumIota.Type))
 		genr[i] = enum.GenerationRequest{
-			Package:         packageName,
-			EnumIota:        enumIota,
-			Version:         version.CURRENT,
-			SourceFilename:  filename,
-			OutputFilename:  strings.ToLower(lowerPlural),
-			Failfast:        p.Configuration.Failfast,
-			Legacy:          p.Configuration.Legacy,
-			CaseInsensitive: p.Configuration.Insensitive,
-			Imports:         enInfo.Imports,
-			Handlers:        p.Configuration.Handlers(),
+			Package:        packageName,
+			EnumIota:       enumIota,
+			Version:        version.CURRENT,
+			SourceFilename: filename,
+			OutputFilename: strings.ToLower(lowerPlural),
+			Configuration:  p.Configuration,
+			Imports:        enInfo.Imports,
 		}
 	}
 	return genr, nil

@@ -22,6 +22,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/zarldev/goenums/generator/config"
 )
 
 // Parser defines the contract for components that convert source content into
@@ -41,16 +43,13 @@ type Parser interface {
 // including the package name, imports, enum type and value information,
 // and configuration options.
 type GenerationRequest struct {
-	Package         string
-	Imports         []string
-	EnumIota        EnumIota
-	Version         string
-	SourceFilename  string
-	OutputFilename  string
-	Failfast        bool
-	Legacy          bool
-	CaseInsensitive bool
-	Handlers        Handlers
+	Package        string
+	Imports        []string
+	EnumIota       EnumIota
+	Version        string
+	SourceFilename string
+	OutputFilename string
+	Configuration  config.Configuration
 }
 
 func (e *GenerationRequest) IsValid() bool {
@@ -75,16 +74,19 @@ type Handlers struct {
 func (r GenerationRequest) Command() string {
 	var b bytes.Buffer
 	b.WriteString(" ")
-	if r.Failfast || r.Legacy || r.CaseInsensitive {
+	if r.Configuration.Failfast || r.Configuration.Legacy || r.Configuration.Insensitive {
 		b.WriteString("-")
-		if r.Failfast {
+		if r.Configuration.Failfast {
 			b.WriteString("f")
 		}
-		if r.Legacy {
+		if r.Configuration.Legacy {
 			b.WriteString("l")
 		}
-		if r.CaseInsensitive {
+		if r.Configuration.Insensitive {
 			b.WriteString("i")
+		}
+		if r.Configuration.Constraints {
+			b.WriteString("c")
 		}
 	}
 	return b.String()
@@ -419,6 +421,10 @@ func ExtractFields(comment string) (string, string, []Field) {
 		}
 		tO = nO + len(open)
 		tC = nC
+
+		if nO < 0 || tO > len(field) || tC > len(field) || tO > tC {
+			continue
+		}
 		n = field[:nO]
 		f = field[tO:tC]
 		fields = append(fields, Field{

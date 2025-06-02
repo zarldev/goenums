@@ -52,8 +52,8 @@ import (
 
 // Define flag groups
 type flags struct {
-	help, version, failfast, legacy, insensitive, verbose bool
-	output                                                string
+	help, version, failfast, legacy, insensitive, verbose, constraints bool
+	output                                                             string
 }
 
 func parseFlags() (flags, []string) {
@@ -68,7 +68,7 @@ func parseFlags() (flags, []string) {
 		"Enable failfast mode - fail on generation of invalid enum while parsing (default: false)")
 	flag.BoolVar(&f.failfast, "f", false, "")
 	flag.BoolVar(&f.legacy, "legacy", false,
-		"Generate legacy code without Go 1.21+ iterator support (default: false)")
+		"Generate legacy code without Go 1.23+ iterator support (default: false)")
 	flag.BoolVar(&f.legacy, "l", false, "")
 	flag.BoolVar(&f.insensitive, "insensitive", false,
 		"Generate case insensitive string parsing (default: false)")
@@ -79,6 +79,9 @@ func parseFlags() (flags, []string) {
 	flag.StringVar(&f.output, "output", "",
 		"Specify the output format (default: go)")
 	flag.StringVar(&f.output, "o", "", "")
+	flag.BoolVar(&f.constraints, "constraints", false,
+		"Specify whether to generate the float and integer constraints or import 'golang.org/x/exp/constraints' (default: false - imports)")
+	flag.BoolVar(&f.constraints, "c", false, "")
 	flag.Parse()
 	return f, flag.Args()
 }
@@ -271,6 +274,14 @@ func configuration(ctx context.Context) (config.Configuration, error) {
 		Verbose:      f.verbose,
 		OutputFormat: f.output,
 		Filenames:    filenames,
+		Constraints:  f.constraints,
+		Handlers: config.Handlers{
+			JSON:   true,
+			Text:   true,
+			SQL:    true,
+			YAML:   true,
+			Binary: true,
+		},
 	}
 	return config, nil
 }

@@ -17,22 +17,33 @@ $ goenums -h
  / /_/ / /_/ /  __/ / / / /_/ / / / / / (__  ) 
  \__, /\____/\___/_/ /_/\__,_/_/ /_/ /_/____/  
 /____/
-Usage: goenums [options] filename
+Usage: goenums [options] file.go[,file2.go,...]
 Options:
-  -help, -h
-        Print help information
-  -version, -v
-        Print version information
-  -failfast, -f
-        Enable failfast mode - fail on generation of invalid enum while parsing (default: false)
-  -legacy, -l
-        Generate legacy code without Go 1.23+ iterator support (default: false)
-  -insensitive, -i
-        Generate case insensitive string parsing (default: false)
-  -verbose, -vv
-        Enable verbose mode - prints out the generated code (default: false)
-  -output, -o string
-        Specify the output format (default: go)
+  -c
+  -constraints
+    	Specify whether to generate the float and integer constraints or import 'golang.org/x/exp/constraints' (default: false - imports)
+  -f
+  -failfast
+    	Enable failfast mode - fail on generation of invalid enum while parsing (default: false)
+  -h
+  -help
+    	Print help information
+  -i
+  -insensitive
+    	Generate case insensitive string parsing (default: false)
+  -l
+  -legacy
+    	Generate legacy code without Go 1.23+ iterator support (default: false)
+  -o string
+    	
+  -output string
+    	Specify the output format (default: go)
+  -v
+  -version
+    	Print version information
+  -vv
+  -verbose
+    	Enable verbose mode - prints out the generated code (default: false)
 ```
 
 ## Adding a `go:generate` Directive
@@ -154,7 +165,7 @@ if !parsed.IsValid() {
 ## Basic Command Syntax
 
 ```bash
-goenums [options] <filename>
+goenums [options] file.go[,file2.go,...]
 ```
 
 Where <filename> is the Go source file containing your enum definitions.

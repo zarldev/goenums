@@ -60,6 +60,7 @@ func Example_iteration() {
 
 	// Output:
 	// All statuses:
+	// - UNKNOWN
 	// - FAILED
 	// - PASSED
 	// - SKIPPED

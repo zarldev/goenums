@@ -26,15 +26,7 @@ import (
 	"github.com/zarldev/goenums/generator/gofile"
 )
 
-// Source represents an input source for enum definitions.
-// It provides content to be parsed and identifies its origin.
-type Source interface {
-	// Content retrieves the raw data to be parsed
-	Content() ([]byte, error)
-	// Filename returns an identifier for the source
-	Filename() string
-}
-
+// Generator is the main orchestrator for the enum generation workflow.
 // Generator orchestrates the enum generation workflow by connecting
 // a parser and writer with configuration settings.
 type Generator struct {
