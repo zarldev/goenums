@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/zarldev/goenums/enum"
+	"github.com/zarldev/goenums/generator/config"
 )
 
 func TestParseValue(t *testing.T) {
@@ -517,6 +518,99 @@ func TestExtractImports(t *testing.T) {
 			got := enum.ExtractImports(tt.enumIotas)
 			if !slices.Equal(got, tt.want) {
 				t.Errorf("extractImports() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGenerationRequestCommand(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		req  enum.GenerationRequest
+		want string
+	}{
+		{
+			name: "basic command with no flags",
+			req: enum.GenerationRequest{
+				SourceFilename: "test.go",
+				Configuration:  config.Configuration{},
+			},
+			want: "goenums test.go",
+		},
+		{
+			name: "command with all flags",
+			req: enum.GenerationRequest{
+				SourceFilename: "example.go",
+				Configuration: config.Configuration{
+					Failfast:     true,
+					Legacy:       true,
+					Insensitive:  true,
+					Constraints:  true,
+					Verbose:      true,
+					OutputFormat: "json",
+				},
+			},
+			want: "goenums -f -l -i -c -vv -o json example.go",
+		},
+		{
+			name: "command with some flags",
+			req: enum.GenerationRequest{
+				SourceFilename: "status.go",
+				Configuration: config.Configuration{
+					Failfast:    true,
+					Constraints: true,
+				},
+			},
+			want: "goenums -f -c status.go",
+		},
+		{
+			name: "command with verbose only",
+			req: enum.GenerationRequest{
+				SourceFilename: "enum.go",
+				Configuration: config.Configuration{
+					Verbose: true,
+				},
+			},
+			want: "goenums -vv enum.go",
+		},
+		{
+			name: "command with output format go (should not show -o)",
+			req: enum.GenerationRequest{
+				SourceFilename: "types.go",
+				Configuration: config.Configuration{
+					OutputFormat: "go",
+				},
+			},
+			want: "goenums types.go",
+		},
+		{
+			name: "command with empty output format (should not show -o)",
+			req: enum.GenerationRequest{
+				SourceFilename: "models.go",
+				Configuration: config.Configuration{
+					OutputFormat: "",
+				},
+			},
+			want: "goenums models.go",
+		},
+		{
+			name: "command with no source filename",
+			req: enum.GenerationRequest{
+				Configuration: config.Configuration{
+					Failfast: true,
+				},
+			},
+			want: "goenums -f",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := tt.req.Command()
+			if got != tt.want {
+				t.Errorf("GenerationRequest.Command() = %q, want %q", got, tt.want)
 			}
 		})
 	}

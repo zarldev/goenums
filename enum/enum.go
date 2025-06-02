@@ -93,22 +93,35 @@ type Handlers struct {
 // It constructs the command string based on the configuration options.
 func (r GenerationRequest) Command() string {
 	var b bytes.Buffer
-	b.WriteString(" ")
-	if r.Configuration.Failfast || r.Configuration.Legacy || r.Configuration.Insensitive {
-		b.WriteString("-")
-		if r.Configuration.Failfast {
-			b.WriteString("f")
-		}
-		if r.Configuration.Legacy {
-			b.WriteString("l")
-		}
-		if r.Configuration.Insensitive {
-			b.WriteString("i")
-		}
-		if r.Configuration.Constraints {
-			b.WriteString("c")
-		}
+	b.WriteString("goenums")
+
+	// Add flags
+	if r.Configuration.Failfast {
+		b.WriteString(" -f")
 	}
+	if r.Configuration.Legacy {
+		b.WriteString(" -l")
+	}
+	if r.Configuration.Insensitive {
+		b.WriteString(" -i")
+	}
+	if r.Configuration.Constraints {
+		b.WriteString(" -c")
+	}
+	if r.Configuration.Verbose {
+		b.WriteString(" -vv")
+	}
+	if r.Configuration.OutputFormat != "" && r.Configuration.OutputFormat != "go" {
+		b.WriteString(" -o ")
+		b.WriteString(r.Configuration.OutputFormat)
+	}
+
+	// Add source filename
+	if r.SourceFilename != "" {
+		b.WriteString(" ")
+		b.WriteString(r.SourceFilename)
+	}
+
 	return b.String()
 }
 
