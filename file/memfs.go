@@ -116,8 +116,15 @@ func (m *MemFS) Stat(name string) (fs.FileInfo, error) {
 }
 
 // memFileInfo implements fs.FileInfo for in-memory files.
+// It provides file metadata for files stored in the MemFS in-memory filesystem.
+//
+// This struct satisfies the fs.FileInfo interface by providing basic file
+// information such as name, size, and permissions. Since files are stored
+// in memory, some properties like modification time are simulated.
 type memFileInfo struct {
+	// name is the filename or path identifier
 	name string
+	// size is the current size of the file in bytes
 	size int64
 }
 
@@ -129,9 +136,18 @@ func (m *memFileInfo) IsDir() bool        { return false }
 func (m *memFileInfo) Sys() any           { return nil }
 
 // memFile implements both fs.File and io.WriteCloser for in-memory files.
+// It provides a file-like interface for data stored in memory buffers,
+// supporting both reading and writing operations.
+//
+// The memFile struct bridges the gap between the standard library's file
+// interfaces and in-memory storage, making it useful for testing and
+// scenarios where actual filesystem access is not desired.
 type memFile struct {
-	name   string
+	// name is the identifier for this file
+	name string
+	// Reader provides read access to the file's content
 	Reader *bytes.Reader
+	// Buffer provides write access and stores the file's content
 	Buffer *bytes.Buffer
 }
 

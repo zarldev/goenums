@@ -59,13 +59,33 @@ func (e *GenerationRequest) IsValid() bool {
 		e.SourceFilename != ""
 }
 
-// Handlers represents the configuration options for the enum generation process.
-// Flags to implement specific interfaces
+// Handlers represents the configuration options for interface generation.
+// It controls which standard Go interfaces will be implemented by the generated enum types.
+//
+// Each boolean flag enables generation of the corresponding interface implementation:
+//   - JSON: encoding/json.Marshaler and encoding/json.Unmarshaler
+//   - Text: encoding.TextMarshaler and encoding.TextUnmarshaler
+//   - YAML: gopkg.in/yaml.v3 marshaling interfaces
+//   - SQL: database/sql/driver.Scanner and database/sql/driver.Valuer
+//   - Binary: encoding.BinaryMarshaler and encoding.BinaryUnmarshaler
+//
+// Example usage:
+//
+//	handlers := Handlers{
+//	    JSON: true,  // Enable JSON marshaling
+//	    SQL:  true,  // Enable database integration
+//	    Text: false, // Disable text marshaling
+//	}
 type Handlers struct {
-	JSON   bool
-	Text   bool
-	YAML   bool
-	SQL    bool
+	// JSON enables JSON marshaling and unmarshaling interface implementations
+	JSON bool
+	// Text enables text marshaling and unmarshaling interface implementations
+	Text bool
+	// YAML enables YAML marshaling and unmarshaling interface implementations
+	YAML bool
+	// SQL enables database Scanner and Valuer interface implementations
+	SQL bool
+	// Binary enables binary marshaling and unmarshaling interface implementations
 	Binary bool
 }
 
@@ -92,18 +112,60 @@ func (r GenerationRequest) Command() string {
 	return b.String()
 }
 
+// EnumIota represents a complete enum type definition extracted from source code.
+// It contains all the information needed to generate enum implementations,
+// including the type name, associated fields, and individual enum values.
+//
+// The struct captures both the metadata about the enum type (like custom fields
+// and formatting preferences) and the actual enum values that will be generated.
+//
+// Example usage:
+//
+//	enumIota := EnumIota{
+//	    Type: "Status",
+//	    Comment: "Status represents the state of an operation",
+//	    Fields: []Field{{Name: "description", Value: ""}},
+//	    Enums: []Enum{
+//	        {Name: "Active", Index: 0, Valid: true},
+//	        {Name: "Inactive", Index: 1, Valid: true},
+//	    },
+//	}
 type EnumIota struct {
-	Type       string
-	Comment    string
-	Fields     []Field
-	Opener     string
-	Closer     string
+	// Type is the name of the enum type (e.g., "Status", "Color")
+	Type string
+	// Comment is the documentation comment associated with the enum type
+	Comment string
+	// Fields defines custom fields that each enum value can have
+	Fields []Field
+	// Opener is the opening delimiter for field values (e.g., "[", "(")
+	Opener string
+	// Closer is the closing delimiter for field values (e.g., "]", ")")
+	Closer string
+	// StartIndex is the starting index for enum values (usually 0)
 	StartIndex int
-	Enums      []Enum
+	// Enums contains all the individual enum values for this type
+	Enums []Enum
 }
 
+// Field represents a custom field that can be associated with enum values.
+// Fields allow enums to carry additional metadata beyond just their name and index.
+//
+// For example, an enum representing HTTP status codes might have fields for
+// the status message and whether it represents an error condition.
+//
+// Example usage:
+//
+//	field := Field{
+//	    Name:  "message",
+//	    Value: "Operation completed successfully",
+//	}
+//
+// The Value can be any Go type that can be parsed from string representation
+// in source code comments, including strings, numbers, booleans, and time values.
 type Field struct {
-	Name  string
+	// Name is the identifier for this field (e.g., "description", "code", "priority")
+	Name string
+	// Value is the actual value for this field, which can be any supported Go type
 	Value any
 }
 
@@ -111,12 +173,33 @@ func (f *Field) Valid() bool {
 	return f.Name != "" && f.Value != nil
 }
 
+// Enum represents a single enum value within an enum type.
+// It contains the value's name, position, any custom fields, and validation status.
+//
+// Each Enum corresponds to one constant in the original iota-based declaration,
+// but enriched with additional metadata that enables type-safe operations
+// and enhanced functionality.
+//
+// Example usage:
+//
+//	enum := Enum{
+//	    Name:    "Active",
+//	    Index:   0,
+//	    Fields:  []Field{{Name: "description", Value: "Currently active"}},
+//	    Aliases: []string{"Running", "Enabled"},
+//	    Valid:   true,
+//	}
 type Enum struct {
-	Name    string
-	Index   int
-	Fields  []Field
+	// Name is the identifier for this enum value (e.g., "Active", "Pending")
+	Name string
+	// Index is the numeric position of this enum in the sequence (0-based)
+	Index int
+	// Fields contains any custom field values associated with this enum
+	Fields []Field
+	// Aliases are alternative names that can be used to reference this enum
 	Aliases []string
-	Valid   bool
+	// Valid indicates whether this enum value is valid in the set of enums
+	Valid bool
 }
 
 // Source abstracts the origin of input content to be parsed for enum definitions.

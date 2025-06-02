@@ -11,6 +11,12 @@ PRODLDFLAGS := -ldflags "-s -w -X github.com/zarldev/goenums/internal/version.CU
 # Fuzz test names
 FUZZ_TESTS := FuzzParseValue_String FuzzParseValue_Int FuzzParseValue_Bool FuzzParseValue_Float64 FuzzParseValue_Duration FuzzParseEnumAliases FuzzParseEnumFields FuzzExtractFields
 
+# Default target - what happens when you just run 'make'
+.DEFAULT_GOAL := build
+
+# Phony targets to avoid conflicts with files of the same name
+.PHONY: build build-prod build-linux build-darwin build-windows deps test test-coverage test-fuzz test-fuzz-quick test-fuzz-long generate clean install lint help version logo debug-version release-tag release-build release-all
+
 release-tag:
 	@echo "🔍 Checking for uncommitted changes..."
 	@if [ "$$(git status --porcelain | wc -l)" -ne "0" ]; then \

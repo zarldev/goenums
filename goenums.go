@@ -1,30 +1,113 @@
 // The goenums tool addresses Go's lack of native enum support by generating
-// type-safe wrappers around constant declarations.
-// It currently has support for input from Go files wher it identifies iota-based
-// constant groups in Go source files and produces an output Go files with
-// helper code that provides:
+// type-safe wrappers around iota-based constant declarations.
+//
+// It analyzes Go source files to identify iota-based constant groups and produces
+// comprehensive enum implementations with rich functionality including string
+// conversion, JSON/database integration, validation, and iteration support.
 //
 // # Key Features
 //
-//   - Type-safe enum wrapper types
-//   - Comprehensive string conversion and parsing
-//   - JSON marshaling and unmarshaling
+//   - Type-safe enum wrapper types with custom fields
+//   - Comprehensive string conversion and parsing (with optional case-insensitive mode)
+//   - JSON, Text, Binary, and YAML marshaling/unmarshaling
 //   - SQL database integration via Scanner/Valuer interfaces
-//   - Case-insensitive string parsing (optional)
 //   - Validation methods for checking valid enum values
-//   - Iteration support with automatic legacy fallback
-//   - Exhaustive switch checking
+//   - Go 1.23+ iterator support with automatic legacy fallback
+//   - Exhaustive processing to ensure all values are handled
+//   - Numeric parsing from underlying integer values
+//   - Alias support for alternative enum names
 //
-// # Command Usage
+// # Basic Usage
+//
+// Define an enum in your Go source file:
+//
+//	type Status int
+//	const (
+//	    Active Status = iota
+//	    Inactive
+//	    Pending
+//	)
+//
+// Generate the enum implementation:
+//
+//	goenums status.go
+//
+// Use the generated enum:
+//
+//	status := Statuses.ACTIVE
+//	fmt.Println(status.String())        // "Active"
+//	parsed, _ := ParseStatus("Pending") // Statuses.PENDING
+//	fmt.Println(status.IsValid())       // true
+//
+// # Advanced Features
+//
+// ## Custom Fields
+//
+// Add metadata to enum values using field syntax:
+//
+//	type HTTPStatus int // code[int], message[string]
+//	const (
+//	    OK HTTPStatus = iota         // 200, "Success"
+//	    NotFound                     // 404, "Not Found"
+//	    InternalError                // 500, "Internal Server Error"
+//	)
+//
+// Access custom fields in generated code:
+//
+//	status := HTTPStatuses.OK
+//	fmt.Println(status.Code())    // 200
+//	fmt.Println(status.Message()) // "Success"
+//
+// ## JSON Integration
+//
+//	type Task struct {
+//	    Name     string     `json:"name"`
+//	    Priority Priority   `json:"priority"`
+//	}
+//
+//	task := Task{Name: "Deploy", Priority: Priorities.HIGH}
+//	json.Marshal(task) // {"name":"Deploy","priority":"High"}
+//
+// ## Database Integration
+//
+//	// Enums implement database/sql interfaces automatically
+//	var status Status
+//	err := db.QueryRow("SELECT status FROM tasks WHERE id = ?", id).Scan(&status)
+//
+//	_, err = db.Exec("INSERT INTO tasks (status) VALUES (?)", Statuses.ACTIVE)
+//
+// ## Iteration (Go 1.23+)
+//
+//	for status := range Statuses.All() {
+//	    fmt.Println("Status:", status.String())
+//	}
+//
+// # Command Line Options
 //
 //	goenums [options] file.go
 //
+//	-f, -failfast      Fail on invalid enum values during parsing
+//	-l, -legacy        Generate code without Go 1.23+ iterator support
+//	-i, -insensitive   Enable case-insensitive string parsing
+//	-c, -constraints   Generate constraints locally instead of importing
+//	-v, -version       Show version information
+//	-h, -help          Show help information
+//	-vv, -verbose      Enable verbose output
+//	-o, -output        Specify output format (default: go)
+//
 // # Design Philosophy
 //
-// The tool follows a modular, interface-based architecture that separates:
-// content sourcing, parsing, and code generation. This allows for future
-// extensions to support different input formats or generation targets
-// without changing the core workflow.
+// The tool follows a modular, interface-based architecture that separates
+// content sourcing, parsing, and code generation. This design enables:
+//
+//   - Support for different input formats (currently Go, extensible to others)
+//   - Multiple output targets (currently Go, extensible to other languages)
+//   - Clean separation of concerns between components
+//   - Easy testing and maintenance of individual components
+//   - Future extensibility without breaking existing functionality
+//
+// The generated code prioritizes type safety, performance, and integration
+// with standard Go interfaces and conventions.
 package main
 
 import (

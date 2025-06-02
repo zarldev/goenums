@@ -11,6 +11,7 @@ import (
 )
 
 func TestWriteToFileAndFormatFS(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		path     string

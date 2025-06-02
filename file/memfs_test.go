@@ -420,7 +420,7 @@ func TestMemFile_ReadWrite(t *testing.T) {
 				if n != 0 {
 					t.Errorf("Read from empty file returned %d bytes, expected 0", n)
 				}
-				if err != io.EOF {
+				if !errors.Is(err, io.EOF) {
 					t.Errorf("Read from empty file should return EOF, got %v", err)
 				}
 

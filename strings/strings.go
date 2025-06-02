@@ -589,6 +589,20 @@ func ReplaceAll(s, o, n string) string {
 	return strings.ReplaceAll(s, o, n)
 }
 
+// EnumBuilder is a specialized string builder for constructing enum-related content.
+// It wraps the standard strings.Builder with enum-specific functionality and provides
+// a consistent interface for building strings during enum generation.
+//
+// EnumBuilder is designed to be efficient for the common patterns used in enum
+// code generation, such as building method bodies, type definitions, and documentation.
+//
+// Example usage:
+//
+//	var builder EnumBuilder
+//	builder.WriteString("func (e Status) String() string {\n")
+//	builder.WriteString("    return statusNames[e]\n")
+//	builder.WriteString("}")
+//	code := builder.String()
 type EnumBuilder struct {
 	b *strings.Builder
 }
@@ -600,6 +614,18 @@ func (b *EnumBuilder) Write(p []byte) (int, error) {
 	return b.b.Write(p)
 }
 
+// EnumWriter wraps an io.Writer to provide enum-specific writing functionality.
+// It serves as an adapter that can be configured with different output destinations
+// while maintaining a consistent interface for enum code generation.
+//
+// The EnumWriter is typically used in code generation pipelines where the output
+// destination might vary (files, buffers, stdout, etc.) but the writing interface
+// should remain the same.
+//
+// Example usage:
+//
+//	writer := NewEnumWriter(WithWriter(os.Stdout))
+//	writer.Write([]byte("generated enum code"))
 type EnumWriter struct {
 	io.Writer
 }
@@ -723,26 +749,6 @@ func Pluralise(s string) string {
 	return matchCasing(s, plural)
 }
 
-func pluraliseIrregular(s string) (string, bool) {
-	if p, ok := irregularToPlural[s]; ok {
-		return p, true
-	}
-	return "", false
-}
-
-func pluraliseRegular(s string) (string, bool) {
-	if strings.HasSuffix(s, "y") {
-		return s[:len(s)-1] + "ies", true
-	}
-	if strings.HasSuffix(s, "s") || strings.HasSuffix(s, "x") || strings.HasSuffix(s, "z") {
-		return s + "es", true
-	}
-	if strings.HasSuffix(s, "ch") || strings.HasSuffix(s, "sh") {
-		return s + "es", true
-	}
-	return "", false
-}
-
 func isPlural(s string) bool {
 	if isIrregularPlural(s) {
 		return true
@@ -799,14 +805,32 @@ func Lower1stCharacter(s string) string {
 	return string(c) + s[1:]
 }
 
+// Integer defines a type constraint for all integer types.
+// This interface uses Go 1.18+ type constraints to represent any integer type,
+// including both signed and unsigned variants of all sizes.
+//
+// It's used in generic functions that need to work with any integer type
+// while maintaining type safety and avoiding runtime type assertions.
 type Integer interface {
 	~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64
 }
 
+// Float defines a type constraint for floating-point types.
+// This interface represents both float32 and float64 types using Go's
+// type constraint syntax.
+//
+// It enables generic functions to work with floating-point numbers
+// without losing type information or requiring separate implementations.
 type Float interface {
 	~float32 | ~float64
 }
 
+// Number defines a type constraint that encompasses all numeric types.
+// It combines both Integer and Float constraints to represent any numeric
+// type that can be used in mathematical operations.
+//
+// This is particularly useful for generic functions that need to format
+// or manipulate numeric values regardless of their specific type.
 type Number interface {
 	Integer | Float
 }
