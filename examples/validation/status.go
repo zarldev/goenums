@@ -2,7 +2,7 @@ package validation
 
 type status int
 
-//go:generate goenums -c status.go
+//go:generate goenums -f -c status.go
 
 const (
 	unknown   status = iota // invalid UNKNOWN
