@@ -254,22 +254,6 @@ func singularise(word string) string {
 	return word
 }
 
-// splitWords splits a CamelCase or PascalCase or ALLCAPS string into components
-func splitWords(s string) []string {
-	var words []string
-	var current strings.Builder
-
-	for i, r := range s {
-		if i > 0 && unicode.IsUpper(r) && (i+1 < len(s) && unicode.IsLower(rune(s[i+1]))) {
-			words = append(words, current.String())
-			current.Reset()
-		}
-		current.WriteRune(r)
-	}
-	words = append(words, current.String())
-	return words
-}
-
 // matchCasing copies the casing pattern from src to dst
 func matchCasing(src, dst string) string {
 	if src == strings.ToUpper(src) {
@@ -289,69 +273,6 @@ func matchCasing(src, dst string) string {
 		}
 	}
 	return string(dstRunes)
-}
-
-func IsRegularPlural(word string) bool {
-	if len(word) < 2 {
-		return false
-	}
-	return HasSuffix(word, "s") && !HasSuffix(word, "ss") &&
-		!HasSuffix(word, "us") && !HasSuffix(word, "is")
-}
-
-// CamelCase converts a string to camel case format by capitalizing the first letter
-// of the input string or each segment after a separator like underscore. It removes
-// separators and preserves proper casing for each segment.
-//
-// Examples:
-//   - "hello_world" → "HelloWorld"
-//   - "dog_house" → "DogHouse"
-//   - "DOG_HOUSE" → "DogHouse"
-
-func CamelCase(in string) string {
-	if len(in) == 0 {
-		return ""
-	}
-	in = strings.TrimSpace(in)
-	if strings.Contains(in, "_") {
-		return camel(in, "_")
-	}
-	if strings.Contains(in, " ") {
-		return camel(in, " ")
-	}
-	if strings.Contains(in, "-") {
-		return camel(in, "-")
-	}
-	if strings.Contains(in, "—") {
-		return camel(in, "—")
-	}
-	if strings.Contains(in, "–") {
-		return camel(in, "–")
-	}
-	if strings.Contains(in, ".") {
-		return camel(in, ".")
-	}
-	runes := []rune(in)
-	if len(runes) > 0 {
-		return string(unicode.ToUpper(runes[0])) + string(runes[1:])
-	}
-	return in
-}
-
-func camel(in string, sp string) string {
-	parts := strings.Split(in, sp)
-	var result strings.Builder
-	for _, part := range parts {
-		if part == "" {
-			continue
-		}
-		runes := []rune(part)
-		if len(runes) > 0 {
-			result.WriteRune(unicode.ToUpper(runes[0]))
-			result.WriteString(string(runes[1:]))
-		}
-	}
-	return result.String()
 }
 
 func regularPlural(word string) string {
