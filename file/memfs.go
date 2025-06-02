@@ -91,7 +91,7 @@ func (m *MemFS) Create(name string) (io.WriteCloser, error) {
 	m.files[name] = bytes.NewBuffer(nil)
 	return &memFile{
 		name:   name,
-		Reader: bytes.NewReader(nil),
+		Reader: bytes.NewReader(m.files[name].Bytes()),
 		Buffer: m.files[name],
 	}, nil
 }

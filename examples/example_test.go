@@ -3,12 +3,12 @@
 // This file contains executable examples that showcase the key features and
 // capabilities of the goenums tool, including basic enum generation,
 // custom fields, JSON marshaling, and database integration.
-package examples
+package examples_test
 
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/zarldev/goenums/examples/solarsystem"
 )
@@ -74,7 +74,8 @@ func Example_jsonMarshaling() {
 
 	jsonData, err := json.Marshal(mission)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("error marshaling JSON", slog.String("error", err.Error()))
+		return
 	}
 	fmt.Println("JSON:", string(jsonData))
 
@@ -82,7 +83,8 @@ func Example_jsonMarshaling() {
 	var parsed SpaceMission
 	err = json.Unmarshal(jsonData, &parsed)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("error unmarshaling JSON", slog.String("error", err.Error()))
+		return
 	}
 	fmt.Println("Parsed mission:", parsed.Name, "to", parsed.Destination.String())
 

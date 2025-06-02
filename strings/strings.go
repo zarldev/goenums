@@ -144,22 +144,19 @@ func alreadyPlural(s string) bool {
 	if _, ok := irregularToPlural[strings.ToLower(s)]; ok {
 		return false
 	}
-
-	// For compound words (snake_case, kebab-case, space-separated), check the last part
 	if strings.Contains(s, "_") || strings.Contains(s, "-") || strings.Contains(s, " ") {
 		var lastPart string
-		if strings.Contains(s, "_") {
+		switch {
+		case strings.Contains(s, "_"):
 			parts := strings.Split(s, "_")
 			lastPart = parts[len(parts)-1]
-		} else if strings.Contains(s, "-") {
+		case strings.Contains(s, "-"):
 			parts := strings.Split(s, "-")
 			lastPart = parts[len(parts)-1]
-		} else if strings.Contains(s, " ") {
+		case strings.Contains(s, " "):
 			parts := strings.Split(s, " ")
 			lastPart = parts[len(parts)-1]
 		}
-
-		// Check if the last part is plural
 		lowerLast := strings.ToLower(lastPart)
 		if _, ok := irregularPluralsToSingular[lowerLast]; ok {
 			return true
@@ -722,8 +719,6 @@ func Pluralise(s string) string {
 	if isPlural(s) {
 		return s
 	}
-
-	// Check irregular words first (case insensitive)
 	lower := strings.ToLower(s)
 	if p, ok := irregularToPlural[lower]; ok {
 		// Apply original case pattern
