@@ -779,7 +779,7 @@ func TestPluralise(t *testing.T) {
 		{
 			name:     "word ending in z",
 			input:    "quiz",
-			expected: "quizes",
+			expected: "quizzes",
 		},
 	}
 

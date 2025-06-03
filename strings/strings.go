@@ -50,6 +50,7 @@ var irregularToPlural = map[string]string{
 	"thesis":     "theses",
 	"bus":        "buses",
 	"glass":      "glasses",
+	"quiz":       "quizzes",
 }
 
 var irregularPluralsToSingular = map[string]string{
@@ -78,6 +79,7 @@ var irregularPluralsToSingular = map[string]string{
 	"theses":    "thesis",
 	"buses":     "bus",
 	"glasses":   "glass",
+	"quizzes":   "quiz",
 }
 
 func SplitBySpace(input string) (string, string) {
