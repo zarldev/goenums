@@ -22,13 +22,16 @@ Documentation is available at [https://zarldev.github.io/goenums](https://zarlde
     - [Name Comment with spaces](#name-comment-with-spaces)
   - [Extended Enum Types with Custom Fields](#extended-enum-types-with-custom-fields)
   - [Case Insensitive String Parsing](#case-insensitive-string-parsing)
-  - [JSON, Text, Binary, and Database Storage](#json-text-binary-and-database-storage)
+  - [JSON, Text, Binary, YAML, and Database Storage](#json-text-binary-yaml-and-database-storage)
+  - [Numeric Parsing Support](#numeric-parsing-support)
   - [Exhaustive Handling](#exhaustive-handling)
   - [Iterator Support (Go 1.23+)](#iterator-support-go-123)
   - [Failfast Mode / Strict Mode](#failfast-mode--strict-mode)
   - [Legacy Mode](#legacy-mode)
   - [Verbose Mode](#verbose-mode)
+  - [Constraints Mode](#constraints-mode)
   - [Output Format](#output-format)
+  - [Compile-time Validation](#compile-time-validation)
 - [Getting Started](#getting-started)
   - [Basic Example](#basic-example)
 - [Requirements](#requirements)
@@ -39,11 +42,15 @@ Documentation is available at [https://zarldev.github.io/goenums](https://zarlde
  - Type Safety: Wrapper types prevent accidental misuse of enum values
  - String Conversion: Automatic string representation and parsing
  - JSON Support: Built-in marshaling and unmarshaling
+ - YAML Support: Built-in YAML marshaling and unmarshaling
  - Database Integration: SQL Scanner and Valuer implementations
+ - Text/Binary Marshaling: Support for encoding.TextMarshaler/TextUnmarshaler and BinaryMarshaler/BinaryUnmarshaler
+ - Numeric Parsing: Parse enums from various numeric types (int, float, etc.)
  - Validation: Methods to check for valid enum values
  - Iteration: Modern Go 1.23+ iteration support with legacy fallback
  - Extensibility: Add custom fields to enums via comments
  - Exhaustive Handling: Helper functions to ensure you handle all enum values
+ - Alias Support: Alternative enum names via comment syntax
  - Zero Dependencies: Completely dependency-free, using only the Go standard library
 
 # Usage
@@ -72,7 +79,6 @@ Options:
   -legacy
     	Generate legacy code without Go 1.23+ iterator support (default: false)
   -o string
-    	
   -output string
     	Specify the output format (default: go)
   -v
@@ -177,14 +183,16 @@ if err != nil {
 }
 ```
 
-## JSON, Text, Binary, and Database Storage
+## JSON, Text, Binary, YAML, and Database Storage
 The generated enum type also implements several common interfaces:
-* `json.Unmarshal` and `json.Marshal` 
-* `sql.Scanner` and `sql.Valuer` 
-* `encoding.TextMarshaler` and `encoding.TextUnmarshaler` 
+* `json.Marshaler` and `json.Unmarshaler`
+* `sql.Scanner` and `sql.Valuer`
+* `encoding.TextMarshaler` and `encoding.TextUnmarshaler`
 * `encoding.BinaryMarshaler` and `encoding.BinaryUnmarshaler`
 
 These interfaces are used to handle parsing for JSON, Text, Binary, and Database storage using the common standard library packages.
+As there is no standard library support for YAML, the generated YAML marshaling and unmarshaling methods are based on the * `yaml.Marshaler` and `yaml.Unmarshaler` interfaces from the [goccy/go-yaml](https://github.com/goccy/go-yaml) module.
+
 Here is an example of the generated handling code:
 
 ```go
@@ -262,6 +270,25 @@ func (p *Status) UnmarshalBinary(b []byte) error {
 }
 ```
 
+## Numeric Parsing Support
+The generated enums support parsing from various numeric types, automatically converting them to the appropriate enum value:
+
+```go
+// Parse from different numeric types
+status1, _ := validation.ParseStatus(1)        // int
+status2, _ := validation.ParseStatus(int32(2)) // int32
+status3, _ := validation.ParseStatus(3.0)      // float64
+status4, _ := validation.ParseStatus(uint8(4)) // uint8
+
+// All numeric types are supported: int, int8, int16, int32, int64,
+// uint, uint8, uint16, uint32, uint64, float32, float64
+```
+
+The numeric parsing validates that:
+- Float values are whole numbers (no fractional part)
+- The numeric value corresponds to a valid enum position
+- Values are within the valid range of enum constants
+
 ## Exhaustive Handling
 Ensure you handle all enum values with the generated Exhaustive function:
 
@@ -292,13 +319,9 @@ solarsystem.ExhaustivePlanets(func(p solarsystem.Planet) {
 ## Iterator Support (Go 1.23+)
 By default, goenums generates modern iterator support using Go 1.23's range-over-func feature:
 
-```go 
+```go
 // Using Go 1.23+ iterator
 for status := range validation.Statuses.All() {
-    fmt.Printf("Status: %s\n", status)
-}
-// There is the fallback method for slice based access
-for _, status := range validation.Statuses.AllSlice() {
     fmt.Printf("Status: %s\n", status)
 }
 ```
@@ -330,9 +353,50 @@ You can enable legacy mode by using the `-legacy` flag. This will generate code 
 ## Verbose Mode
 You can enable verbose mode by using the `-verbose` flag. This will print out the generated code to the console.
 
+## Constraints Mode
+You can enable constraints mode by using the `-constraints` flag. This will generate local type constraints instead of importing `golang.org/x/exp/constraints`. This is useful if you want to avoid external dependencies.
+
+```go
+//go:generate goenums -c status.go
+
+// Generated code will include local constraint definitions:
+type float interface {
+    float32 | float64
+}
+type integer interface {
+    int | int8 | int16 | int32 | int64 | uint | uint8 | uint16 | uint32 | uint64 | uintptr
+}
+type number interface {
+    integer | float
+}
+```
+
 ## Output Format
 You can specify the output format by using the `-output` flag. The default is `go`.
 
+## Compile-time Validation
+The generated code includes compile-time validation to ensure enum values remain consistent. If you modify the underlying enum constants, the compiler will detect changes and prompt you to regenerate the enum code:
+
+```go
+// Compile-time check that all enum values are valid.
+// This function is used to ensure that all enum values are defined and valid.
+// It is called by the compiler to verify that the enum values are valid.
+func _() {
+    // An "invalid array index" compiler error signifies that the constant values have changed.
+    // Re-run the goenums command to generate them again.
+    // Does not identify newly added constant values unless order changes
+    var x [7]struct{}
+    _ = x[unknown-0]
+    _ = x[failed-1]
+    _ = x[passed-2]
+    _ = x[skipped-3]
+    _ = x[scheduled-4]
+    _ = x[running-5]
+    _ = x[booked-6]
+}
+```
+
+This ensures that if you change the order or values of your enum constants, you'll get a compile error reminding you to regenerate the enum code.
 
 # Getting Started
 
@@ -768,23 +832,23 @@ func (p *Planet) UnmarshalBinary(b []byte) error {
 	return nil
 }
 
+
 // MarshalYAML implements the yaml.Marshaler interface for Planet.
 // It returns the string representation of the enum value.
-// It returns an error if the enum value is invalid.
-func (p Planet) MarshalYAML() (any, error) {
-	return p.String(), nil
+func (p Planet) MarshalYAML() ([]byte, error) {
+	return []byte(p.String()), nil
 }
 
 // UnmarshalYAML implements the yaml.Unmarshaler interface for Planet.
-// It parses the string representation of the enum value from the YAML node.
-// It returns an error if the YAML node does not contain a valid enum value.
-func (p *Planet) UnmarshalYAML(ctx context.Context, f func(any) error) error {
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
+// It parses the byte slice representation of the enum value and returns an error
+// if the YAML byte slice does not contain a valid enum value.
+func (p *Planet) UnmarshalYAML(b []byte) error {
+	newp, err := ParsePlanet(b)
+	if err != nil {
+		return err
 	}
-	return f(p.String())
+	*p = newp
+	return nil
 }
 
 // planetNames is a constant string slice containing all enum values cononical absolute names

@@ -35,7 +35,6 @@ Options:
   -legacy
     	Generate legacy code without Go 1.23+ iterator support (default: false)
   -o string
-    	
   -output string
     	Specify the output format (default: go)
   -v
@@ -81,13 +80,15 @@ This file will contain:
   - A type-safe wrapper struct around your enum
   - A singleton container with all valid enum values
   - String conversion methods
-  - Parsing functions for various input types
+  - Parsing functions for various input types (including numeric types)
   - JSON marshaling/unmarshaling
+  - YAML marshaling/unmarshaling
   - Database scanning/valuing
   - Binary marshaling/unmarshaling
   - Text marshaling/unmarshaling
   - Validation functions
   - Iteration helpers
+  - Compile-time validation
 
 ## Using the Generated Code
 
@@ -129,13 +130,12 @@ validation.ExhaustiveStatuses(func(status validation.Status) {
     }
 })
 
-// Iterate using modern Go 1.21+ range-over-func
+// Iterate using modern Go 1.23+ range-over-func
 for status := range validation.Statuses.All() {
     fmt.Printf("Status: %s\n", status)
 }
-
 // Legacy iteration
-for _, status := range validation.Statuses.AllSlice() {
+for _, status := range validation.Statuses.All() {
     fmt.Printf("Status: %s\n", status)
 }
 ```
@@ -210,11 +210,15 @@ This file will contain:
   - A type-safe wrapper struct around your enum
   - A singleton container with all valid enum values
   - String conversion methods
-  - Parsing functions for various input types
+  - Parsing functions for various input types (including numeric types)
   - JSON marshaling/unmarshaling
+  - YAML marshaling/unmarshaling
   - Database scanning/valuing
+  - Binary marshaling/unmarshaling
+  - Text marshaling/unmarshaling
   - Validation functions
   - Iteration helpers
+  - Compile-time validation
 
 ## Using the Generated Code
 
@@ -259,7 +263,7 @@ validation.ExhaustiveStatuses(func(status validation.Status) {
     }
 })
 
-// Iterate using modern Go 1.21+ range-over-func
+// Iterate using modern Go 1.23+ range-over-func
 for status := range validation.Statuses.All() {
     fmt.Printf("Status: %s\n", status)
 }

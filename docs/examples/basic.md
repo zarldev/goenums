@@ -93,16 +93,32 @@ if err != nil {
 }
 ```
 
-## JSON, Text, Binary, and Database Storage
+## JSON, Text, Binary, YAML, and Database Storage
 
 The generated enum type implements the:
 
-* `json.Unmarshal` and `json.Marshal` interfaces
-* `sql.Scanner` and `sql.Valuer` interfaces 
+* `json.Marshaler` and `json.Unmarshaler` interfaces
+* `sql.Scanner` and `sql.Valuer` interfaces
 * `encoding.BinaryMarshaler` and `encoding.BinaryUnmarshaler` interfaces
 * `encoding.TextMarshaler` and `encoding.TextUnmarshaler` interfaces
+* `yaml.Marshaler` and `yaml.Unmarshaler` interfaces
 
-These interfaces allow you to use the enum type in JSON, text, binary, and database storage seamlessly.
+These interfaces allow you to use the enum type in JSON, text, binary, YAML, and database storage seamlessly.
+
+## Numeric Parsing Support
+
+The generated enums support parsing from various numeric types:
+
+```go
+// Parse from different numeric types
+status1, _ := validation.ParseTicketStatus(1)        // int
+status2, _ := validation.ParseTicketStatus(int32(2)) // int32
+status3, _ := validation.ParseTicketStatus(3.0)      // float64
+status4, _ := validation.ParseTicketStatus(uint8(4)) // uint8
+
+// All numeric types are supported: int, int8, int16, int32, int64,
+// uint, uint8, uint16, uint32, uint64, float32, float64
+```
 
 # Basic Usage After Generation
 

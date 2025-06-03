@@ -40,16 +40,17 @@ fmt.Printf("Weight on %s: %.2f kg\n",
 fmt.Printf("Earth radius: %.1f km\n", solarsystem.Planets.EARTH.RadiusKm)
 ```
 
-## JSON, Text, Binary, and Database Storage
+## JSON, Text, Binary, YAML, and Database Storage
 
 The generated enum type implements the:
 
-* `json.Unmarshal` and `json.Marshal` interfaces
-* `sql.Scanner` and `sql.Valuer` interfaces 
+* `json.Marshaler` and `json.Unmarshaler` interfaces
+* `sql.Scanner` and `sql.Valuer` interfaces
 * `encoding.BinaryMarshaler` and `encoding.BinaryUnmarshaler` interfaces
 * `encoding.TextMarshaler` and `encoding.TextUnmarshaler` interfaces
+* `yaml.Marshaler` and `yaml.Unmarshaler` interfaces
 
-These interfaces allow you to use the enum type in JSON, text, binary, and database storage seamlessly.
+These interfaces allow you to use the enum type in JSON, text, binary, YAML, and database storage seamlessly.
 
 ```go
 // JSON example
@@ -122,20 +123,58 @@ if err != nil {
 
 ## Legacy vs Modern Mode
 
-Choose between modern Go 1.21+ iterator support and legacy iteration styles.
+Choose between modern Go 1.23+ iterator support and legacy iteration styles.
 
 ```go
-// Modern iteration (Go 1.21+)
-// Using Go 1.21+ range-over-function iteration
+// Modern iteration (Go 1.23+)
+// Using Go 1.23+ range-over-function iteration
 for status := range validation.Statuses.All() {
     fmt.Printf("Status: %s\n", status)
 }
 
 // Legacy iteration (or with -l flag)
-// Using a slice of all enum values 
+// Using a slice of all enum values
 for _, status := range validation.Statuses.All() {
     fmt.Printf("Status: %s\n", status)
 }
 ```
+
+## Constraints Mode
+
+Generate local type constraints instead of importing external dependencies:
+
+```go
+//go:generate goenums -c status.go
+
+// Generated code will include local constraint definitions:
+type float interface {
+    float32 | float64
+}
+type integer interface {
+    int | int8 | int16 | int32 | int64 | uint | uint8 | uint16 | uint32 | uint64 | uintptr
+}
+type number interface {
+    integer | float
+}
+```
+
+## Compile-time Validation
+
+The generated code includes compile-time validation to ensure enum values remain consistent:
+
+```go
+// Compile-time check that all enum values are valid.
+func _() {
+    // An "invalid array index" compiler error signifies that the constant values have changed.
+    // Re-run the goenums command to generate them again.
+    var x [7]struct{}
+    _ = x[unknown-0]
+    _ = x[failed-1]
+    _ = x[passed-2]
+    // ... other enum values
+}
+```
+
+This ensures that if you change the order or values of your enum constants, you'll get a compile error reminding you to regenerate the enum code.
 
 [Back to Examples]({{ '/examples' | relative_url }})

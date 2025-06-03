@@ -291,8 +291,7 @@ func (g *Writer) writeBinaryUnmarshalMethod(rep enum.GenerationRequest) {
 var (
 	yamlMarshalStr = `
 // MarshalYAML implements the yaml.Marshaler interface for {{ .WrapperName }}.
-// It returns the string representation of the enum value.
-// It returns an error if the enum value is invalid.				
+// It returns the string representation of the enum value.		
 func ({{ .Receiver }} {{ .WrapperName }}) MarshalYAML() ([]byte, error) {
 	return []byte({{ .Receiver }}.String()), nil
 }
@@ -300,9 +299,9 @@ func ({{ .Receiver }} {{ .WrapperName }}) MarshalYAML() ([]byte, error) {
 	yamlMarshalTemplate = template.Must(template.New("yamlMarshal").Parse(yamlMarshalStr))
 
 	yamlUnmarshalStr = `
-// UnmarshalYAML implements the yaml.Unmarshaler interface for {{ .WrapperName }}.
-// It parses the string representation of the enum value from the YAML node.
-// It returns an error if the YAML node does not contain a valid enum value.
+// UnmarshalYAML implements the yaml.Unmarshaler interface for Planet.
+// It parses the byte slice representation of the enum value and returns an error 
+// if the YAML byte slice does not contain a valid enum value.
 func ({{ .Receiver }} *{{ .WrapperName }}) UnmarshalYAML(b []byte) error {
 	new{{ .Receiver }}, err := Parse{{ .WrapperName }}(b)
 	if err != nil {
