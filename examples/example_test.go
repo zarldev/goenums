@@ -8,7 +8,6 @@ package examples_test
 import (
 	"encoding/json"
 	"fmt"
-	"log/slog"
 
 	"github.com/zarldev/goenums/examples/solarsystem"
 )
@@ -74,7 +73,7 @@ func Example_jsonMarshaling() {
 
 	jsonData, err := json.Marshal(mission)
 	if err != nil {
-		slog.Error("error marshaling JSON", slog.String("error", err.Error()))
+		fmt.Println("failed to marshal:", err)
 		return
 	}
 	fmt.Println("JSON:", string(jsonData))
@@ -83,7 +82,7 @@ func Example_jsonMarshaling() {
 	var parsed SpaceMission
 	err = json.Unmarshal(jsonData, &parsed)
 	if err != nil {
-		slog.Error("error unmarshaling JSON", slog.String("error", err.Error()))
+		fmt.Println("failed to unmarshal:", err)
 		return
 	}
 	fmt.Println("Parsed mission:", parsed.Name, "to", parsed.Destination.String())

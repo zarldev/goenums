@@ -91,7 +91,7 @@ func TestWriteToFileAndFormatFS(t *testing.T) {
 			writeFunc: successWriteFunc("package main\nfunc main() {\nfmt.Println(\"hello\")\n}\n"),
 			format:    true,
 			ctx: func() context.Context {
-				ctx, cancel := context.WithCancel(context.Background())
+				ctx, cancel := context.WithCancel(t.Context())
 				cancel()
 				return ctx
 			},
@@ -103,7 +103,7 @@ func TestWriteToFileAndFormatFS(t *testing.T) {
 			writeFunc: successWriteFunc("package main\nfunc main() {\nfmt.Println(\"hello\")\n}\n"),
 			format:    false,
 			ctx: func() context.Context {
-				ctx, cancel := context.WithCancel(context.Background())
+				ctx, cancel := context.WithCancel(t.Context())
 				cancel()
 				return ctx
 			},
