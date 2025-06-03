@@ -91,33 +91,9 @@ func (m *MemFS) Create(name string) (io.WriteCloser, error) {
 	m.files[name] = bytes.NewBuffer(nil)
 	return &memFile{
 		name:   name,
-		Reader: bytes.NewReader(nil),
+		Reader: bytes.NewReader(m.files[name].Bytes()),
 		Buffer: m.files[name],
 	}, nil
-}
-
-// Remove deletes a file from the in-memory filesystem.
-// Returns fs.ErrNotExist if the file doesn't exist.
-func (m *MemFS) Remove(name string) error {
-	if name == "" {
-		return fs.ErrInvalid
-	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if _, exists := m.files[name]; !exists {
-		return fs.ErrNotExist
-	}
-	delete(m.files, name)
-	return nil
-}
-
-// Close clears all files from the in-memory filesystem.
-// This can be used to reset the filesystem to an empty state.
-func (m *MemFS) Close() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	clear(m.files)
-	return nil
 }
 
 // Stat implements fs.StatFS by returning file information
@@ -140,8 +116,15 @@ func (m *MemFS) Stat(name string) (fs.FileInfo, error) {
 }
 
 // memFileInfo implements fs.FileInfo for in-memory files.
+// It provides file metadata for files stored in the MemFS in-memory filesystem.
+//
+// This struct satisfies the fs.FileInfo interface by providing basic file
+// information such as name, size, and permissions. Since files are stored
+// in memory, some properties like modification time are simulated.
 type memFileInfo struct {
+	// name is the filename or path identifier
 	name string
+	// size is the current size of the file in bytes
 	size int64
 }
 
@@ -153,9 +136,18 @@ func (m *memFileInfo) IsDir() bool        { return false }
 func (m *memFileInfo) Sys() any           { return nil }
 
 // memFile implements both fs.File and io.WriteCloser for in-memory files.
+// It provides a file-like interface for data stored in memory buffers,
+// supporting both reading and writing operations.
+//
+// The memFile struct bridges the gap between the standard library's file
+// interfaces and in-memory storage, making it useful for testing and
+// scenarios where actual filesystem access is not desired.
 type memFile struct {
-	name   string
+	// name is the identifier for this file
+	name string
+	// Reader provides read access to the file's content
 	Reader *bytes.Reader
+	// Buffer provides write access and stores the file's content
 	Buffer *bytes.Buffer
 }
 

@@ -1,6 +1,7 @@
 package file_test
 
 import (
+	"context"
 	"errors"
 	"io"
 	"strings"
@@ -10,13 +11,28 @@ import (
 )
 
 func TestWriteToFileAndFormatFS(t *testing.T) {
+	t.Parallel()
+	successWriteFunc := func(s string) func(io.Writer) error {
+		return func(w io.Writer) error {
+			_, err := io.WriteString(w, s)
+			return err
+		}
+	}
+
+	failureWriteFunc := func(string) func(io.Writer) error {
+		return func(io.Writer) error {
+			return errors.New("expected error")
+		}
+	}
+
 	tests := []struct {
-		name     string
-		path     string
-		content  string
-		format   bool
-		expected string
-		err      error
+		name      string
+		path      string
+		writeFunc func(io.Writer) error
+		ctx       func() context.Context
+		format    bool
+		expected  string
+		err       error
 	}{
 		{
 			name: "empty path",
@@ -29,50 +45,81 @@ func TestWriteToFileAndFormatFS(t *testing.T) {
 			err:  file.ErrWriteFile,
 		},
 		{
-			name:     "valid go file without formatting",
-			path:     "test.go",
-			content:  "package main\nfunc main() {\nfmt.Println(\"hello\")\n}\n",
-			format:   false,
-			expected: "package main\nfunc main() {\nfmt.Println(\"hello\")\n}\n",
+			name:      "valid go file without formatting",
+			path:      "test.go",
+			format:    false,
+			writeFunc: successWriteFunc("package main\nfunc main() {\nfmt.Println(\"hello\")\n}\n"),
+			expected:  "package main\nfunc main() {\nfmt.Println(\"hello\")\n}\n",
 		},
 		{
-			name:     "valid go file with formatting",
-			path:     "test.go",
-			content:  `package main func main() {fmt.Println("hello")}`,
-			format:   true,
-			expected: "package main\n\nfunc main() {\n\tfmt.Println(\"hello\")\n}\n",
+			name:      "valid go file with formatting",
+			path:      "test.go",
+			writeFunc: successWriteFunc("package main\nfunc main() {\nfmt.Println(\"hello\")\n}\n"),
+			format:    true,
+			expected:  "package main\n\nfunc main() {\n\tfmt.Println(\"hello\")\n}\n",
 		},
 		{
-			name:    "invalid go file with formatting",
-			path:    "invalid.go",
-			content: "this is not valid go code",
-			format:  true,
-			err:     file.ErrFormatFile,
+			name:      "invalid go file with formatting",
+			path:      "invalid.go",
+			writeFunc: successWriteFunc("this is not valid go code"),
+			format:    true,
+			err:       file.ErrFormatFile,
 		},
 		{
-			name:     "invalid go file without formatting",
-			path:     "invalid.go",
-			content:  "this is not valid go code",
-			expected: "this is not valid go code",
-			format:   false,
+			name:      "invalid go file without formatting",
+			path:      "invalid.go",
+			writeFunc: successWriteFunc("this is not valid go code"),
+			expected:  "this is not valid go code",
+			format:    false,
 		},
 		{
-			name:    "empty content",
-			path:    "empty.go",
-			content: "",
-			format:  false,
-			err:     nil,
+			name:      "empty content",
+			path:      "empty.go",
+			writeFunc: successWriteFunc(""),
+			format:    false,
+			err:       nil,
+		},
+		{
+			name:      "write function error",
+			path:      "write-error.go",
+			writeFunc: failureWriteFunc("write error"),
+			err:       file.ErrWriteFile,
+		},
+		{
+			name:      "context cancelled before format",
+			path:      "context-cancel.go",
+			writeFunc: successWriteFunc("package main\nfunc main() {\nfmt.Println(\"hello\")\n}\n"),
+			format:    true,
+			ctx: func() context.Context {
+				ctx, cancel := context.WithCancel(t.Context())
+				cancel()
+				return ctx
+			},
+			err: context.Canceled,
+		},
+		{
+			name:      "context cancelled before create",
+			path:      "context-cancel-create.go",
+			writeFunc: successWriteFunc("package main\nfunc main() {\nfmt.Println(\"hello\")\n}\n"),
+			format:    false,
+			ctx: func() context.Context {
+				ctx, cancel := context.WithCancel(t.Context())
+				cancel()
+				return ctx
+			},
+			err: context.Canceled,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fs := file.NewMemFS()
-			writeFunc := func(w io.Writer) error {
-				_, err := io.WriteString(w, tt.content)
-				return err
+			t.Parallel()
+			ctx := t.Context()
+			if tt.ctx != nil {
+				ctx = tt.ctx()
 			}
-			err := file.WriteToFileAndFormatFS(t.Context(), fs, tt.path, tt.format, writeFunc)
+			fs := file.NewMemFS()
+			err := file.WriteToFileAndFormatFS(ctx, fs, tt.path, tt.format, tt.writeFunc)
 			if err != nil {
 				if tt.err != nil && !errors.Is(err, tt.err) {
 					t.Errorf("unexpected error: %v", err)

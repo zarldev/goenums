@@ -2,10 +2,11 @@ package validation
 
 type status int
 
-//go:generate goenums status.go
+//go:generate goenums -f -c status.go
 
 const (
-	failed    status = iota // invalid FAILED
+	unknown   status = iota // invalid UNKNOWN
+	failed                  // FAILED
 	passed                  // PASSED
 	skipped                 // SKIPPED
 	scheduled               // SCHEDULED

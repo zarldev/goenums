@@ -40,4 +40,18 @@ type Configuration struct {
 
 	// Filenames is the list of paths provided to the reader
 	Filenames []string
+
+	// Constraints is the flag to generate the constraints or not
+	Constraints bool
+
+	// Handlers defines the behavior of the enum generation process.
+	Handlers Handlers
+}
+
+type Handlers struct {
+	JSON   bool
+	Text   bool
+	YAML   bool
+	SQL    bool
+	Binary bool
 }

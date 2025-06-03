@@ -10,7 +10,7 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
+  formatting:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -19,18 +19,92 @@ jobs:
       with:
         go-version-file: 'go.mod'
         cache-dependency-path: 'go.sum'
-    - name: gofmt check
+    - name: gofmt check with simplify
+      id: gofmt
       run: |
-        if gofmt -s -l . | grep -v 'internal/testdata' | tee gofmt.out | grep .; then
-          echo "gofmt found issues with the following files (excluding internal/testdata):"
-          cat gofmt.out
+        set +e  # Don't exit on error temporarily
+        UNFORMATTED=$(go list -f '{{.Dir}}' ./... | grep -v testdata | xargs -I {} find {} -maxdepth 1 -name '*.go' | xargs gofmt -s -l)
+        set -e  # Re-enable exit on error
+        if [ -n "$UNFORMATTED" ]; then
+          echo "The following files need formatting:"
+          echo "$UNFORMATTED"
           exit 1
         else
-          echo "gofmt found no issues."
+          echo "✅ All files are properly formatted"
         fi
+  vetting:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: setup go 
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: 'go.mod'
+        cache-dependency-path: 'go.sum'
     - name: go vet
       run: go vet -c 5 ./...
-    - name: run tests
+  linting:
+    needs: [formatting, vetting]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: setup go 
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: 'go.mod'
+        cache-dependency-path: 'go.sum'
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v7
+  tests-and-coverage:
+    needs: [formatting, vetting, linting]
+    runs-on: ubuntu-latest
+    env:
+      CGO_ENABLED: 1
+    steps:
+    - uses: actions/checkout@v4
+    - name: setup go 
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: 'go.mod'
+        cache-dependency-path: 'go.sum'
+    - name: run tests with race detector
       run: go test -v --race ./...
-    - name: build
-      run: go build -v -o goenums goenums.go   
+    - name: run tests to generate coverage profile
+      run: go test -v -coverprofile=coverage.out ./... 
+    - name: filter coverage profile to exclude examples
+      run: |
+        grep -v "github.com/zarldev/goenums/example" coverage.out > coverage_filtered.out || true
+        mv coverage_filtered.out coverage.out
+    - name: coverage
+      uses: vladopajic/go-test-coverage@v2
+      with:
+        profile: coverage.out
+        local-prefix: github.com/zarldev/goenums
+        config-file: ./.testcoverage.yml
+    - name: function coverage
+      run: go tool cover -func coverage.out
+    - name: generate coverage report
+      run: go tool cover -html=coverage.out -o coverage.html
+    - name: upload coverage report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: coverage.html
+  security-checks:
+    needs: [formatting, vetting, linting, tests-and-coverage]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: setup go 
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: 'go.mod'
+        cache-dependency-path: 'go.sum'
+    - name: gosec
+      uses: securego/gosec@master
+      with:
+        args: -exclude-dir=internal -exclude-dir=examples ./... 
+    - name: govulncheck
+      id: govulncheck
+      uses: golang/govulncheck-action@v1
+    

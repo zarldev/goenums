@@ -2,8 +2,10 @@ package generator_test
 
 import (
 	"errors"
+	"slices"
 	"testing"
 
+	"github.com/zarldev/goenums/enum"
 	"github.com/zarldev/goenums/generator"
 	"github.com/zarldev/goenums/generator/gofile"
 	"github.com/zarldev/goenums/internal/testdata"
@@ -12,18 +14,18 @@ import (
 
 func TestGenerator_ParseAndWrite(t *testing.T) {
 	t.Parallel()
-	testcases := testdata.InputOutputTestCases
+	testcases := slices.Clone(testdata.InputOutputTestCases)
 	testcases = append(testcases, testdata.InputOutputTest{
 		Name:   "not go code",
 		Source: source.FromFileSystem(testdata.FS, "notgocode/notgocode.go"),
 		Config: testdata.DefaultConfig,
-		Err:    generator.ErrFailedToParse,
+		Err:    enum.ErrParseSource,
 	})
 	testcases = append(testcases, testdata.InputOutputTest{
 		Name:   "no valid enums",
 		Source: source.FromFileSystem(testdata.FS, "noenums/noenums.go"),
 		Config: testdata.DefaultConfig,
-		Err:    generator.ErrNoEnumsFound,
+		Err:    enum.ErrNoEnumsFound,
 	})
 	for _, tc := range testcases {
 		t.Run(tc.Name, func(t *testing.T) {
@@ -32,7 +34,7 @@ func TestGenerator_ParseAndWrite(t *testing.T) {
 				gofile.WithParserConfiguration(tc.Config),
 				gofile.WithSource(tc.Source))
 			wri := gofile.NewWriter(
-				gofile.WithWriterConfig(tc.Config),
+				gofile.WithWriterConfiguration(tc.Config),
 				gofile.WithFileSystem(testdata.FS))
 
 			p := generator.New(
@@ -42,6 +44,9 @@ func TestGenerator_ParseAndWrite(t *testing.T) {
 			if err := p.ParseAndWrite(t.Context()); err != nil {
 				if !errors.Is(err, tc.Err) {
 					t.Errorf("failed to generate enums for %s, got %v", tc.Source.Filename(), err)
+					t.Errorf("expected error: %v", tc.Err)
+					t.Errorf("actual error: %v", err)
+					return
 				}
 			}
 			for _, filename := range tc.ExpectedFiles {

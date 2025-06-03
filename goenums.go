@@ -1,30 +1,113 @@
 // The goenums tool addresses Go's lack of native enum support by generating
-// type-safe wrappers around constant declarations.
-// It currently has support for input from Go files wher it identifies iota-based
-// constant groups in Go source files and produces an output Go files with
-// helper code that provides:
+// type-safe wrappers around iota-based constant declarations.
+//
+// It analyzes Go source files to identify iota-based constant groups and produces
+// comprehensive enum implementations with rich functionality including string
+// conversion, JSON/database integration, validation, and iteration support.
 //
 // # Key Features
 //
-//   - Type-safe enum wrapper types
-//   - Comprehensive string conversion and parsing
-//   - JSON marshaling and unmarshaling
+//   - Type-safe enum wrapper types with custom fields
+//   - Comprehensive string conversion and parsing (with optional case-insensitive mode)
+//   - JSON, Text, Binary, and YAML marshaling/unmarshaling
 //   - SQL database integration via Scanner/Valuer interfaces
-//   - Case-insensitive string parsing (optional)
 //   - Validation methods for checking valid enum values
-//   - Iteration support with automatic legacy fallback
-//   - Exhaustive switch checking
+//   - Go 1.23+ iterator support with automatic legacy fallback
+//   - Exhaustive processing to ensure all values are handled
+//   - Numeric parsing from underlying integer values
+//   - Alias support for alternative enum names
 //
-// # Command Usage
+// # Basic Usage
+//
+// Define an enum in your Go source file:
+//
+//	type Status int
+//	const (
+//	    Active Status = iota
+//	    Inactive
+//	    Pending
+//	)
+//
+// Generate the enum implementation:
+//
+//	goenums status.go
+//
+// Use the generated enum:
+//
+//	status := Statuses.ACTIVE
+//	fmt.Println(status.String())        // "Active"
+//	parsed, _ := ParseStatus("Pending") // Statuses.PENDING
+//	fmt.Println(status.IsValid())       // true
+//
+// # Advanced Features
+//
+// ## Custom Fields
+//
+// Add metadata to enum values using field syntax:
+//
+//	type HTTPStatus int // code[int], message[string]
+//	const (
+//	    OK HTTPStatus = iota         // 200, "Success"
+//	    NotFound                     // 404, "Not Found"
+//	    InternalError                // 500, "Internal Server Error"
+//	)
+//
+// Access custom fields in generated code:
+//
+//	status := HTTPStatuses.OK
+//	fmt.Println(status.Code())    // 200
+//	fmt.Println(status.Message()) // "Success"
+//
+// ## JSON Integration
+//
+//	type Task struct {
+//	    Name     string     `json:"name"`
+//	    Priority Priority   `json:"priority"`
+//	}
+//
+//	task := Task{Name: "Deploy", Priority: Priorities.HIGH}
+//	json.Marshal(task) // {"name":"Deploy","priority":"High"}
+//
+// ## Database Integration
+//
+//	// Enums implement database/sql interfaces automatically
+//	var status Status
+//	err := db.QueryRow("SELECT status FROM tasks WHERE id = ?", id).Scan(&status)
+//
+//	_, err = db.Exec("INSERT INTO tasks (status) VALUES (?)", Statuses.ACTIVE)
+//
+// ## Iteration (Go 1.23+)
+//
+//	for status := range Statuses.All() {
+//	    fmt.Println("Status:", status.String())
+//	}
+//
+// # Command Line Options
 //
 //	goenums [options] file.go
 //
+//	-f, -failfast      Fail on invalid enum values during parsing
+//	-l, -legacy        Generate code without Go 1.23+ iterator support
+//	-i, -insensitive   Enable case-insensitive string parsing
+//	-c, -constraints   Generate constraints locally instead of importing
+//	-v, -version       Show version information
+//	-h, -help          Show help information
+//	-vv, -verbose      Enable verbose output
+//	-o, -output        Specify output format (default: go)
+//
 // # Design Philosophy
 //
-// The tool follows a modular, interface-based architecture that separates:
-// content sourcing, parsing, and code generation. This allows for future
-// extensions to support different input formats or generation targets
-// without changing the core workflow.
+// The tool follows a modular, interface-based architecture that separates
+// content sourcing, parsing, and code generation. This design enables:
+//
+//   - Support for different input formats (currently Go, extensible to others)
+//   - Multiple output targets (currently Go, extensible to other languages)
+//   - Clean separation of concerns between components
+//   - Easy testing and maintenance of individual components
+//   - Future extensibility without breaking existing functionality
+//
+// The generated code prioritizes type safety, performance, and integration
+// with standard Go interfaces and conventions.
 package main
 
 import (
@@ -52,8 +135,8 @@ import (
 
 // Define flag groups
 type flags struct {
-	help, version, failfast, legacy, insensitive, verbose bool
-	output                                                string
+	help, version, failfast, legacy, insensitive, verbose, constraints bool
+	output                                                             string
 }
 
 func parseFlags() (flags, []string) {
@@ -68,7 +151,7 @@ func parseFlags() (flags, []string) {
 		"Enable failfast mode - fail on generation of invalid enum while parsing (default: false)")
 	flag.BoolVar(&f.failfast, "f", false, "")
 	flag.BoolVar(&f.legacy, "legacy", false,
-		"Generate legacy code without Go 1.21+ iterator support (default: false)")
+		"Generate legacy code without Go 1.23+ iterator support (default: false)")
 	flag.BoolVar(&f.legacy, "l", false, "")
 	flag.BoolVar(&f.insensitive, "insensitive", false,
 		"Generate case insensitive string parsing (default: false)")
@@ -79,24 +162,32 @@ func parseFlags() (flags, []string) {
 	flag.StringVar(&f.output, "output", "",
 		"Specify the output format (default: go)")
 	flag.StringVar(&f.output, "o", "", "")
+	flag.BoolVar(&f.constraints, "constraints", false,
+		"Specify whether to generate the float and integer constraints or import 'golang.org/x/exp/constraints' (default: false - imports)")
+	flag.BoolVar(&f.constraints, "c", false, "")
 	flag.Parse()
 	return f, flag.Args()
 }
 
 const (
-	logoTemplateBody = `
+	colorReset       = "\033[0m"
+	colorBlue        = "\033[34m"
+	colorCyan        = "\033[36m"
+	colorYellow      = "\033[33m"
+	colorGreen       = "\033[32m"
+	logoTemplateBody = colorBlue + `
    ____ _____  ___  ____  __  ______ ___  _____
   / __ '/ __ \/ _ \/ __ \/ / / / __ '__ \/ ___/
  / /_/ / /_/ /  __/ / / / /_/ / / / / / (__  ) 
  \__, /\____/\___/_/ /_/\__,_/_/ /_/ /_/____/  
-/____/ 
-`
-	versionTemplateBody = `
-    https://zarldev.github.io/goenums
+/____/
+` + colorReset
+	versionTemplateBody = colorCyan + `
+    https://zarldev.github.io/goenums ` + colorReset + colorGreen + `
        version :: {{.Version}}
        build   :: {{.Build}}
        commit  :: {{.Commit}}
-`
+` + colorReset
 )
 
 var (
@@ -190,7 +281,7 @@ func main() {
 		switch config.OutputFormat {
 		case "", "go":
 			slog.Default().Debug("initializing gofile writer")
-			writer = gofile.NewWriter(gofile.WithWriterConfig(config))
+			writer = gofile.NewWriter(gofile.WithWriterConfiguration(config))
 		default:
 			slog.Default().Error("only outputting to go files is supported")
 			return
@@ -203,16 +294,16 @@ func main() {
 			generator.WithWriter(writer))
 		slog.Default().Info("starting parsing and generation")
 		if err := gen.ParseAndWrite(ctx); err != nil {
-			if errors.Is(err, generator.ErrFailedToParse) {
+			if errors.Is(err, enum.ErrParseSource) {
 				slog.Default().Error("unable to parse file", slog.String("filename", filename))
 				slog.Default().Error("please ensure that the file is a valid input file")
 				slog.Default().Error("for the selected parser")
 			}
-			if errors.Is(err, generator.ErrNoEnumsFound) {
+			if errors.Is(err, enum.ErrNoEnumsFound) {
 				slog.Default().Error("no enums found in file", slog.String("filename", filename))
 				slog.Default().Error("please ensure that the file contains enum definitions")
 			}
-			if errors.Is(err, generator.ErrGeneratorFailedToGenerate) {
+			if errors.Is(err, enum.ErrWriteOutput) {
 				slog.Default().Error("could not generate output")
 				slog.Default().Error("please ensure that the output destination is writable")
 				slog.Default().Error("and that input enums contain only valid characters")
@@ -266,6 +357,14 @@ func configuration(ctx context.Context) (config.Configuration, error) {
 		Verbose:      f.verbose,
 		OutputFormat: f.output,
 		Filenames:    filenames,
+		Constraints:  f.constraints,
+		Handlers: config.Handlers{
+			JSON:   true,
+			Text:   true,
+			SQL:    true,
+			YAML:   true,
+			Binary: true,
+		},
 	}
 	return config, nil
 }

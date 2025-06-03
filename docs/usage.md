@@ -17,22 +17,32 @@ $ goenums -h
  / /_/ / /_/ /  __/ / / / /_/ / / / / / (__  ) 
  \__, /\____/\___/_/ /_/\__,_/_/ /_/ /_/____/  
 /____/
-Usage: goenums [options] filename
+Usage: goenums [options] file.go[,file2.go,...]
 Options:
-  -help, -h
-        Print help information
-  -version, -v
-        Print version information
-  -failfast, -f
-        Enable failfast mode - fail on generation of invalid enum while parsing (default: false)
-  -legacy, -l
-        Generate legacy code without Go 1.23+ iterator support (default: false)
-  -insensitive, -i
-        Generate case insensitive string parsing (default: false)
-  -verbose, -vv
-        Enable verbose mode - prints out the generated code (default: false)
-  -output, -o string
-        Specify the output format (default: go)
+  -c
+  -constraints
+    	Specify whether to generate the float and integer constraints or import 'golang.org/x/exp/constraints' (default: false - imports)
+  -f
+  -failfast
+    	Enable failfast mode - fail on generation of invalid enum while parsing (default: false)
+  -h
+  -help
+    	Print help information
+  -i
+  -insensitive
+    	Generate case insensitive string parsing (default: false)
+  -l
+  -legacy
+    	Generate legacy code without Go 1.23+ iterator support (default: false)
+  -o string
+  -output string
+    	Specify the output format (default: go)
+  -v
+  -version
+    	Print version information
+  -vv
+  -verbose
+    	Enable verbose mode - prints out the generated code (default: false)
 ```
 
 ## Adding a `go:generate` Directive
@@ -70,13 +80,15 @@ This file will contain:
   - A type-safe wrapper struct around your enum
   - A singleton container with all valid enum values
   - String conversion methods
-  - Parsing functions for various input types
+  - Parsing functions for various input types (including numeric types)
   - JSON marshaling/unmarshaling
+  - YAML marshaling/unmarshaling
   - Database scanning/valuing
   - Binary marshaling/unmarshaling
   - Text marshaling/unmarshaling
   - Validation functions
   - Iteration helpers
+  - Compile-time validation
 
 ## Using the Generated Code
 
@@ -118,13 +130,12 @@ validation.ExhaustiveStatuses(func(status validation.Status) {
     }
 })
 
-// Iterate using modern Go 1.21+ range-over-func
+// Iterate using modern Go 1.23+ range-over-func
 for status := range validation.Statuses.All() {
     fmt.Printf("Status: %s\n", status)
 }
-
 // Legacy iteration
-for _, status := range validation.Statuses.AllSlice() {
+for _, status := range validation.Statuses.All() {
     fmt.Printf("Status: %s\n", status)
 }
 ```
@@ -154,7 +165,7 @@ if !parsed.IsValid() {
 ## Basic Command Syntax
 
 ```bash
-goenums [options] <filename>
+goenums [options] file.go[,file2.go,...]
 ```
 
 Where <filename> is the Go source file containing your enum definitions.
@@ -199,11 +210,15 @@ This file will contain:
   - A type-safe wrapper struct around your enum
   - A singleton container with all valid enum values
   - String conversion methods
-  - Parsing functions for various input types
+  - Parsing functions for various input types (including numeric types)
   - JSON marshaling/unmarshaling
+  - YAML marshaling/unmarshaling
   - Database scanning/valuing
+  - Binary marshaling/unmarshaling
+  - Text marshaling/unmarshaling
   - Validation functions
   - Iteration helpers
+  - Compile-time validation
 
 ## Using the Generated Code
 
@@ -248,7 +263,7 @@ validation.ExhaustiveStatuses(func(status validation.Status) {
     }
 })
 
-// Iterate using modern Go 1.21+ range-over-func
+// Iterate using modern Go 1.23+ range-over-func
 for status := range validation.Statuses.All() {
     fmt.Printf("Status: %s\n", status)
 }

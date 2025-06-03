@@ -1,146 +1,235 @@
+// Package examples demonstrates the usage of goenums with comprehensive examples.
+//
+// This file contains executable examples that showcase the key features and
+// capabilities of the goenums tool, including basic enum generation,
+// custom fields, JSON marshaling, and database integration.
 package examples_test
 
 import (
 	"encoding/json"
 	"fmt"
 
-	// These would be your generated enum packages
 	"github.com/zarldev/goenums/examples/solarsystem"
-	"github.com/zarldev/goenums/examples/validation"
 )
 
-// Example showing how to access enum values
-func Example_basicUsage() {
-	// Access enum constants safely
-	myStatus := validation.Statuses.PASSED
+// Example_basicEnum demonstrates the most basic usage of goenums.
+// This shows how to define a simple enum and use the generated methods.
+func Example_basicEnum() {
+	// Using the Planet enum from the solarsystem package
+	planet := solarsystem.Planets.EARTH // Index 3 (Earth)
 
-	// Convert to string
-	fmt.Println("Status:", myStatus.String())
+	// String representation
+	fmt.Println("Planet:", planet.String())
 
-	// Parse from string
-	parsed, err := validation.ParseStatus("SKIPPED")
-	if err != nil {
-		fmt.Println("Error:", err)
+	// Parsing from string
+	parsed, err := solarsystem.ParsePlanet("Mars")
+	if err == nil {
+		fmt.Println("Parsed:", parsed.String())
 	}
 
-	// Validate enum values
-	if !parsed.IsValid() {
-		fmt.Println("Invalid status")
-	} else {
-		fmt.Println("Valid status:", parsed)
-	}
+	// Validation
+	fmt.Println("Is valid:", planet.IsValid())
 
-	// Output:
-	// Status: PASSED
-	// Valid status: SKIPPED
+	// Output: Planet: Earth
+	// Parsed: Mars
+	// Is valid: true
 }
 
-// Example showing extended enum types with custom fields
-func Example_extendedTypes() {
-	earthWeight := 100.0
-	mars := solarsystem.Planets.MARS
+// Example_enumWithFields demonstrates enums with custom fields.
+// This shows how to access metadata associated with enum values.
+func Example_enumWithFields() {
+	// Using the Planet enum which has custom fields
+	earth := solarsystem.Planets.EARTH
 
-	// Access custom fields on the enum
-	fmt.Printf("Weight on %s: %.2f kg (gravity: %.3f)\n",
-		mars,
-		earthWeight*mars.Gravity,
-		mars.Gravity)
+	fmt.Println("Planet:", earth.String())
+	fmt.Println("Gravity:", earth.Gravity)
+	fmt.Println("Radius (km):", earth.RadiusKm)
+	fmt.Println("Mass (kg):", earth.MassKg)
+	fmt.Println("Moons:", earth.Moons)
+	fmt.Println("Has rings:", earth.Rings)
 
-	// Output:
-	// Weight on Mars: 37.70 kg (gravity: 0.377)
+	// Output: Planet: Earth
+	// Gravity: 1
+	// Radius (km): 6378.1
+	// Mass (kg): 5.97e+24
+	// Moons: 1
+	// Has rings: false
 }
 
-// Example showing iteration over enum values
-func Example_iteration() {
-	// Using slice-based access
-	fmt.Println("All statuses:")
-	for s := range validation.Statuses.All() {
-		fmt.Printf("- %s\n", s)
-	}
-
-	// Output:
-	// All statuses:
-	// - PASSED
-	// - SKIPPED
-	// - SCHEDULED
-	// - RUNNING
-	// - BOOKED
-}
-
-// Example showing JSON marshaling/unmarshaling
-func Example_jsonHandling() {
-	// Create a struct with enum fields
-	type Task struct {
-		ID     int               `json:"id"`
-		Status validation.Status `json:"status"`
-	}
-
-	// Create a task with enum value
-	task := Task{
-		ID:     123,
-		Status: validation.Statuses.RUNNING,
+// Example_jsonMarshaling demonstrates JSON marshaling and unmarshaling.
+// This shows how generated enums integrate with Go's JSON package.
+func Example_jsonMarshaling() {
+	// Create a struct with enum field
+	type SpaceMission struct {
+		Name        string             `json:"name"`
+		Destination solarsystem.Planet `json:"destination"`
 	}
 
 	// Marshal to JSON
-	data, _ := json.Marshal(task)
-	fmt.Println("JSON:", string(data))
+	mission := SpaceMission{
+		Name:        "Mars Rover",
+		Destination: solarsystem.Planets.MARS,
+	}
+
+	jsonData, err := json.Marshal(mission)
+	if err != nil {
+		fmt.Println("failed to marshal:", err)
+		return
+	}
+	fmt.Println("JSON:", string(jsonData))
 
 	// Unmarshal from JSON
-	var newTask Task
-	jsonData := `{"id":456,"status":"RUNNING"}`
-	_ = json.Unmarshal([]byte(jsonData), &newTask)
-	fmt.Printf("Unmarshaled task: ID=%d, Status=%s\n", newTask.ID, newTask.Status)
+	var parsed SpaceMission
+	err = json.Unmarshal(jsonData, &parsed)
+	if err != nil {
+		fmt.Println("failed to unmarshal:", err)
+		return
+	}
+	fmt.Println("Parsed mission:", parsed.Name, "to", parsed.Destination.String())
 
-	// Output:
-	// JSON: {"id":123,"status":"RUNNING"}
-	// Unmarshaled task: ID=456, Status=RUNNING
+	// Output: JSON: {"name":"Mars Rover","destination":"Mars"}
+	// Parsed mission: Mars Rover to Mars
 }
 
-// Example showing exhaustive handling
-func Example_exhaustiveHandling() {
-	// Keep track of which status was processed
-	processed := make(map[string]bool)
+// Example_iteratorSupport demonstrates Go 1.23+ iterator support.
+// This shows how to iterate over enum values using modern Go features.
+func Example_iteratorSupport() {
+	fmt.Println("All planets:")
 
-	// Use the exhaustive function to ensure we process every status
-	validation.ExhaustiveStatuses(func(s validation.Status) {
-		// In a real application, you would handle each status differently
-		processed[s.String()] = true
+	// Iterate over all planets using the All() iterator
+	for planet := range solarsystem.Planets.All() {
+		fmt.Printf("- %s (Gravity: %.3f)\n", planet.String(), planet.Gravity)
+	}
+
+	// Output: All planets:
+	// - Mercury (Gravity: 0.378)
+	// - Venus (Gravity: 0.907)
+	// - Earth (Gravity: 1.000)
+	// - Mars (Gravity: 0.377)
+	// - Jupiter (Gravity: 2.360)
+	// - Saturn (Gravity: 0.916)
+	// - Uranus (Gravity: 0.889)
+	// - Neptune (Gravity: 1.120)
+}
+
+// Example_exhaustiveHandling demonstrates exhaustive processing.
+// This shows how to ensure all enum values are handled.
+func Example_exhaustiveHandling() {
+	fmt.Println("Processing all planets:")
+
+	// Use ExhaustivePlanets to ensure all values are processed
+	solarsystem.ExhaustivePlanets(func(planet solarsystem.Planet) {
+		category := "Rocky"
+		if planet.Gravity > 1.5 {
+			category = "Gas Giant"
+		}
+		fmt.Printf("%s: %s planet\n", planet.String(), category)
 	})
 
-	// Verify all statuses were processed
-	allProcessed := true
-	for s := range validation.Statuses.All() {
-		if !processed[s.String()] {
-			allProcessed = false
-			fmt.Printf("Status %s was not processed\n", s)
-		}
-	}
-
-	fmt.Println("All statuses processed:", allProcessed)
-
-	// Output:
-	// All statuses processed: true
+	// Output: Processing all planets:
+	// Mercury: Rocky planet
+	// Venus: Rocky planet
+	// Earth: Rocky planet
+	// Mars: Rocky planet
+	// Jupiter: Gas Giant planet
+	// Saturn: Rocky planet
+	// Uranus: Rocky planet
+	// Neptune: Rocky planet
 }
 
-// Example showing how to use enums with database operations (simulated)
-func Example_databaseIntegration() {
-	// In a real application, this would be database code
-	// Here we simulate scanning from a database row
-
-	// Simulate scanning a string value from DB
-	var planetEnum solarsystem.Planet
-	dbValue := "Mars" // Value from database
-
-	// Scan the value (implements sql.Scanner interface)
-	err := planetEnum.Scan(dbValue)
-	if err != nil {
-		fmt.Println("Error:", err)
+// Example_numericParsing demonstrates parsing enums from numeric values.
+// This shows how enums can be created from their underlying numeric representation.
+func Example_numericParsing() {
+	// Parse from various numeric types
+	planet1, err := solarsystem.ParsePlanet(3) // Earth (index 3)
+	if err == nil {
+		fmt.Println("From int:", planet1.String())
 	}
 
-	fmt.Println("Planet from DB:", planetEnum)
-	fmt.Printf("Has rings: %v\n", planetEnum.Rings)
+	planet2, err := solarsystem.ParsePlanet(4.0) // Mars (index 4)
+	if err == nil {
+		fmt.Println("From float:", planet2.String())
+	}
 
-	// Output:
-	// Planet from DB: Mars
-	// Has rings: false
+	// Invalid index - this returns invalidPlanet, not an error
+	invalidPlanet, err := solarsystem.ParsePlanet(99)
+	if err == nil && !invalidPlanet.IsValid() {
+		fmt.Println("Invalid index produces error")
+	}
+
+	// Output: From int: Earth
+	// From float: Mars
+	// Invalid index produces error
+}
+
+// Example_databaseIntegration demonstrates database Scanner/Valuer interfaces.
+// This shows how enums can be stored and retrieved from databases.
+func Example_databaseIntegration() {
+	planet := solarsystem.Planets.JUPITER
+
+	// Value() method for storing in database
+	value, err := planet.Value()
+	if err == nil {
+		fmt.Println("Database value:", value)
+	}
+
+	// Scan() method for reading from database
+	var scanned solarsystem.Planet
+	err = scanned.Scan("Saturn")
+	if err == nil {
+		fmt.Println("Scanned planet:", scanned.String())
+		fmt.Println("Has rings:", scanned.Rings)
+	}
+
+	// Output: Database value: Jupiter
+	// Scanned planet: Saturn
+	// Has rings: true
+}
+
+// Example_textMarshaling demonstrates text marshaling and unmarshaling.
+// This shows how enums work with text-based formats.
+func Example_textMarshaling() {
+	planet := solarsystem.Planets.VENUS
+
+	// Marshal to text
+	text, err := planet.MarshalText()
+	if err == nil {
+		fmt.Println("Text representation:", string(text))
+	}
+
+	// Unmarshal from text
+	var unmarshaled solarsystem.Planet
+	err = unmarshaled.UnmarshalText([]byte("Neptune"))
+	if err == nil {
+		fmt.Println("Unmarshaled:", unmarshaled.String())
+		fmt.Println("Surface pressure:", unmarshaled.SurfacePressureBars, "bars")
+	}
+
+	// Output: Text representation: "Venus"
+	// Unmarshaled: Neptune
+	// Surface pressure: 1.5 bars
+}
+
+// Example_binaryMarshaling demonstrates binary marshaling and unmarshaling.
+// This shows how enums can be serialized to binary formats.
+func Example_binaryMarshaling() {
+	planet := solarsystem.Planets.URANUS
+
+	// Marshal to binary
+	binary, err := planet.MarshalBinary()
+	if err == nil {
+		fmt.Println("Binary representation:", string(binary))
+	}
+
+	// Unmarshal from binary
+	var unmarshaled solarsystem.Planet
+	err = unmarshaled.UnmarshalBinary([]byte("Mercury"))
+	if err == nil {
+		fmt.Println("Unmarshaled:", unmarshaled.String())
+		fmt.Println("Orbit days:", unmarshaled.OrbitDays)
+	}
+
+	// Output: Binary representation: "Uranus"
+	// Unmarshaled: Mercury
+	// Orbit days: 88
 }
