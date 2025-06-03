@@ -15,7 +15,7 @@ FUZZ_TESTS := FuzzParseValue_String FuzzParseValue_Int FuzzParseValue_Bool FuzzP
 .DEFAULT_GOAL := build
 
 # Phony targets to avoid conflicts with files of the same name
-.PHONY: build build-prod build-linux build-darwin build-windows deps test test-coverage test-fuzz test-fuzz-quick test-fuzz-long generate clean install lint help version logo debug-version release-tag release-tag-force release-build release-all
+.PHONY: build build-prod build-linux build-darwin build-windows deps test test-coverage test-fuzz test-fuzz-quick test-fuzz-long generate clean install uninstall lint help version logo debug-version release-tag release-tag-force release-build release-all
 
 release-tag:
 	@echo "🔍 Checking for uncommitted changes..."
@@ -137,6 +137,21 @@ install:
 		echo "🔐 Need sudo permission to install"; \
 		sudo cp bin/goenums /usr/local/bin/goenums; \
 		echo "✅ Installation completed"; \
+	fi
+
+uninstall:
+	@echo "🗑️  Uninstalling goenums..."
+	@if [ -f /usr/local/bin/goenums ]; then \
+		if [ -w /usr/local/bin ]; then \
+			rm /usr/local/bin/goenums; \
+			echo "✅ Uninstallation completed"; \
+		else \
+			echo "🔐 Need sudo permission to uninstall"; \
+			sudo rm /usr/local/bin/goenums; \
+			echo "✅ Uninstallation completed"; \
+		fi; \
+	else \
+		echo "ℹ️  goenums is not installed in /usr/local/bin"; \
 	fi
 
 test:

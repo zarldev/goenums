@@ -185,8 +185,6 @@ const (
 	versionTemplateBody = colorCyan + `
     https://zarldev.github.io/goenums ` + colorReset + colorGreen + `
        version :: {{.Version}}
-       build   :: {{.Build}}
-       commit  :: {{.Commit}}
 ` + colorReset
 )
 
