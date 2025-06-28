@@ -207,6 +207,8 @@ type Enum struct {
 	Name string
 	// Index is the numeric position of this enum in the sequence (0-based)
 	Index int
+	// Value is the actual constant value (e.g., for "iota - 1", first enum has Value = -1)
+	Value int
 	// Fields contains any custom field values associated with this enum
 	Fields []Field
 	// Aliases are alternative names that can be used to reference this enum

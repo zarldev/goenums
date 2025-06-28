@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"text/template"
 	"time"
 	"unicode"
@@ -193,18 +194,29 @@ func ({{ .Receiver }} {{ .WrapperName }}) MarshalText() ([]byte, error) {
 )
 
 type interfaceFunctionData struct {
-	Receiver    string
-	WrapperName string
-	EnumName    string
-	EnumType    string
+	Receiver     string
+	WrapperName  string
+	EnumName     string
+	EnumType     string
+	RawEnumType  string
+	InvalidValue int
 }
 
 func newInterfaceFunctionData(rep enum.GenerationRequest) interfaceFunctionData {
+	// Calculate invalid value that doesn't conflict with any enum values
+	invalidValue := -1
+	if rep.EnumIota.StartIndex < 0 {
+		// If we have negative values, use a positive value that's out of range
+		invalidValue = rep.EnumIota.StartIndex + len(rep.EnumIota.Enums)
+	}
+
 	return interfaceFunctionData{
-		Receiver:    receiver(rep.EnumIota.Type),
-		WrapperName: wrapperName(rep.EnumIota.Type),
-		EnumName:    strings.ToUpper(rep.EnumIota.Type),
-		EnumType:    enumType(rep),
+		Receiver:     receiver(rep.EnumIota.Type),
+		WrapperName:  wrapperName(rep.EnumIota.Type),
+		EnumName:     strings.ToUpper(rep.EnumIota.Type),
+		EnumType:     enumType(rep),
+		RawEnumType:  rep.EnumIota.Type,
+		InvalidValue: invalidValue,
 	}
 }
 
@@ -362,25 +374,52 @@ var (
 // This function is used to ensure that all enum values are defined and valid.
 // It is called by the compiler to verify that the enum values are valid.
 func _() {
-// An "invalid array index" compiler error signifies that the constant values have changed.
-	// Re-run the goenums command to generate them again.
-	// Does not identify newly added constant values unless order changes
-	var x [{{len .Enums}}]struct{}
-	{{- range .Enums }}
-	_ = x[{{ .Name }}-{{ .Index }}]
-	{{- end }}
+    // An "invalid array index" compiler error signifies that the constant values have changed.
+    // Re-run the goenums command to generate them again.
+    // Does not identify newly added constant values unless order changes
+    {{- range .Enums }}
+    _ = [{{ .ArraySize }}]struct{}{}[{{ .IndexExpr }}]
+    {{- end }}
 }
-	`
+    `
 	compileCheckTemplate = template.Must(template.New("compileCheck").Parse(compileCheckStr))
 )
 
+type compileCheckEnum struct {
+	Name      string
+	Value     int
+	ArraySize int
+	IndexExpr string
+}
+
 type compileCheckData struct {
-	Enums []enum.Enum
+	Enums []compileCheckEnum
 }
 
 func (g *Writer) writeCompileCheck(rep enum.GenerationRequest) {
+	enums := make([]compileCheckEnum, len(rep.EnumIota.Enums))
+	for i, e := range rep.EnumIota.Enums {
+		// Normalize all indices to 0 by subtracting the value
+		arraySize := 1
+		indexExpr := e.Name
+		if e.Value != 0 {
+			if e.Value > 0 {
+				indexExpr = fmt.Sprintf("%s-%s", e.Name, strconv.Itoa(e.Value))
+			} else {
+				// For negative values, add the absolute value
+				indexExpr = fmt.Sprintf("%s+%s", e.Name, strconv.Itoa(-e.Value))
+			}
+		}
+
+		enums[i] = compileCheckEnum{
+			Name:      e.Name,
+			Value:     e.Value,
+			ArraySize: arraySize,
+			IndexExpr: indexExpr,
+		}
+	}
 	g.writeTemplate(compileCheckTemplate, compileCheckData{
-		Enums: rep.EnumIota.Enums,
+		Enums: enums,
 	})
 }
 
@@ -423,7 +462,7 @@ type stringMethodData struct {
 }
 
 func (g *Writer) writeStringMethod(rep enum.GenerationRequest) {
-	edefs := enumDefinitions(rep)
+	edefs := allEnumDefinitions(rep)
 	var names bytes.Buffer
 	type nameOffset struct {
 		start, end int
@@ -491,15 +530,24 @@ func (g *Writer) writeIsValidFunction(rep enum.GenerationRequest) {
 		Receiver:    receiver(rep.EnumIota.Type),
 		EnumType:    enumType(rep),
 		WrapperName: wrapperName(rep.EnumIota.Type),
-		Enums:       enumDefinitions(rep),
+		Enums:       allEnumDefinitions(rep),
 	})
 }
 
 func (g *Writer) writeNumberParsingMethods(rep enum.GenerationRequest) {
+	// Calculate array offset for negative StartIndex
+	arrayOffset := "-1"
+	if rep.EnumIota.StartIndex != 0 {
+		arrayOffset = fmt.Sprintf("+%d", -rep.EnumIota.StartIndex)
+		if rep.EnumIota.StartIndex > 0 {
+			arrayOffset = fmt.Sprintf("-%d", rep.EnumIota.StartIndex)
+		}
+	}
 	g.writeTemplate(parseIntegerGenericFunctionTemplate, parseNumberFunctionData{
 		Constraints:   rep.Configuration.Constraints,
 		HasStartIndex: rep.EnumIota.StartIndex > 0,
 		StartIndex:    rep.EnumIota.StartIndex,
+		ArrayOffset:   arrayOffset,
 		WrapperName:   wrapperName(rep.EnumIota.Type),
 		EnumType:      enumType(rep),
 	})
@@ -512,7 +560,9 @@ func enumType(rep enum.GenerationRequest) string {
 var (
 	invalidEnumStr = `
 	// invalid{{ .WrapperName }} is an invalid sentinel value for {{ .WrapperName }}
-	var invalid{{ .WrapperName }} = {{ .WrapperName }}{}
+	var invalid{{ .WrapperName }} = {{ .WrapperName }}{
+		{{ .RawEnumType }}: {{ .InvalidValue }},
+	}
 	`
 	invalidEnumTemplate = template.Must(template.New("invalidEnum").Parse(invalidEnumStr))
 )
@@ -598,7 +648,6 @@ func (g *Writer) writeWrapperDefinition(enum enum.GenerationRequest) {
 func wrapperName(enum string) string {
 	if strings.IsPlural(enum) {
 		enum = strings.Singularise(enum)
-		strings.Camel(enum)
 	}
 	return strings.Camel(enum)
 }
@@ -610,7 +659,7 @@ func wrapperType(enum string) string {
 func containerType(enum enum.GenerationRequest) string {
 	cName := strings.Lower1stCharacter(enum.EnumIota.Type)
 	cName = strings.Pluralise(cName)
-	return cName + "Container"
+	return fmt.Sprintf("%sContainer", cName)
 }
 
 type generatedComment struct {
@@ -725,7 +774,7 @@ var {{.ContainerName}} = {{.ContainerType}}{
 )
 
 func (g *Writer) writeContainerDefinition(rep enum.GenerationRequest) {
-	edefs := enumDefinitions(rep)
+	edefs := allEnumDefinitions(rep)
 	cdef := containerDefinition{
 		WrapperName:   wrapperName(rep.EnumIota.Type),
 		ContainerType: containerType(rep),
@@ -735,9 +784,16 @@ func (g *Writer) writeContainerDefinition(rep enum.GenerationRequest) {
 	g.writeTemplate(containerDefinitionTemplate, cdef)
 }
 
-func enumDefinitions(rep enum.GenerationRequest) []enumDefinition {
+// validEnumDefinitions returns only valid enums for iteration
+func validEnumDefinitions(rep enum.GenerationRequest) []enumDefinition {
 	edefs := make([]enumDefinition, 0)
 	for _, e := range rep.EnumIota.Enums {
+		// Skip invalid enums from iteration
+		if !e.Valid {
+			continue
+		}
+		// Skip valid enums that have no field values when parent has fields defined
+		// This prevents including placeholder enums with missing required fields
 		if len(rep.EnumIota.Fields) > 0 &&
 			len(e.Fields) == 0 {
 			continue
@@ -751,6 +807,9 @@ func enumDefinitions(rep enum.GenerationRequest) []enumDefinition {
 			}
 		}
 		aliases := e.Aliases
+		if len(aliases) == 0 {
+			aliases = append(aliases, e.Name)
+		}
 		if rep.Configuration.Insensitive {
 			for _, a := range e.Aliases {
 				lwr := strings.ToLower(a)
@@ -761,6 +820,44 @@ func enumDefinitions(rep enum.GenerationRequest) []enumDefinition {
 					continue
 				}
 				aliases = append(aliases, strings.ToLower(a))
+			}
+		}
+		edefs = append(edefs, enumDefinition{
+			EnumName:           e.Name,
+			EnumNameIdentifier: strings.ToUpper(e.Name),
+			EnumType:           wrapperName(rep.EnumIota.Type),
+			Fields:             ffields,
+			IotaType:           rep.EnumIota.Type,
+			Aliases:            aliases,
+			Valid:              e.Valid,
+		})
+	}
+	return edefs
+}
+
+// allEnumDefinitions returns all enums (valid and invalid) for string parsing
+func allEnumDefinitions(rep enum.GenerationRequest) []enumDefinition {
+	edefs := make([]enumDefinition, 0)
+	for _, e := range rep.EnumIota.Enums {
+		fields := e.Fields
+		ffields := make([]enum.Field, len(fields))
+		for j, f := range fields {
+			ffields[j] = enum.Field{
+				Name:  f.Name,
+				Value: strings.Ify(f.Value),
+			}
+		}
+		aliases := e.Aliases
+		if len(aliases) == 0 {
+			aliases = append(aliases, e.Name)
+		}
+		if rep.Configuration.Insensitive {
+			for _, a := range e.Aliases {
+				lwr := strings.ToLower(a)
+				if lwr == a {
+					continue
+				}
+				aliases = append(aliases, lwr)
 			}
 		}
 		edefs = append(edefs, enumDefinition{
@@ -790,32 +887,32 @@ var (
 // allSlice returns a slice of all enum values.
 // This method is useful for iterating over all enum values in a loop.
 func ({{.Receiver}} {{.ContainerType}}) allSlice() []{{.WrapperName}} {
-	return []{{.WrapperName}}{
-		{{-  range .EnumDefs}}
-		{{$.ContainerName}}.{{.EnumNameIdentifier}},
-		{{- end}}
-	}
+    return []{{.WrapperName}}{
+        {{-  range .EnumDefs}}
+        {{$.ContainerName}}.{{.EnumNameIdentifier}},
+        {{- end}}
+    }
 }
 {{- if .Legacy}}
 // All returns a slice of all enum values.
 // This method is useful for iterating over all enum values in a loop.
 func ({{.Receiver}} {{.ContainerType}}) All() []{{.WrapperName}} {
-	return {{.Receiver}}.allSlice()
+    return {{.Receiver}}.allSlice()
 }
 {{- else}}
 // All returns an iterator over all enum values.
 // This method is useful for iterating over all enum values in a loop.
 func ({{.Receiver}} {{.ContainerType}}) All() iter.Seq[{{.WrapperName}}] {
-	return func(yield func({{.WrapperName}}) bool) {
-		for _, v := range {{.Receiver}}.allSlice() {
-			if !yield(v) {
-				return
-			}
-		}
-	}
+    return func(yield func({{.WrapperName}}) bool) {
+        for _, v := range {{.Receiver}}.allSlice() {
+            if !yield(v) {
+                return
+            }
+        }
+    }
 }
 {{- end}}
-	`
+    `
 	allFunctionTemplate = template.Must(template.New("allFunction").Parse(allFunctionStr))
 )
 
@@ -825,7 +922,7 @@ func (g *Writer) writeAllFunction(rep enum.GenerationRequest) {
 		ContainerType: containerType(rep),
 		ContainerName: strings.Pluralise(strings.Camel(rep.EnumIota.Type)),
 		WrapperName:   wrapperName(rep.EnumIota.Type),
-		EnumDefs:      enumDefinitions(rep),
+		EnumDefs:      validEnumDefinitions(rep),
 		Legacy:        rep.Configuration.Legacy,
 	}
 	g.writeTemplate(allFunctionTemplate, allData)
@@ -844,49 +941,77 @@ var (
 // It is a convenience function that can be used to parse enum values from
 // various input types, such as strings, byte slices, or other enum types.
 func Parse{{.WrapperName}}(input any) ({{.WrapperName}}, error) {
-	var res = invalid{{.WrapperName}}
 	switch v := input.(type) {
 	case {{.WrapperName}}:
 		return v, nil
 	case string:
-		res = stringTo{{.WrapperName}}(v)
+		if result := stringTo{{.WrapperName}}(v); result != nil {
+			return *result, nil
+		}
 	case fmt.Stringer:
-		res = stringTo{{.WrapperName}}(v.String())
+		if result := stringTo{{.WrapperName}}(v.String()); result != nil {
+			return *result, nil
+		}
 	case []byte:
-		res = stringTo{{.WrapperName}}(string(v))
+		if result := stringTo{{.WrapperName}}(string(v)); result != nil {
+			return *result, nil
+		}
 	case int:
-		res = numberTo{{.WrapperName}}(v)
+		if result := numberTo{{.WrapperName}}(v); result != nil {
+			return *result, nil
+		}
 	case int8:
-		res = numberTo{{.WrapperName}}(v)
+		if result := numberTo{{.WrapperName}}(v); result != nil {
+			return *result, nil
+		}
 	case int16:
-		res = numberTo{{.WrapperName}}(v)
+		if result := numberTo{{.WrapperName}}(v); result != nil {
+			return *result, nil
+		}
 	case int32:
-		res = numberTo{{.WrapperName}}(v)
+		if result := numberTo{{.WrapperName}}(v); result != nil {
+			return *result, nil
+		}
 	case int64:
-		res = numberTo{{.WrapperName}}(v)
+		if result := numberTo{{.WrapperName}}(v); result != nil {
+			return *result, nil
+		}
 	case uint:
-		res = numberTo{{.WrapperName}}(v)
+		if result := numberTo{{.WrapperName}}(v); result != nil {
+			return *result, nil
+		}
 	case uint8:
-		res = numberTo{{.WrapperName}}(v)
+		if result := numberTo{{.WrapperName}}(v); result != nil {
+			return *result, nil
+		}
 	case uint16:
-		res = numberTo{{.WrapperName}}(v)
+		if result := numberTo{{.WrapperName}}(v); result != nil {
+			return *result, nil
+		}
 	case uint32:
-		res = numberTo{{.WrapperName}}(v)
+		if result := numberTo{{.WrapperName}}(v); result != nil {
+			return *result, nil
+		}
 	case uint64:
-		res = numberTo{{.WrapperName}}(v)
+		if result := numberTo{{.WrapperName}}(v); result != nil {
+			return *result, nil
+		}
 	case float32:
-		res = numberTo{{.WrapperName}}(v)
+		if result := numberTo{{.WrapperName}}(v); result != nil {
+			return *result, nil
+		}
 	case float64:
-		res = numberTo{{.WrapperName}}(v)
+		if result := numberTo{{.WrapperName}}(v); result != nil {
+			return *result, nil
+		}
 	default:
-		return res, fmt.Errorf("invalid type %T", input)
+		return invalid{{.WrapperName}}, fmt.Errorf("invalid type %T", input)
 	}
 	{{- if .FailFast}}
-	if res == invalid{{.WrapperName}} {
-	  return res, fmt.Errorf("invalid value %v", input)
-	}
+	return invalid{{.WrapperName}}, fmt.Errorf("invalid value %v", input)
+	{{- else}}
+	return invalid{{.WrapperName}}, nil
 	{{- end}}
-	return res, nil
 }
 `
 	parseFunctionTemplate = template.Must(template.New("parseFunction").Parse(parseFunctionStr))
@@ -924,21 +1049,21 @@ var (
 // It is used to convert string representations of enum values into their {{.WrapperName}} representation.
 var {{.EnumNameMap}} = map[string]{{.WrapperName}}{
 {{- range .Enums }}
-  {{- $enum := . }}
-  {{- range .Aliases }}
+    {{- $enum := . }}
+    {{- range .Aliases }}
     "{{ . }}": {{ $.EnumType }}.{{ $enum.EnumNameIdentifier }},
-  {{- end }}
+    {{- end }}
 {{- end }}
 }
 
 // stringTo{{.WrapperName}} converts a string representation of an enum value into its {{.WrapperName}} representation
-// It returns the {{.WrapperName}} representation of the enum value if the string is valid
-// Otherwise, it returns invalid{{.WrapperName}}
-func stringTo{{.WrapperName}}(s string) {{.WrapperName}} {
-  if t, ok := {{.EnumNameMap}}[s]; ok {
-    return t
-  }
-  return invalid{{.WrapperName}}
+// It returns a pointer to the {{.WrapperName}} representation of the enum value if the string is valid
+// Otherwise, it returns nil
+func stringTo{{.WrapperName}}(s string) *{{.WrapperName}} {
+    if t, ok := {{.EnumNameMap}}[s]; ok {
+        return &t
+    }
+    return nil
 }
 `
 	parseStringFunctionTemplate = template.Must(template.New("parseStringFunction").Parse(parseStringFunctionStr))
@@ -949,7 +1074,7 @@ func (g *Writer) writeStringParsingMethod(rep enum.GenerationRequest) {
 		WrapperName:     wrapperName(rep.EnumIota.Type),
 		EnumNameMap:     enumNameMap(rep.EnumIota.Type),
 		EnumType:        enumType(rep),
-		Enums:           enumDefinitions(rep),
+		Enums:           allEnumDefinitions(rep),
 		CaseInsensitive: rep.Configuration.Insensitive,
 	})
 }
@@ -960,39 +1085,40 @@ type parseNumberFunctionData struct {
 	EnumType      string
 	StartIndex    int
 	HasStartIndex bool
+	ArrayOffset   string
 }
 
 var (
 	parseIntegerGenericFunctionTemplate = template.Must(template.New("parseIntegerGenericFunction").Parse(`
 
 // numberTo{{.WrapperName}} converts a numeric value to a {{.WrapperName}}
-// It returns the {{.WrapperName}} representation of the enum value if the numeric value is valid
-// Otherwise, it returns invalid{{.WrapperName}}
+// It returns a pointer to the {{.WrapperName}} representation of the enum value if the numeric value is valid
+// Otherwise, it returns nil
 {{- if .Constraints }}
-	func numberTo{{.WrapperName}}[T number](num T) {{.WrapperName}} {
+func numberTo{{.WrapperName}}[T number](num T) *{{.WrapperName}} {
 {{- else }}
-func numberTo{{.WrapperName}}[T constraints.Integer | constraints.Float](num T) {{.WrapperName}} {
+func numberTo{{.WrapperName}}[T constraints.Integer | constraints.Float](num T) *{{.WrapperName}} {
 {{- end }}
-	f := float64(num)
+    f := float64(num)
     if math.Floor(f) != f {
-        return invalid{{.WrapperName}}
+        return nil
     }
-	i := int(f)
-	if i <= 0 || i > len({{.EnumType}}.allSlice()) {
-		return invalid{{.WrapperName}}
-	}
-	{{- if .StartIndex }}
-	return {{.EnumType}}.allSlice()[i-{{.StartIndex}}]
-	{{- else }}
-	return {{.EnumType}}.allSlice()[i]
-	{{- end }}
+    i := int(f)
+    if i <= 0 || i > len({{.EnumType}}.allSlice()) {
+        return nil
+    }
+    result := {{.EnumType}}.allSlice()[i-1]
+    if !result.IsValid() {
+        return nil
+    }
+    return &result
 }
 
 `))
 )
 
 func enumNameMap(enumType string) string {
-	return strings.Pluralise(enumType) + "NameMap"
+	return fmt.Sprintf("%sNameMap", strings.Pluralise(enumType))
 }
 
 var (
@@ -1000,9 +1126,9 @@ var (
 // Exhaustive{{ .EnumType }} iterates over all enum values and calls the provided function for each value.
 // This function is useful for performing operations on all valid enum values in a loop.
 func Exhaustive{{ .EnumType }}(f func({{ .WrapperName }})) {
-	for _, p := range {{ .EnumType }}.allSlice() {
-		f(p)
-	}
+    for _, p := range {{ .EnumType }}.allSlice() {
+        f(p)
+    }
 }
 `
 	exhaustiveTemplate = template.Must(template.New("exhaustive").Parse(exhaustiveStr))
@@ -1015,7 +1141,7 @@ type exhaustiveFunctionData struct {
 }
 
 func (g *Writer) writeExhaustiveFunction(rep enum.GenerationRequest) {
-	edefs := enumDefinitions(rep)
+	edefs := validEnumDefinitions(rep)
 	exhaustiveData := exhaustiveFunctionData{
 		WrapperName: wrapperName(rep.EnumIota.Type),
 		EnumType:    enumType(rep),

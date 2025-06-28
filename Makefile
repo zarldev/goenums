@@ -1,5 +1,5 @@
 # Build variables
-VERSION := v0.4.0
+VERSION := v0.4.1
 BUILD_TIME := $(shell date +%Y%m%d-%H:%M:%S)
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 GIT_DIRTY := $(shell if [ -n "$$(git status --porcelain)" ]; then echo "-dirty"; fi)
@@ -156,8 +156,10 @@ uninstall:
 
 test:
 	@echo "🧪 Running tests..."
-	go test -v ./...
+	@go test -v ./...
 	@echo "✅ Tests completed"
+	@cd internal/testdata && go test -v $(shell cd internal/testdata && go list ./... | grep -v notgocode)
+	@echo "✅ Testdata Tests completed"
 
 test-coverage:
 	@echo "📊 Running tests with coverage..."
@@ -231,6 +233,7 @@ generate:
 clean:
 	@echo "🧹 Cleaning build artifacts..."
 	rm -rf bin/
+	@go clean -testcache
 	@echo "✅ Clean completed"
 
 version: logo

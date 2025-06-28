@@ -117,7 +117,7 @@ func detectCase(src string) func(string) string {
 			if len(s) == 0 {
 				return s
 			}
-			return strings.ToUpper(string(s[0])) + strings.ToLower(s[1:])
+			return fmt.Sprintf("%s%s", strings.ToUpper(string(s[0])), strings.ToLower(s[1:]))
 		}
 	}
 	isUpper := make([]bool, len(src))
@@ -129,7 +129,7 @@ func detectCase(src string) func(string) string {
 	return func(s string) string {
 		for i, r := range s {
 			if i < len(isUpper) && isUpper[i] {
-				s = s[:i] + strings.ToUpper(string(r)) + s[i+1:]
+				s = fmt.Sprintf("%s%s%s", s[:i], strings.ToUpper(string(r)), s[i+1:])
 			}
 		}
 		return s
