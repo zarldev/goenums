@@ -50,6 +50,9 @@ type planetsContainer struct {
 // It it a container for all enum values and provides a convenient way to access all enum values and perform
 // operations, with convenience methods for common use cases.
 var Planets = planetsContainer{
+	UNKNOWN: Planet{
+		planet: unknown,
+	},
 	MERCURY: Planet{
 		planet:              mercury,
 		Gravity:             0.378,
@@ -251,6 +254,7 @@ func ParsePlanet(input any) (Planet, error) {
 // planetsNameMap is a map of enum values to their Planet representation
 // It is used to convert string representations of enum values into their Planet representation.
 var planetsNameMap = map[string]Planet{
+	"unknown": Planets.UNKNOWN,
 	"Mercury": Planets.MERCURY,
 	"Venus":   Planets.VENUS,
 	"Earth":   Planets.EARTH,
@@ -300,6 +304,7 @@ func ExhaustivePlanets(f func(Planet)) {
 
 // validPlanets is a map of enum values to their validity
 var validPlanets = map[Planet]bool{
+	Planets.UNKNOWN: false,
 	Planets.MERCURY: true,
 	Planets.VENUS:   true,
 	Planets.EARTH:   true,
@@ -408,19 +413,20 @@ func (p *Planet) UnmarshalYAML(b []byte) error {
 }
 
 // planetNames is a constant string slice containing all enum values cononical absolute names
-const planetNames = "MercuryVenusEarthMarsJupiterSaturnUranusNeptune"
+const planetNames = "unknownMercuryVenusEarthMarsJupiterSaturnUranusNeptune"
 
 // planetNamesMap is a map of enum values to their canonical absolute
 // name positions within the planetNames string slice
 var planetNamesMap = map[Planet]string{
-	Planets.MERCURY: planetNames[0:7],
-	Planets.VENUS:   planetNames[7:12],
-	Planets.EARTH:   planetNames[12:17],
-	Planets.MARS:    planetNames[17:21],
-	Planets.JUPITER: planetNames[21:28],
-	Planets.SATURN:  planetNames[28:34],
-	Planets.URANUS:  planetNames[34:40],
-	Planets.NEPTUNE: planetNames[40:47],
+	Planets.UNKNOWN: planetNames[0:7],
+	Planets.MERCURY: planetNames[7:14],
+	Planets.VENUS:   planetNames[14:19],
+	Planets.EARTH:   planetNames[19:24],
+	Planets.MARS:    planetNames[24:28],
+	Planets.JUPITER: planetNames[28:35],
+	Planets.SATURN:  planetNames[35:41],
+	Planets.URANUS:  planetNames[41:47],
+	Planets.NEPTUNE: planetNames[47:54],
 }
 
 // String implements the Stringer interface.
