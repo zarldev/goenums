@@ -33,7 +33,7 @@ You should see the `goenums` logo and current version displayed:
 /____/
 
     https://zarldev.github.io/goenums 
-       version :: v0.4.0
+       version :: v0.4.3
        build   :: 20250528-00:39:58
        commit  :: 1b2f884-dirty
 ```
