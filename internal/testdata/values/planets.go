@@ -1,7 +1,7 @@
 package solarsystemsimple
 
 type planet int // Gravity float64
-//go:generate goenums planets.go
+//go:generate goenums -f planets.go
 
 const (
 	unknown planet = iota // invalid

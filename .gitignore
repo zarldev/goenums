@@ -5,3 +5,7 @@
 
 coverage.*
 cover.*
+
+.claude
+
+CLAUDE.md

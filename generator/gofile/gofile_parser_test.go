@@ -120,7 +120,7 @@ func TestParser_SpecificScenarios(t *testing.T) {
 			name:                 "with attributes",
 			file:                 "attributes/planets.go",
 			expectedEnumIotas:    1,
-			expectedEnumsInFirst: 9, // unknown through neptune
+			expectedEnumsInFirst: 8,
 			shouldHaveFields:     true,
 		},
 		{

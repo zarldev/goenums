@@ -117,7 +117,7 @@ func detectCase(src string) func(string) string {
 			if len(s) == 0 {
 				return s
 			}
-			return strings.ToUpper(string(s[0])) + strings.ToLower(s[1:])
+			return fmt.Sprintf("%s%s", strings.ToUpper(string(s[0])), strings.ToLower(s[1:]))
 		}
 	}
 	isUpper := make([]bool, len(src))
@@ -129,7 +129,7 @@ func detectCase(src string) func(string) string {
 	return func(s string) string {
 		for i, r := range s {
 			if i < len(isUpper) && isUpper[i] {
-				s = s[:i] + strings.ToUpper(string(r)) + s[i+1:]
+				s = fmt.Sprintf("%s%s%s", s[:i], strings.ToUpper(string(r)), s[i+1:])
 			}
 		}
 		return s
@@ -670,12 +670,35 @@ func Ify(v any) string {
 		mins := v.Minutes()
 		secs := v.Seconds()
 		var b strings.Builder
-		if hrs != 0 {
+		
+		// No need to handle negative durations specially - 
+		// the Hours(), Minutes(), Seconds() methods already return signed values
+		
+		// Check if it's a whole number of hours and >= 1 hour (absolute value)
+		if math.Abs(hrs) >= 1 && hrs == math.Trunc(hrs) {
+			b.WriteString("time.Hour * ")
+			b.WriteString(strconv.FormatFloat(float64(hrs), 'f', 0, 64))
+			return b.String()
+		}
+		// Check if it's a whole number of minutes and >= 1 minute (absolute value)
+		if math.Abs(mins) >= 1 && mins == math.Trunc(mins) {
+			b.WriteString("time.Minute * ")
+			b.WriteString(strconv.FormatFloat(float64(mins), 'f', 0, 64))
+			return b.String()
+		}
+		// Check if it's a whole number of seconds and >= 1 second (absolute value)
+		if math.Abs(secs) >= 1 && secs == math.Trunc(secs) {
+			b.WriteString("time.Second * ")
+			b.WriteString(strconv.FormatFloat(float64(secs), 'f', 0, 64))
+			return b.String()
+		}
+		// For fractional values, prefer the most natural unit
+		if math.Abs(hrs) >= 1 {
 			b.WriteString("time.Hour * ")
 			b.WriteString(strconv.FormatFloat(float64(hrs), 'f', -1, 64))
 			return b.String()
 		}
-		if mins != 0 {
+		if math.Abs(mins) >= 1 {
 			b.WriteString("time.Minute * ")
 			b.WriteString(strconv.FormatFloat(float64(mins), 'f', -1, 64))
 			return b.String()

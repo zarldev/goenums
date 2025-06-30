@@ -561,14 +561,14 @@ func TestIfyTime(t *testing.T) {
 			contains: "time.Hour",
 		},
 		{
-			name:     "minutes converted to hours",
+			name:     "minutes remain as minutes",
 			input:    30 * time.Minute,
-			contains: "time.Hour", // 30 minutes = 0.5 hours
+			contains: "time.Minute", // 30 minutes stays as minutes (more readable)
 		},
 		{
-			name:     "seconds converted to hours",
+			name:     "seconds remain as seconds", 
 			input:    45 * time.Second,
-			contains: "time.Hour", // 45 seconds = 0.0125 hours
+			contains: "time.Second", // 45 seconds stays as seconds (more readable)
 		},
 	}
 

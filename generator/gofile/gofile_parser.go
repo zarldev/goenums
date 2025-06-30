@@ -181,27 +181,69 @@ func (p *Parser) getPackageName(node *ast.File) string {
 
 func (p *Parser) getEnums(node *ast.File, enumIota *enum.EnumIota) []enum.Enum {
 	var enums []enum.Enum
-	iotaFound := false
+	enumsFound := false
 	for _, decl := range node.Decls {
 		t, ok := decl.(*ast.GenDecl)
-		if !ok {
+		if !ok || t.Tok != token.CONST {
 			continue
 		}
-		idx := 0
+		// Check if this const block contains iota with the target type
+		blockHasIota := false
+		blockHasTargetType := false
+		
+		// First pass: check if this const block has both iota and the target type
 		for _, spec := range t.Specs {
 			vs, ok := spec.(*ast.ValueSpec)
 			if !ok {
 				continue
 			}
-			e := p.getEnum(vs, &idx, enumIota, &iotaFound)
+			
+			// Check for iota in values
+			if vs.Values != nil {
+				for _, v := range vs.Values {
+					if ident, ok := v.(*ast.Ident); ok && ident.Name == iotaIdentifier {
+						blockHasIota = true
+					}
+					// Also check for iota in binary expressions
+					if binExpr, ok := v.(*ast.BinaryExpr); ok {
+						if x, ok := binExpr.X.(*ast.Ident); ok && x.Name == iotaIdentifier {
+							blockHasIota = true
+						}
+					}
+				}
+			}
+			
+			// Check if this spec has the target type
+			if vs.Type != nil {
+				if typeIdent, ok := vs.Type.(*ast.Ident); ok && typeIdent.Name == enumIota.Type {
+					blockHasTargetType = true
+				}
+			}
+		}
+		
+		// Only process this const block if it has both iota and the target type
+		if !blockHasIota || !blockHasTargetType {
+			continue
+		}
+		
+		// Second pass: collect enums from this const block
+		idx := 0
+		constBlockIotaFound := false
+		for _, spec := range t.Specs {
+			vs, ok := spec.(*ast.ValueSpec)
+			if !ok {
+				continue
+			}
+			e := p.getEnum(vs, &idx, enumIota, &constBlockIotaFound)
 			if e == nil {
 				continue
 			}
 			enums = append(enums, *e)
+			enumsFound = true
 			slog.Default().Debug("enum", "enum", e)
 		}
 	}
-	if !iotaFound {
+	if !enumsFound {
 		return nil
 	}
 	return enums
@@ -238,7 +280,8 @@ func (p *Parser) getEnum(vs *ast.ValueSpec, idx *int, enumIota *enum.EnumIota, i
 		return nil
 	}
 	en := enum.Enum{
-		Name: vs.Names[0].Name,
+		Name:  vs.Names[0].Name,
+		Valid: true, // enums are valid by default unless marked as invalid
 	}
 	for _, v := range vs.Values {
 		t, ok := v.(*ast.BinaryExpr)
@@ -265,10 +308,26 @@ func (p *Parser) getEnum(vs *ast.ValueSpec, idx *int, enumIota *enum.EnumIota, i
 		if err != nil {
 			return nil
 		}
-		*idx = val
-		enumIota.StartIndex = *idx
+		// Calculate the actual starting value based on the operation
+		switch t.Op {
+		case token.ADD:
+			enumIota.StartIndex = 0 + val // iota + val, where iota starts at 0
+		case token.SUB:
+			enumIota.StartIndex = 0 - val // iota - val, where iota starts at 0
+		case token.MUL:
+			enumIota.StartIndex = 0 * val // iota * val, where iota starts at 0
+		case token.QUO:
+			if val != 0 {
+				enumIota.StartIndex = 0 / val // iota / val, where iota starts at 0
+			} else {
+				enumIota.StartIndex = 0
+			}
+		default:
+			enumIota.StartIndex = val // fallback to original behavior
+		}
 	}
-	en.Index = *idx
+	en.Index = *idx                       // 0-based position in enum sequence
+	en.Value = enumIota.StartIndex + *idx // actual constant value
 	*idx++
 	// get comment if exists and set descriptio
 	if vs.Comment != nil && len(vs.Comment.List) > 0 {
@@ -285,10 +344,16 @@ func (p *Parser) getEnum(vs *ast.ValueSpec, idx *int, enumIota *enum.EnumIota, i
 		en.Valid = valid
 		s1, s2 := strings.SplitBySpace(strings.TrimLeft(comment, " "))
 		expectedFields := len(enumIota.Fields)
+
 		if s1 == "" && s2 == "" {
 			return &en
 		}
-		if s1 != "" && s2 == "" {
+
+		if s1 == "" {
+			return &en
+		}
+
+		if s2 == "" {
 			if expectedFields > 0 {
 				f, err := enum.ParseEnumFields(s1, *enumIota)
 				if err != nil {
@@ -303,15 +368,15 @@ func (p *Parser) getEnum(vs *ast.ValueSpec, idx *int, enumIota *enum.EnumIota, i
 			en.Aliases = enum.ParseEnumAliases(s1)
 			return &en
 		}
-		if s1 != "" && s2 != "" {
-			en.Aliases = enum.ParseEnumAliases(s1)
-			f, err := enum.ParseEnumFields(s2, *enumIota)
-			if err != nil {
-				return nil
-			}
-			en.Fields = f
-			return &en
+
+		// Both s1 and s2 are not empty
+		en.Aliases = enum.ParseEnumAliases(s1)
+		f, err := enum.ParseEnumFields(s2, *enumIota)
+		if err != nil {
+			return nil
 		}
+		en.Fields = f
+		return &en
 	}
 	return &en
 }

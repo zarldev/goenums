@@ -2,7 +2,7 @@ package skipvalues
 
 type version int
 
-//go:generate goenums skipvalues.go
+//go:generate goenums -f skipvalues.go
 const (
 	V1 version = iota + 1
 	_
