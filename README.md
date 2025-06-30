@@ -101,15 +101,17 @@ When the Alternative name does not contain spaces there is no need
 to add the double quotes.
 
 ```go
-type ticketStatus int
+type status int
 
-//go:generate goenums status.go
+//go:generate goenums -f -c status.go
 const (
-    unknown   ticketStatus = iota // invalid Unknown
-    pending                       // Pending
-    approved                      // Approved
-    rejected                      // Rejected
-    completed                     // Completed
+    unknown   status = iota // invalid UNKNOWN
+    failed                  // FAILED
+    passed                  // PASSED
+    skipped                 // SKIPPED
+    scheduled               // SCHEDULED
+    running                 // RUNNING
+    booked                  // BOOKED
 )
 ```
 
@@ -142,15 +144,18 @@ Add custom fields to your enums with type comments:
 // 2. Brackets: "Field[Type],AnotherField[Type]"
 // 3. Parentheses: "Field(Type),AnotherField(Type)"
 
-type planet int // Gravity float64,RadiusKm float64,MassKg float64,OrbitKm float64
+type planet int // Gravity float64,RadiusKm float64,MassKg float64,OrbitKm float64,OrbitDays float64,SurfacePressureBars float64,Moons int,Rings bool
 
 //go:generate goenums planets.go
 const (
-    unknown planet = iota // invalid
-    mercury               // Mercury 0.378,2439.7,3.3e23,57910000
-    venus                 // Venus 0.907,6051.8,4.87e24,108200000
-    earth                 // Earth 1,6378.1,5.97e24,149600000
-	... 
+	mercury planet = iota // Mercury 0.378,2439.7,3.3e23,57910000,88,0.0000000001,0,false
+	venus                     // Venus 0.907,6051.8,4.87e24,108200000,225,92,0,false
+	earth                     // Earth 1,6378.1,5.97e24,149600000,365,1,1,false
+	mars                      // Mars 0.377,3389.5,6.42e23,227900000,687,0.01,2,false
+	jupiter                   // Jupiter 2.36,69911,1.90e27,778600000,4333,20,4,true
+	saturn                    // Saturn 0.916,58232,5.68e26,1433500000,10759,1,7,true
+	uranus                    // Uranus 0.889,25362,8.68e25,2872500000,30687,1.3,13,true
+	neptune                   // Neptune 1.12,24622,1.02e26,4495100000,60190,1.5,2,true
 )
 ```
 Then we can use the extended enum type:
@@ -169,16 +174,16 @@ Use the -i flag to enable case insensitive string parsing:
 //go:generate goenums -i status.go
 
 // Generated code will parse case insensitive strings. All
-// of the below will validate and produce the 'Pending' enum
-status, err := validation.ParseStatus("Pending")
+// of the below will validate and produce the 'PASSED' enum
+status, err := validation.ParseStatus("PASSED")
 if err != nil {
     fmt.Println("error:", err)
 }
-status, err := validation.ParseStatus("pending")
+status, err := validation.ParseStatus("passed")
 if err != nil {
     fmt.Println("error:", err)
 }
-status, err := validation.ParseStatus("PENDING")
+status, err := validation.ParseStatus("Passed")
 if err != nil {
     fmt.Println("error:", err)
 }
@@ -337,14 +342,24 @@ for _, status := range validation.Statuses.All() {
 ```
 
 ## Failfast Mode / Strict Mode
-You can enable failfast mode by using the `-failfast` flag. This will cause the generator to fail on the first invalid enum it encounters while parsing.
+You can enable failfast mode by using the `-failfast` flag. This will cause the generator to fail on the first invalid enum it encounters while parsing. In failfast mode, the generated code includes a specific error variable and wrapped error returns:
+
 ```go
 //go:generate goenums -f status.go
 
-// Generated code will return errors for invalid values
+// Generated code includes a specific error variable:
+var ErrParseStatus = errors.New("invalid input provided to parse to Status")
+
+// And returns wrapped errors for invalid values:
 status, err := validation.ParseStatus("INVALID_STATUS")
 if err != nil {
+    // err will be: invalid input provided to parse to Status: invalid value INVALID_STATUS
     fmt.Println("error:", err)
+    
+    // You can check for the specific error type:
+    if errors.Is(err, validation.ErrParseStatus) {
+        fmt.Println("This is a Status parsing error")
+    }
 }
 ```
 
@@ -387,7 +402,7 @@ func _() {
     // Re-run the goenums command to generate them again.
     // Does not identify newly added constant values unless order changes
     var x [7]struct{}
-    _ = x[unknown-0]
+    _ = x[unknown]
     _ = x[failed-1]
     _ = x[passed-2]
     _ = x[skipped-3]
@@ -412,15 +427,15 @@ package validation
 
 type status int
 
-//go:generate goenums status.go
+//go:generate goenums -f -c status.go
 const (
-	unknown status = iota // invalid
-	failed
-	passed
-	skipped
-	scheduled
-	running
-	booked
+	unknown status = iota // invalid UNKNOWN
+	failed                // FAILED
+	passed                // PASSED
+	skipped               // SKIPPED
+	scheduled             // SCHEDULED
+	running               // RUNNING
+	booked                // BOOKED
 )
 ```
 2. Run `go generate ./...` to generate the enum implementations.
@@ -464,8 +479,7 @@ type planet int // Gravity float64,RadiusKm float64,MassKg float64,OrbitKm float
 
 //go:generate goenums planets.go
 const (
-	unknown planet = iota // invalid
-	mercury               // Mercury 0.378,2439.7,3.3e23,57910000,88,0.0000000001,0,false
+	mercury planet = iota // Mercury 0.378,2439.7,3.3e23,57910000,88,0.0000000001,0,false
 	venus                 // Venus 0.907,6051.8,4.87e24,108200000,225,92,0,false
 	earth                 // Earth 1,6378.1,5.97e24,149600000,365,1,1,false
 	mars                  // Mars 0.377,3389.5,6.42e23,227900000,687,0.01,2,false
@@ -479,19 +493,20 @@ const (
 Produces a go output file called `planets_enums.go` with the following content:
 
 ```go
-// code generated by goenums 'v0.4.0' at Jun  2 00:22:41. DO NOT EDIT.
+// DO NOT EDIT.
+// code generated by goenums 'v0.4.2' at Jun 30 00:49:56.
 //
 // github.com/zarldev/goenums
 //
 // using the command:
-// goenums  planets.go
+// goenums -f planets.go
 
 package solarsystem
 
 import (
 	"bytes"
-	"context"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"iter"
 	"math"
@@ -516,7 +531,6 @@ type Planet struct {
 // planetsContainer is the container for all enum values.
 // It is private and should not be used directly use the public methods on the Planet type.
 type planetsContainer struct {
-	UNKNOWN Planet
 	MERCURY Planet
 	VENUS   Planet
 	EARTH   Planet
@@ -621,9 +635,6 @@ var Planets = planetsContainer{
 	},
 }
 
-// invalidPlanet is an invalid sentinel value for Planet
-var invalidPlanet = Planet{}
-
 // allSlice returns a slice of all enum values.
 // This method is useful for iterating over all enum values in a loop.
 func (p planetsContainer) allSlice() []Planet {
@@ -651,49 +662,80 @@ func (p planetsContainer) All() iter.Seq[Planet] {
 	}
 }
 
+var ErrParsePlanet = errors.New("invalid input provided to parse to Planet")
+
 // ParsePlanet parses the input value into an enum value.
 // It returns the parsed enum value or an error if the input is invalid.
 // It is a convenience function that can be used to parse enum values from
 // various input types, such as strings, byte slices, or other enum types.
 func ParsePlanet(input any) (Planet, error) {
-	var res = invalidPlanet
 	switch v := input.(type) {
 	case Planet:
 		return v, nil
 	case string:
-		res = stringToPlanet(v)
+		if result := stringToPlanet(v); result != nil {
+			return *result, nil
+		}
 	case fmt.Stringer:
-		res = stringToPlanet(v.String())
+		if result := stringToPlanet(v.String()); result != nil {
+			return *result, nil
+		}
 	case []byte:
-		res = stringToPlanet(string(v))
+		if result := stringToPlanet(string(v)); result != nil {
+			return *result, nil
+		}
 	case int:
-		res = numberToPlanet(v)
+		if result := numberToPlanet(v); result != nil {
+			return *result, nil
+		}
 	case int8:
-		res = numberToPlanet(v)
+		if result := numberToPlanet(v); result != nil {
+			return *result, nil
+		}
 	case int16:
-		res = numberToPlanet(v)
+		if result := numberToPlanet(v); result != nil {
+			return *result, nil
+		}
 	case int32:
-		res = numberToPlanet(v)
+		if result := numberToPlanet(v); result != nil {
+			return *result, nil
+		}
 	case int64:
-		res = numberToPlanet(v)
+		if result := numberToPlanet(v); result != nil {
+			return *result, nil
+		}
 	case uint:
-		res = numberToPlanet(v)
+		if result := numberToPlanet(v); result != nil {
+			return *result, nil
+		}
 	case uint8:
-		res = numberToPlanet(v)
+		if result := numberToPlanet(v); result != nil {
+			return *result, nil
+		}
 	case uint16:
-		res = numberToPlanet(v)
+		if result := numberToPlanet(v); result != nil {
+			return *result, nil
+		}
 	case uint32:
-		res = numberToPlanet(v)
+		if result := numberToPlanet(v); result != nil {
+			return *result, nil
+		}
 	case uint64:
-		res = numberToPlanet(v)
+		if result := numberToPlanet(v); result != nil {
+			return *result, nil
+		}
 	case float32:
-		res = numberToPlanet(v)
+		if result := numberToPlanet(v); result != nil {
+			return *result, nil
+		}
 	case float64:
-		res = numberToPlanet(v)
+		if result := numberToPlanet(v); result != nil {
+			return *result, nil
+		}
 	default:
-		return res, fmt.Errorf("invalid type %T", input)
+		return invalidPlanet, fmt.Errorf("invalid type %T", input)
 	}
-	return res, nil
+	return invalidPlanet, fmt.Errorf("%w: invalid value %v", ErrParsePlanet, input)
 }
 
 // planetsNameMap is a map of enum values to their Planet representation
@@ -710,28 +752,32 @@ var planetsNameMap = map[string]Planet{
 }
 
 // stringToPlanet converts a string representation of an enum value into its Planet representation
-// It returns the Planet representation of the enum value if the string is valid
-// Otherwise, it returns invalidPlanet
-func stringToPlanet(s string) Planet {
+// It returns a pointer to the Planet representation of the enum value if the string is valid
+// Otherwise, it returns nil
+func stringToPlanet(s string) *Planet {
 	if t, ok := planetsNameMap[s]; ok {
-		return t
+		return &t
 	}
-	return invalidPlanet
+	return nil
 }
 
 // numberToPlanet converts a numeric value to a Planet
-// It returns the Planet representation of the enum value if the numeric value is valid
-// Otherwise, it returns invalidPlanet
-func numberToPlanet[T constraints.Integer | constraints.Float](num T) Planet {
+// It returns a pointer to the Planet representation of the enum value if the numeric value is valid
+// Otherwise, it returns nil
+func numberToPlanet[T constraints.Integer | constraints.Float](num T) *Planet {
 	f := float64(num)
 	if math.Floor(f) != f {
-		return invalidPlanet
+		return nil
 	}
 	i := int(f)
 	if i <= 0 || i > len(Planets.allSlice()) {
-		return invalidPlanet
+		return nil
 	}
-	return Planets.allSlice()[i]
+	result := Planets.allSlice()[i-1]
+	if !result.IsValid() {
+		return nil
+	}
+	return &result
 }
 
 // ExhaustivePlanets iterates over all enum values and calls the provided function for each value.
@@ -885,7 +931,6 @@ func _() {
 	// Re-run the goenums command to generate them again.
 	// Does not identify newly added constant values unless order changes
 	var x [9]struct{}
-	_ = x[unknown-0]
 	_ = x[mercury-1]
 	_ = x[venus-2]
 	_ = x[earth-3]
