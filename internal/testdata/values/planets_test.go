@@ -41,10 +41,10 @@ func TestPlanetsStringParsing(t *testing.T) {
 		{"Saturn", solarsystemsimple.Planets.SATURN, false},
 		{"Uranus", solarsystemsimple.Planets.URANUS, false},
 		{"Neptune", solarsystemsimple.Planets.NEPTUNE, false},
-		
+
 		// Invalid planet should also parse (but will be marked as invalid)
 		{"unknown", solarsystemsimple.Planets.UNKNOWN, false},
-		
+
 		// Non-existent should fail
 		{"InvalidPlanet", solarsystemsimple.Planet{}, true},
 	}
@@ -75,7 +75,7 @@ func TestPlanetsValidity(t *testing.T) {
 		solarsystemsimple.Planets.MERCURY, solarsystemsimple.Planets.VENUS, solarsystemsimple.Planets.EARTH, solarsystemsimple.Planets.MARS,
 		solarsystemsimple.Planets.JUPITER, solarsystemsimple.Planets.SATURN, solarsystemsimple.Planets.URANUS, solarsystemsimple.Planets.NEPTUNE,
 	}
-	
+
 	for _, planet := range validPlanets {
 		if !planet.IsValid() {
 			t.Errorf("Planet %v should be valid", planet)

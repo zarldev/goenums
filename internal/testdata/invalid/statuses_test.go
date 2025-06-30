@@ -27,7 +27,7 @@ func TestStatusIteration(t *testing.T) {
 
 	// Verify expected valid statuses are present
 	expected := []validation.Status{
-		validation.Statuses.PASSED, validation.Statuses.SKIPPED, validation.Statuses.SCHEDULED, 
+		validation.Statuses.PASSED, validation.Statuses.SKIPPED, validation.Statuses.SCHEDULED,
 		validation.Statuses.RUNNING, validation.Statuses.BOOKED,
 	}
 	for i, status := range collected {
@@ -49,10 +49,10 @@ func TestStatusStringParsing(t *testing.T) {
 		{"scheduled", validation.Statuses.SCHEDULED, false},
 		{"running", validation.Statuses.RUNNING, false},
 		{"booked", validation.Statuses.BOOKED, false},
-		
+
 		// Failed status should also parse (but will be marked as invalid)
 		{"failed", validation.Statuses.FAILED, false},
-		
+
 		// Non-existent should fail
 		{"NonExistent", validation.Status{}, true},
 	}
@@ -78,7 +78,7 @@ func TestStatusValidity(t *testing.T) {
 		validation.Statuses.PASSED, validation.Statuses.SKIPPED, validation.Statuses.SCHEDULED,
 		validation.Statuses.RUNNING, validation.Statuses.BOOKED,
 	}
-	
+
 	for _, status := range validStatuses {
 		if !status.IsValid() {
 			t.Errorf("Status %v should be valid", status)

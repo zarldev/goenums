@@ -38,10 +38,10 @@ func TestStatusAliasStringParsing(t *testing.T) {
 		{"SCHEDULED", validationstrings.Statuses.SCHEDULED, false},
 		{"RUNNING", validationstrings.Statuses.RUNNING, false},
 		{"BOOKED", validationstrings.Statuses.BOOKED, false},
-		
+
 		// Failed status should also parse
 		{"FAILED", validationstrings.Statuses.FAILED, false},
-		
+
 		// Non-existent should fail
 		{"NonExistent", validationstrings.Status{}, true},
 	}
@@ -67,7 +67,7 @@ func TestStatusAliasValidity(t *testing.T) {
 		validationstrings.Statuses.PASSED, validationstrings.Statuses.SKIPPED, validationstrings.Statuses.SCHEDULED,
 		validationstrings.Statuses.RUNNING, validationstrings.Statuses.BOOKED,
 	}
-	
+
 	for _, status := range validStatuses {
 		if !status.IsValid() {
 			t.Errorf("Status %v should be valid", status)

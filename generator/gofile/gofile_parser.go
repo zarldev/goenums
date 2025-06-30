@@ -190,14 +190,14 @@ func (p *Parser) getEnums(node *ast.File, enumIota *enum.EnumIota) []enum.Enum {
 		// Check if this const block contains iota with the target type
 		blockHasIota := false
 		blockHasTargetType := false
-		
+
 		// First pass: check if this const block has both iota and the target type
 		for _, spec := range t.Specs {
 			vs, ok := spec.(*ast.ValueSpec)
 			if !ok {
 				continue
 			}
-			
+
 			// Check for iota in values
 			if vs.Values != nil {
 				for _, v := range vs.Values {
@@ -212,7 +212,7 @@ func (p *Parser) getEnums(node *ast.File, enumIota *enum.EnumIota) []enum.Enum {
 					}
 				}
 			}
-			
+
 			// Check if this spec has the target type
 			if vs.Type != nil {
 				if typeIdent, ok := vs.Type.(*ast.Ident); ok && typeIdent.Name == enumIota.Type {
@@ -220,12 +220,12 @@ func (p *Parser) getEnums(node *ast.File, enumIota *enum.EnumIota) []enum.Enum {
 				}
 			}
 		}
-		
+
 		// Only process this const block if it has both iota and the target type
 		if !blockHasIota || !blockHasTargetType {
 			continue
 		}
-		
+
 		// Second pass: collect enums from this const block
 		idx := 0
 		constBlockIotaFound := false

@@ -43,10 +43,10 @@ func TestAlgorithmsStringParsing(t *testing.T) {
 		// Valid algorithms should parse successfully
 		{"AES256", crypto.Algorithms.AES256, false},
 		{"ChaCha20", crypto.Algorithms.CHACHA20, false},
-		
+
 		// Invalid algorithm should also parse (but will be marked as invalid)
 		{"None", crypto.Algorithms.NONE, false},
-		
+
 		// Non-existent should fail
 		{"InvalidAlgorithm", crypto.Algorithm{}, true},
 	}
@@ -69,7 +69,7 @@ func TestAlgorithmsStringParsing(t *testing.T) {
 func TestAlgorithmsValidity(t *testing.T) {
 	// Valid algorithms should return true
 	validAlgorithms := []crypto.Algorithm{crypto.Algorithms.AES256, crypto.Algorithms.CHACHA20}
-	
+
 	for _, alg := range validAlgorithms {
 		if !alg.IsValid() {
 			t.Errorf("Algorithm %v should be valid", alg)
@@ -108,10 +108,10 @@ func TestAlgorithmsNumericParsing(t *testing.T) {
 		// Numeric parsing based on valid algorithm indices (not enum values)
 		{1, crypto.Algorithms.AES256, false},   // First valid algorithm
 		{2, crypto.Algorithms.CHACHA20, false}, // Second valid algorithm
-		
+
 		// Out of bounds should fail
-		{0, crypto.Algorithm{}, true},  // Invalid index
-		{3, crypto.Algorithm{}, true},  // Out of bounds
+		{0, crypto.Algorithm{}, true}, // Invalid index
+		{3, crypto.Algorithm{}, true}, // Out of bounds
 		{999, crypto.Algorithm{}, true},
 	}
 

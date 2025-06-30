@@ -27,7 +27,7 @@ func TestDiscountTypesIteration(t *testing.T) {
 
 	// Verify expected discount type sequence
 	expected := []sale.DiscountType{
-		sale.DiscountTypes.SALE, sale.DiscountTypes.PERCENTAGE, 
+		sale.DiscountTypes.SALE, sale.DiscountTypes.PERCENTAGE,
 		sale.DiscountTypes.AMOUNT, sale.DiscountTypes.GIVEAWAY,
 	}
 	for i, discountType := range collected {
@@ -48,7 +48,7 @@ func TestDiscountTypesStringParsing(t *testing.T) {
 		{"percentage", sale.DiscountTypes.PERCENTAGE, false},
 		{"amount", sale.DiscountTypes.AMOUNT, false},
 		{"giveaway", sale.DiscountTypes.GIVEAWAY, false},
-		
+
 		// Non-existent should fail
 		{"invalid", sale.DiscountType{}, true},
 	}
@@ -74,7 +74,7 @@ func TestDiscountTypesValidity(t *testing.T) {
 		sale.DiscountTypes.SALE, sale.DiscountTypes.PERCENTAGE,
 		sale.DiscountTypes.AMOUNT, sale.DiscountTypes.GIVEAWAY,
 	}
-	
+
 	for _, discountType := range validDiscountTypes {
 		if !discountType.IsValid() {
 			t.Errorf("DiscountType %v should be valid", discountType)
