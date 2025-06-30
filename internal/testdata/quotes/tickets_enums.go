@@ -93,6 +93,8 @@ func (t ticketsContainer) allSlice() []Ticket {
 		Tickets.PENDING,
 		Tickets.APPROVAL_PENDING,
 		Tickets.APPROVAL_ACCEPTED,
+		Tickets.REJECTED,
+		Tickets.COMPLETED,
 	}
 }
 
@@ -247,8 +249,8 @@ var validTickets = map[Ticket]bool{
 	Tickets.PENDING:           true,
 	Tickets.APPROVAL_PENDING:  true,
 	Tickets.APPROVAL_ACCEPTED: true,
-	Tickets.REJECTED:          false,
-	Tickets.COMPLETED:         false,
+	Tickets.REJECTED:          true,
+	Tickets.COMPLETED:         true,
 }
 
 // IsValid checks whether the Tickets value is valid.
