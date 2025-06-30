@@ -45,10 +45,10 @@ func TestVersionsStringParsing(t *testing.T) {
 		{"V3", skipvalues.Versions.V3, false},
 		{"V4", skipvalues.Versions.V4, false},
 		{"V7", skipvalues.Versions.V7, false},
-		
+
 		// Skipped versions should also parse (but will be marked as invalid)
 		// Note: V2, V5, V6 don't exist as they were skipped with _
-		
+
 		// Non-existent should fail
 		{"V99", skipvalues.Version{}, true},
 	}
@@ -71,7 +71,7 @@ func TestVersionsStringParsing(t *testing.T) {
 func TestVersionsValidity(t *testing.T) {
 	// Valid versions should return true
 	validVersions := []skipvalues.Version{skipvalues.Versions.V1, skipvalues.Versions.V3, skipvalues.Versions.V4, skipvalues.Versions.V7}
-	
+
 	for _, version := range validVersions {
 		if !version.IsValid() {
 			t.Errorf("Version %v should be valid", version)

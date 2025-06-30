@@ -27,7 +27,7 @@ func TestOrdersIteration(t *testing.T) {
 
 	// Verify expected order sequence
 	expected := []orders.Order{
-		orders.Orders.CREATED, orders.Orders.APPROVED, orders.Orders.PROCESSING, orders.Orders.READYTOSHIP, 
+		orders.Orders.CREATED, orders.Orders.APPROVED, orders.Orders.PROCESSING, orders.Orders.READYTOSHIP,
 		orders.Orders.SHIPPED, orders.Orders.DELIVERED, orders.Orders.CANCELLED,
 	}
 	for i, order := range collected {
@@ -51,7 +51,7 @@ func TestOrdersStringParsing(t *testing.T) {
 		{"SHIPPED", orders.Orders.SHIPPED, false},
 		{"DELIVERED", orders.Orders.DELIVERED, false},
 		{"CANCELLED", orders.Orders.CANCELLED, false},
-		
+
 		// Non-existent should fail
 		{"InvalidOrder", orders.Order{}, true},
 	}
@@ -77,7 +77,7 @@ func TestOrdersValidity(t *testing.T) {
 		orders.Orders.CREATED, orders.Orders.APPROVED, orders.Orders.PROCESSING, orders.Orders.READYTOSHIP,
 		orders.Orders.SHIPPED, orders.Orders.DELIVERED, orders.Orders.CANCELLED,
 	}
-	
+
 	for _, order := range validOrders {
 		if !order.IsValid() {
 			t.Errorf("Order %v should be valid", order)

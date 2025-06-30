@@ -670,10 +670,10 @@ func Ify(v any) string {
 		mins := v.Minutes()
 		secs := v.Seconds()
 		var b strings.Builder
-		
-		// No need to handle negative durations specially - 
+
+		// No need to handle negative durations specially -
 		// the Hours(), Minutes(), Seconds() methods already return signed values
-		
+
 		// Check if it's a whole number of hours and >= 1 hour (absolute value)
 		if math.Abs(hrs) >= 1 && hrs == math.Trunc(hrs) {
 			b.WriteString("time.Hour * ")
