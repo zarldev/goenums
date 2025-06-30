@@ -1,6 +1,6 @@
 package multipleenums
 
-//go:generate goenums multiple.go
+//go:generate goenums -f multiple.go
 
 type order int
 

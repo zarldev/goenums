@@ -1,8 +1,8 @@
 package tickets
 
-type ticket int // comment string, validstate bool
+type ticket int // Comment string, Validstate bool
 
-//go:generate goenums tickets.go
+//go:generate goenums -f tickets.go
 
 const (
 	unknown           ticket = iota // invalid "Not Found","Missing" "Ticket not found",false

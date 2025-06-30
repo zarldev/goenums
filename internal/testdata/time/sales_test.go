@@ -48,7 +48,7 @@ func TestSalesStringParsing(t *testing.T) {
 		{"percentage", sale.Sales.PERCENTAGE, false},
 		{"amount", sale.Sales.AMOUNT, false},
 		{"giveaway", sale.Sales.GIVEAWAY, false},
-		
+
 		// Non-existent should fail
 		{"invalid", sale.Sale{}, true},
 	}
@@ -73,7 +73,7 @@ func TestSalesValidity(t *testing.T) {
 	validSales := []sale.Sale{
 		sale.Sales.SALES, sale.Sales.PERCENTAGE, sale.Sales.AMOUNT, sale.Sales.GIVEAWAY,
 	}
-	
+
 	for _, s := range validSales {
 		if !s.IsValid() {
 			t.Errorf("Sale %v should be valid", s)
@@ -87,10 +87,10 @@ func TestSalesTimeAttributes(t *testing.T) {
 		sale     sale.Sale
 		expected time.Duration
 	}{
-		{sale.Sales.SALES, time.Hour * 168},      // 168 hours
-		{sale.Sales.PERCENTAGE, time.Hour * 24},  // 24 hours  
-		{sale.Sales.AMOUNT, time.Hour * 48},      // 48 hours
-		{sale.Sales.GIVEAWAY, time.Minute * 30},  // 30 minutes
+		{sale.Sales.SALES, time.Hour * 168},     // 168 hours
+		{sale.Sales.PERCENTAGE, time.Hour * 24}, // 24 hours
+		{sale.Sales.AMOUNT, time.Hour * 48},     // 48 hours
+		{sale.Sales.GIVEAWAY, time.Minute * 30}, // 30 minutes
 	}
 
 	for _, test := range tests {

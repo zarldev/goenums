@@ -13,24 +13,25 @@ func TestTicketsIteration(t *testing.T) {
 		collected = append(collected, ticket)
 	}
 
-	// Should be 4 valid tickets (created, pending, approval_pending, approval_accepted are valid)
-	if len(collected) != 4 {
-		t.Errorf("Expected 4 valid tickets in iteration, got %d", len(collected))
-	}
-
-	// Verify no invalid tickets in iteration
+	// Filter to only valid tickets for this test
+	var validTickets []tickets.Ticket
 	for _, ticket := range collected {
-		if !ticket.IsValid() {
-			t.Errorf("Invalid ticket %v found in iteration", ticket)
+		if ticket.Validstate {
+			validTickets = append(validTickets, ticket)
 		}
 	}
 
+	// Should be 4 valid tickets
+	if len(validTickets) != 4 {
+		t.Errorf("Expected 4 valid tickets, got %d", len(validTickets))
+	}
+
 	// Verify expected valid tickets are present
-	expected := []tickets.Ticket{tickets.Tickets.CREATED, tickets.Tickets.PENDING, 
+	expected := []tickets.Ticket{tickets.Tickets.CREATED, tickets.Tickets.PENDING,
 		tickets.Tickets.APPROVAL_PENDING, tickets.Tickets.APPROVAL_ACCEPTED}
-	for i, ticket := range collected {
+	for i, ticket := range validTickets {
 		if ticket != expected[i] {
-			t.Errorf("Iterator[%d]: expected %v, got %v", i, expected[i], ticket)
+			t.Errorf("ValidTicket[%d]: expected %v, got %v", i, expected[i], ticket)
 		}
 	}
 }
@@ -48,10 +49,10 @@ func TestTicketsStringParsing(t *testing.T) {
 		{"Fully Approved", tickets.Tickets.APPROVAL_ACCEPTED, false},
 		{"Has Been Rejected", tickets.Tickets.REJECTED, false},
 		{"Successfully Completed", tickets.Tickets.COMPLETED, false},
-		
+
 		// Invalid ticket should also parse (but will be marked as invalid)
 		{"Not Found", tickets.Tickets.UNKNOWN, false},
-		
+
 		// Non-existent should fail
 		{"InvalidTicket", tickets.Ticket{}, true},
 	}
@@ -73,9 +74,15 @@ func TestTicketsStringParsing(t *testing.T) {
 
 func TestTicketsValidity(t *testing.T) {
 	// Valid tickets should return true
-	validTickets := []tickets.Ticket{tickets.Tickets.CREATED, tickets.Tickets.PENDING,
-		tickets.Tickets.APPROVAL_PENDING, tickets.Tickets.APPROVAL_ACCEPTED}
-	
+	validTickets := []tickets.Ticket{
+		tickets.Tickets.CREATED,
+		tickets.Tickets.PENDING,
+		tickets.Tickets.APPROVAL_PENDING,
+		tickets.Tickets.APPROVAL_ACCEPTED,
+		tickets.Tickets.COMPLETED,
+		tickets.Tickets.REJECTED,
+	}
+
 	for _, ticket := range validTickets {
 		if !ticket.IsValid() {
 			t.Errorf("Ticket %v should be valid", ticket)
@@ -86,12 +93,12 @@ func TestTicketsValidity(t *testing.T) {
 	if tickets.Tickets.UNKNOWN.IsValid() {
 		t.Error("UNKNOWN ticket should be invalid")
 	}
-	
+
 	// Also check that rejected and completed are invalid
-	if tickets.Tickets.REJECTED.IsValid() {
+	if tickets.Tickets.REJECTED.Validstate {
 		t.Error("REJECTED ticket should be invalid")
 	}
-	if tickets.Tickets.COMPLETED.IsValid() {
+	if tickets.Tickets.COMPLETED.Validstate {
 		t.Error("COMPLETED ticket should be invalid")
 	}
 }

@@ -203,10 +203,8 @@ type interfaceFunctionData struct {
 }
 
 func newInterfaceFunctionData(rep enum.GenerationRequest) interfaceFunctionData {
-	// Calculate invalid value that doesn't conflict with any enum values
 	invalidValue := -1
 	if rep.EnumIota.StartIndex < 0 {
-		// If we have negative values, use a positive value that's out of range
 		invalidValue = rep.EnumIota.StartIndex + len(rep.EnumIota.Enums)
 	}
 
@@ -377,8 +375,9 @@ func _() {
     // An "invalid array index" compiler error signifies that the constant values have changed.
     // Re-run the goenums command to generate them again.
     // Does not identify newly added constant values unless order changes
+    var x [{{ .ArraySize }}]struct{}
     {{- range .Enums }}
-    _ = [{{ .ArraySize }}]struct{}{}[{{ .IndexExpr }}]
+    _ = x[{{ .IndexExpr }}]
     {{- end }}
 }
     `
@@ -388,25 +387,32 @@ func _() {
 type compileCheckEnum struct {
 	Name      string
 	Value     int
-	ArraySize int
 	IndexExpr string
 }
 
 type compileCheckData struct {
-	Enums []compileCheckEnum
+	ArraySize int
+	Enums     []compileCheckEnum
 }
 
 func (g *Writer) writeCompileCheck(rep enum.GenerationRequest) {
 	enums := make([]compileCheckEnum, len(rep.EnumIota.Enums))
+	maxValue := 0
+
+	// Find the maximum value to determine array size
+	for _, e := range rep.EnumIota.Enums {
+		if e.Value > maxValue {
+			maxValue = e.Value
+		}
+	}
+
 	for i, e := range rep.EnumIota.Enums {
 		// Normalize all indices to 0 by subtracting the value
-		arraySize := 1
 		indexExpr := e.Name
 		if e.Value != 0 {
 			if e.Value > 0 {
 				indexExpr = fmt.Sprintf("%s-%s", e.Name, strconv.Itoa(e.Value))
 			} else {
-				// For negative values, add the absolute value
 				indexExpr = fmt.Sprintf("%s+%s", e.Name, strconv.Itoa(-e.Value))
 			}
 		}
@@ -414,12 +420,12 @@ func (g *Writer) writeCompileCheck(rep enum.GenerationRequest) {
 		enums[i] = compileCheckEnum{
 			Name:      e.Name,
 			Value:     e.Value,
-			ArraySize: arraySize,
 			IndexExpr: indexExpr,
 		}
 	}
 	g.writeTemplate(compileCheckTemplate, compileCheckData{
-		Enums: enums,
+		ArraySize: maxValue + 1,
+		Enums:     enums,
 	})
 }
 
@@ -730,6 +736,9 @@ func (g *Writer) writePackageAndImports(rep enum.GenerationRequest) {
 	if !rep.Configuration.Legacy {
 		imports = append(imports, "iter")
 	}
+	if rep.Configuration.Failfast {
+		imports = append(imports, "errors")
+	}
 	if !rep.Configuration.Constraints {
 		if slices.Contains(imports, "golang.org/x/exp/constraints") {
 			imports = slices.DeleteFunc(imports, func(s string) bool {
@@ -936,6 +945,9 @@ type parseFunctionData struct {
 
 var (
 	parseFunctionStr = `
+{{- if .FailFast}}
+var ErrParse{{.WrapperName}} = errors.New("invalid input provided to parse to {{.WrapperName}}")
+{{- end}}
 // Parse{{.WrapperName}} parses the input value into an enum value.
 // It returns the parsed enum value or an error if the input is invalid.
 // It is a convenience function that can be used to parse enum values from
@@ -1008,7 +1020,7 @@ func Parse{{.WrapperName}}(input any) ({{.WrapperName}}, error) {
 		return invalid{{.WrapperName}}, fmt.Errorf("invalid type %T", input)
 	}
 	{{- if .FailFast}}
-	return invalid{{.WrapperName}}, fmt.Errorf("invalid value %v", input)
+	return invalid{{.WrapperName}}, fmt.Errorf("%w: invalid value %v", ErrParse{{.WrapperName}}, input)
 	{{- else}}
 	return invalid{{.WrapperName}}, nil
 	{{- end}}

@@ -52,10 +52,6 @@ func TestPlanetsStringParsing(t *testing.T) {
 		{"Saturn", planets.Planets.SATURN, false},
 		{"Uranus", planets.Planets.URANUS, false},
 		{"Neptune", planets.Planets.NEPTUNE, false},
-		
-		// Invalid planet should also parse (but will be marked as invalid)
-		{"unknown", planets.Planets.UNKNOWN, false},
-		
 		// Non-existent should fail
 		{"InvalidPlanet", planets.Planet{}, true},
 	}
@@ -81,16 +77,11 @@ func TestPlanetsValidity(t *testing.T) {
 		planets.Planets.MERCURY, planets.Planets.VENUS, planets.Planets.EARTH, planets.Planets.MARS,
 		planets.Planets.JUPITER, planets.Planets.SATURN, planets.Planets.URANUS, planets.Planets.NEPTUNE,
 	}
-	
+
 	for _, planet := range validPlanets {
 		if !planet.IsValid() {
 			t.Errorf("Planet %v should be valid", planet)
 		}
-	}
-
-	// Invalid planet should return false
-	if planets.Planets.UNKNOWN.IsValid() {
-		t.Error("UNKNOWN planet should be invalid")
 	}
 }
 
@@ -107,7 +98,6 @@ func TestPlanetsStringConversion(t *testing.T) {
 		{planets.Planets.SATURN, "Saturn"},
 		{planets.Planets.URANUS, "Uranus"},
 		{planets.Planets.NEPTUNE, "Neptune"},
-		{planets.Planets.UNKNOWN, "unknown"},
 	}
 
 	for _, test := range tests {

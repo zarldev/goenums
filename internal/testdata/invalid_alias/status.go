@@ -2,7 +2,7 @@ package validationstrings
 
 type status int
 
-//go:generate goenums status.go
+//go:generate goenums -f status.go
 
 const (
 	failed    status = iota // invalid FAILED
