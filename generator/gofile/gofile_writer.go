@@ -173,9 +173,9 @@ func ({{ .Receiver }} {{ .WrapperName }}) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements the json.Unmarshaler interface for {{ .WrapperName }}.
 // It parses the JSON representation of the enum value from the byte slice.
 // It returns an error if the input is not a valid JSON representation.
-func ({{ .Receiver }} *{{ .WrapperName }}) UnmarshalJSON(b []byte) error {
-	b = bytes.Trim(bytes.Trim(b, "\""), "\"")
-	new{{ .Receiver }}, err := Parse{{ .WrapperName }}(b)
+func ({{ .Receiver }} *{{ .WrapperName }}) UnmarshalJSON(by []byte) error {
+	by = bytes.Trim(bytes.Trim(by, "\""), "\"")
+	new{{ .Receiver }}, err := Parse{{ .WrapperName }}(by)
 	if err != nil {
 		return err
 	}
@@ -244,8 +244,8 @@ var (
 // UnmarshalText implements the encoding.TextUnmarshaler interface for {{ .WrapperName }}.
 // It parses the string representation of the enum value from the byte slice.
 // It returns an error if the byte slice does not contain a valid enum value.
-func ({{ .Receiver }} *{{ .WrapperName }}) UnmarshalText(b []byte) error {
-	new{{ .Receiver }}, err := Parse{{ .WrapperName }}(b)
+func ({{ .Receiver }} *{{ .WrapperName }}) UnmarshalText(by []byte) error {
+	new{{ .Receiver }}, err := Parse{{ .WrapperName }}(by)
 	if err != nil {
 		return err
 	}
@@ -278,8 +278,8 @@ func ({{ .Receiver }} {{ .WrapperName }}) MarshalBinary() ([]byte, error) {
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface for {{ .WrapperName }}.
 // It parses the binary representation of the enum value from the byte slice.
 // It returns an error if the byte slice does not contain a valid enum value.
-func ({{ .Receiver }} *{{ .WrapperName }}) UnmarshalBinary(b []byte) error {
-	new{{ .Receiver }}, err := Parse{{ .WrapperName }}(b)
+func ({{ .Receiver }} *{{ .WrapperName }}) UnmarshalBinary(by []byte) error {
+	new{{ .Receiver }}, err := Parse{{ .WrapperName }}(by)
 	if err != nil {
 		return err
 	}
@@ -312,8 +312,8 @@ func ({{ .Receiver }} {{ .WrapperName }}) MarshalYAML() ([]byte, error) {
 // UnmarshalYAML implements the yaml.Unmarshaler interface for Planet.
 // It parses the byte slice representation of the enum value and returns an error 
 // if the YAML byte slice does not contain a valid enum value.
-func ({{ .Receiver }} *{{ .WrapperName }}) UnmarshalYAML(b []byte) error {
-	new{{ .Receiver }}, err := Parse{{ .WrapperName }}(b)
+func ({{ .Receiver }} *{{ .WrapperName }}) UnmarshalYAML(by []byte) error {
+	new{{ .Receiver }}, err := Parse{{ .WrapperName }}(by)
 	if err != nil {
 		return err
 	}
