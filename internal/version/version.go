@@ -11,7 +11,7 @@ package version
 
 // CURRENT represents the semantic version of the goenums tool.
 // This should be manually updated following semantic versioning
-var CURRENT string = "v0.4.0"
+var CURRENT string = "v0.4.3"
 
 // BUILD contains build metadata such as the timestamp or build number.
 // This field is designed to be populated at build time using the
