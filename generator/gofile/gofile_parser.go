@@ -74,7 +74,7 @@ func NewParser(opts ...ParserOption) *Parser {
 func (p *Parser) Parse(ctx context.Context) ([]enum.GenerationRequest, error) {
 	defer func() {
 		if r := recover(); r != nil {
-			slog.Default().Error("unexpected panic in parser",
+			slog.Default().ErrorContext(ctx, "unexpected panic in parser",
 				"version", version.CURRENT,
 				"build", version.BUILD,
 				"commit", version.COMMIT,
