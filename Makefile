@@ -3,6 +3,7 @@ VERSION := v0.4.5
 BUILD_TIME := $(shell date +%Y%m%d-%H:%M:%S)
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 GIT_DIRTY := $(shell if [ -n "$$(git status --porcelain)" ]; then echo "-dirty"; fi)
+GOLANGCI_LINT_VERSION := v2.12.1
 
 # Properly formatted LDFLAGS
 LDFLAGS := -ldflags "-X github.com/zarldev/goenums/internal/version.CURRENT='$(VERSION)' -X github.com/zarldev/goenums/internal/version.BUILD='$(BUILD_TIME)' -X github.com/zarldev/goenums/internal/version.COMMIT='$(GIT_COMMIT)$(GIT_DIRTY)'"
@@ -15,9 +16,9 @@ FUZZ_TESTS := FuzzParseValue_String FuzzParseValue_Int FuzzParseValue_Bool FuzzP
 .DEFAULT_GOAL := build
 
 # Phony targets to avoid conflicts with files of the same name
-.PHONY: build build-prod build-linux build-darwin build-windows deps test test-coverage test-fuzz test-fuzz-quick test-fuzz-long generate clean install uninstall lint help version logo debug-version release-tag release-tag-force release-build release-all
+.PHONY: build build-prod build-linux build-darwin build-windows deps test test-coverage test-fuzz test-fuzz-quick test-fuzz-long generate clean install uninstall lint fmt-check vet verify help version logo debug-version release-tag release-tag-force release-build release-all
 
-release-tag:
+release-tag: verify
 	@echo "🔍 Checking for uncommitted changes..."
 	@if [ "$$(git status --porcelain | wc -l)" -ne "0" ]; then \
 		echo "❌ Error: Working directory has uncommitted changes. Commit or stash them first."; \
@@ -242,9 +243,23 @@ version: logo
 	@echo "              commit:  $(GIT_COMMIT)$(GIT_DIRTY)"
 
 lint:
-	@echo "🔍 Running linter..."
-	golangci-lint run ./...
+	@echo "🔍 Running linter ($(GOLANGCI_LINT_VERSION))..."
+	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION) run ./...
 	@echo "✅ Linting completed"
+
+fmt-check:
+	@echo "🎨 Checking gofmt..."
+	@UNFORMATTED=$$(go list -f '{{.Dir}}' ./... | grep -v testdata | xargs -I {} find {} -maxdepth 1 -name '*.go' | xargs gofmt -s -l); \
+	if [ -n "$$UNFORMATTED" ]; then echo "Unformatted files:"; echo "$$UNFORMATTED"; exit 1; fi
+	@echo "✅ Formatting OK"
+
+vet:
+	@echo "🔎 Running go vet..."
+	go vet ./...
+	@echo "✅ Vet OK"
+
+verify: fmt-check vet lint test
+	@echo "✅ All CI checks passed"
 
 logo:
 	@echo "   ____ _____  ___  ____  __  ______ ___  _____"
