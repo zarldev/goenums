@@ -821,6 +821,31 @@ func TestCamel(t *testing.T) {
 			input:    "Hello",
 			expected: "Hello",
 		},
+		{
+			name:     "leading initialism",
+			input:    "llmProvider",
+			expected: "LLMProvider",
+		},
+		{
+			name:     "leading initialism api",
+			input:    "apiKey",
+			expected: "APIKey",
+		},
+		{
+			name:     "whole-word initialism",
+			input:    "llm",
+			expected: "LLM",
+		},
+		{
+			name:     "non-initialism camel unchanged",
+			input:    "adapterType",
+			expected: "AdapterType",
+		},
+		{
+			name:     "non-initialism single word",
+			input:    "kind",
+			expected: "Kind",
+		},
 	}
 
 	for _, tt := range tests {

@@ -601,15 +601,46 @@ func isRegularPlural(s string) bool {
 		strings.HasSuffix(lower, "ies")
 }
 
+// commonInitialisms are leading words that should export as all-caps rather
+// than title-case, so a camelCase enum type whose first word is an initialism
+// (e.g. llmProvider, apiKey) exports as LLMProvider / APIKey instead of the
+// lint-flagged LlmProvider / ApiKey. It mirrors the well-known golint set with
+// a few modern additions (AI, LLM). Only the LEADING word needs this: in
+// camelCase, non-leading initialisms keep their capitals in the source already.
+var commonInitialisms = map[string]bool{
+	"ACL": true, "AI": true, "API": true, "ASCII": true, "CPU": true,
+	"CSS": true, "DNS": true, "EOF": true, "GUID": true, "HTML": true,
+	"HTTP": true, "HTTPS": true, "ID": true, "IP": true, "JSON": true,
+	"LLM": true, "LHS": true, "QPS": true, "RAM": true, "RHS": true,
+	"RPC": true, "SLA": true, "SMTP": true, "SQL": true, "SSH": true,
+	"TCP": true, "TLS": true, "TTL": true, "UDP": true, "UI": true,
+	"UID": true, "UUID": true, "URI": true, "URL": true, "UTF8": true,
+	"VM": true, "XML": true, "XMPP": true, "XSRF": true, "XSS": true,
+}
+
+// Camel exports an identifier by capitalising its first word. When that first
+// word is a known initialism it is upper-cased whole (llmProvider -> LLMProvider)
+// rather than merely title-cased (LlmProvider); every other input keeps the
+// historical first-rune-upper behaviour.
 func Camel(s string) string {
 	if len(s) == 0 {
 		return ""
 	}
-	if len(s) == 1 {
-		return strings.ToUpper(s)
+	// Leading lowercase run = the first camelCase word (stops at the first
+	// upper-case letter, e.g. the "P" in llmProvider). A non-lowercase first
+	// rune means there's no lowercase lead to reinterpret.
+	i := 0
+	for i < len(s) && unicode.IsLower(rune(s[i])) {
+		i++
 	}
-	c := unicode.ToUpper(rune(s[0]))
-	return string(c) + s[1:]
+	if i == 0 {
+		c := unicode.ToUpper(rune(s[0]))
+		return string(c) + s[1:]
+	}
+	if lead := strings.ToUpper(s[:i]); commonInitialisms[lead] {
+		return lead + s[i:]
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
 }
 
 func Lower1stCharacter(s string) string {
