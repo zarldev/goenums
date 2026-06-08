@@ -1,5 +1,5 @@
 # Build variables
-VERSION := v0.4.6
+VERSION := v0.4.7
 BUILD_TIME := $(shell date +%Y%m%d-%H:%M:%S)
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 GIT_DIRTY := $(shell if [ -n "$$(git status --porcelain)" ]; then echo "-dirty"; fi)
