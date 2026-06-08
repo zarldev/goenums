@@ -346,6 +346,22 @@ func TestExtractFields(t *testing.T) {
 				{Name: "", Value: ""},
 			},
 		},
+		{
+			name:       "descriptive comment is not a field",
+			comment:    "operations",
+			wantOpener: " ",
+			wantCloser: " ",
+			wantFields: []enum.Field{},
+		},
+		{
+			name:       "unknown type token is skipped",
+			comment:    "Name string, junk",
+			wantOpener: " ",
+			wantCloser: " ",
+			wantFields: []enum.Field{
+				{Name: "Name", Value: ""},
+			},
+		},
 	}
 
 	for _, tt := range tests {

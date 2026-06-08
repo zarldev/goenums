@@ -502,9 +502,16 @@ func ExtractFields(comment string) (string, string, []Field) {
 			} else {
 				f = extra[0]
 			}
+			// A token that does not resolve to a known type is not a field
+			// declaration (e.g. a plain descriptive type comment); skip it
+			// rather than emit a field with a nil type that cannot compile.
+			v := FieldToType(f)
+			if v == nil {
+				continue
+			}
 			fields = append(fields, Field{
 				Name:  n,
-				Value: FieldToType(f),
+				Value: v,
 			})
 			continue
 		}
@@ -525,9 +532,13 @@ func ExtractFields(comment string) (string, string, []Field) {
 		}
 		n = field[:nO]
 		f = field[tO:tC]
+		v := FieldToType(f)
+		if v == nil {
+			continue
+		}
 		fields = append(fields, Field{
 			Name:  n,
-			Value: FieldToType(f),
+			Value: v,
 		})
 	}
 	return open, closer, fields
