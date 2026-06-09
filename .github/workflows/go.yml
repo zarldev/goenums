@@ -109,4 +109,9 @@ jobs:
     - name: govulncheck
       id: govulncheck
       uses: golang/govulncheck-action@v1
+      with:
+        # the job's own checkout@v6 already provides the workspace; the
+        # action's internal checkout@v4.1.1 clashes with v6's credential
+        # persistence and fails the fetch with a duplicate auth header
+        repo-checkout: false
     
