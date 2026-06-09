@@ -126,8 +126,8 @@ func TestConfigure(t *testing.T) {
 
 	var buf bytes.Buffer
 	logging.ConfigureWithWriter(&buf, false)
-	slog.Info("info message")
-	slog.Debug("debug message")
+	slog.Info("info message")   //nolint:sloglint // the test verifies the configured default logger
+	slog.Debug("debug message") //nolint:sloglint // the test verifies the configured default logger
 	output := buf.String()
 	if !strings.Contains(output, "info message") {
 		t.Errorf("missing info message in output: %q", output)
@@ -138,7 +138,7 @@ func TestConfigure(t *testing.T) {
 
 	buf.Reset()
 	logging.ConfigureWithWriter(&buf, true)
-	slog.Debug("debug message")
+	slog.Debug("debug message") //nolint:sloglint // the test verifies the configured default logger
 	output = buf.String()
 	if !strings.Contains(output, "debug message") {
 		t.Errorf("missing debug message in verbose output: %q", output)
