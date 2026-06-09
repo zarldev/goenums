@@ -59,8 +59,12 @@ func TestLoggingOutput(t *testing.T) {
 			}
 
 			var buf bytes.Buffer
-			logging.ConfigureWithWriter(&buf, tt.verbose)
-			logger := slog.Default()
+			level := slog.LevelInfo
+			if tt.verbose {
+				level = slog.LevelDebug
+			}
+			handler := logging.NewCustomTextHandler(&buf, &slog.HandlerOptions{Level: level})
+			logger := slog.New(handler)
 
 			tt.logFunc(logger)
 
