@@ -153,10 +153,10 @@ func TestParsePointerFix(t *testing.T) {
 					break
 				}
 
-				// Also check for the new number type format
+				// Also check for the inlined constraint format
 				if tc.content == "func numberToAlgorithm[T constraints.Integer | constraints.Float](num T) *Algorithm" {
-					// Check for the new format
-					if strings.Contains(string(content), "func numberToAlgorithm[T number](num T) *Algorithm") {
+					// Check for the inlined format
+					if strings.Contains(string(content), "func numberToAlgorithm[T interface {") {
 						found = true
 						break
 					}

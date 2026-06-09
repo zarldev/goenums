@@ -131,31 +131,8 @@ func (g *Writer) writeEnumGenerationRequest(req enum.GenerationRequest) {
 		g.writeYAMLMarshalMethod(req)
 		g.writeYAMLUnmarshalMethod(req)
 	}
-	if req.Configuration.Constraints {
-		g.writeConstraints(req)
-	}
 	g.writeStringMethod(req)
 	g.writeCompileCheck(req)
-}
-
-var (
-	constraintsStr = `
-	 
-	type float interface {
-		float32 | float64
-	}
-	type integer interface {
-		int | int8 | int16 | int32 | int64 | uint | uint8 | uint16 | uint32 | uint64 | uintptr
-	}
-	type number interface {
-		integer | float
-	}
-`
-	constraintsTemplate = template.Must(template.New("constraints").Parse(constraintsStr))
-)
-
-func (g *Writer) writeConstraints(rep enum.GenerationRequest) {
-	g.writeTemplate(constraintsTemplate, rep)
 }
 
 var (
@@ -818,9 +795,6 @@ func validEnumDefinitions(rep enum.GenerationRequest) []enumDefinition {
 		if len(aliases) == 0 {
 			aliases = append(aliases, e.Name)
 		}
-		if rep.Configuration.Insensitive {
-			aliases = lowercaseAliases(aliases)
-		}
 		edefs = append(edefs, enumDefinition{
 			EnumName:           e.Name,
 			EnumNameIdentifier: strings.ToUpper(e.Name),
@@ -863,9 +837,6 @@ func allEnumDefinitions(rep enum.GenerationRequest) []enumDefinition {
 		aliases := e.Aliases
 		if len(aliases) == 0 {
 			aliases = append(aliases, e.Name)
-		}
-		if rep.Configuration.Insensitive {
-			aliases = lowercaseAliases(aliases)
 		}
 		edefs = append(edefs, enumDefinition{
 			EnumName:           e.Name,
@@ -1083,11 +1054,17 @@ func stringTo{{.WrapperName}}(s string) *{{.WrapperName}} {
 )
 
 func (g *Writer) writeStringParsingMethod(rep enum.GenerationRequest) {
+	enums := allEnumDefinitions(rep)
+	if rep.Configuration.Insensitive {
+		for i := range enums {
+			enums[i].Aliases = lowercaseAliases(enums[i].Aliases)
+		}
+	}
 	g.writeTemplate(parseStringFunctionTemplate, parseStringFunctionData{
 		WrapperName:     wrapperName(rep.EnumIota.Type),
 		EnumNameMap:     enumNameMap(rep.EnumIota.Type),
 		EnumType:        enumType(rep),
-		Enums:           allEnumDefinitions(rep),
+		Enums:           enums,
 		CaseInsensitive: rep.Configuration.Insensitive,
 	})
 }
@@ -1108,7 +1085,9 @@ var (
 // It returns a pointer to the {{.WrapperName}} representation of the enum value if the numeric value is valid
 // Otherwise, it returns nil
 {{- if .Constraints }}
-func numberTo{{.WrapperName}}[T number](num T) *{{.WrapperName}} {
+func numberTo{{.WrapperName}}[T interface {
+	int | int8 | int16 | int32 | int64 | uint | uint8 | uint16 | uint32 | uint64 | uintptr | float32 | float64
+}](num T) *{{.WrapperName}} {
 {{- else }}
 func numberTo{{.WrapperName}}[T constraints.Integer | constraints.Float](num T) *{{.WrapperName}} {
 {{- end }}

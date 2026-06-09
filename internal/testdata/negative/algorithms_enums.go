@@ -168,7 +168,9 @@ func stringToAlgorithm(s string) *Algorithm {
 // numberToAlgorithm converts a numeric value to a Algorithm
 // It returns a pointer to the Algorithm representation of the enum value if the numeric value is valid
 // Otherwise, it returns nil
-func numberToAlgorithm[T number](num T) *Algorithm {
+func numberToAlgorithm[T interface {
+	int | int8 | int16 | int32 | int64 | uint | uint8 | uint16 | uint32 | uint64 | uintptr | float32 | float64
+}](num T) *Algorithm {
 	f := float64(num)
 	if math.Floor(f) != f {
 		return nil
@@ -294,16 +296,6 @@ func (a *Algorithm) UnmarshalYAML(by []byte) error {
 	}
 	*a = newa
 	return nil
-}
-
-type float interface {
-	float32 | float64
-}
-type integer interface {
-	int | int8 | int16 | int32 | int64 | uint | uint8 | uint16 | uint32 | uint64 | uintptr
-}
-type number interface {
-	integer | float
 }
 
 // algorithmNames is a constant string slice containing all enum values cononical absolute names
