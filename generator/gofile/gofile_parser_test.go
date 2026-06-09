@@ -3,6 +3,7 @@ package gofile_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/zarldev/goenums/enum"
@@ -169,6 +170,100 @@ func TestParser_SpecificScenarios(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestParser_IotaOffsetOperators(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name       string
+		src        string
+		startIndex int
+	}{
+		{
+			name: "subtraction",
+			src: `package validation
+type status int
+const (
+	failed status = iota - 1
+	pending
+	active
+)`,
+			startIndex: -1,
+		},
+		{
+			name: "multiplication",
+			src: `package validation
+type status int
+const (
+	failed status = iota * 2
+	pending
+	active
+)`,
+			startIndex: 0,
+		},
+		{
+			name: "division",
+			src: `package validation
+type status int
+const (
+	failed status = iota / 2
+	pending
+	active
+)`,
+			startIndex: 0,
+		},
+		{
+			name: "unsupported operator falls back to operand value",
+			src: `package validation
+type status int
+const (
+	failed status = iota << 3
+	pending
+	active
+)`,
+			startIndex: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			parser := gofile.NewParser(
+				gofile.WithSource(source.FromReader(strings.NewReader(tt.src))),
+				gofile.WithParserConfiguration(testdata.DefaultConfig),
+			)
+			result, err := parser.Parse(t.Context())
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(result) != 1 {
+				t.Fatalf("expected 1 generation request, got %d", len(result))
+			}
+			if result[0].EnumIota.StartIndex != tt.startIndex {
+				t.Errorf("expected start index %d, got %d",
+					tt.startIndex, result[0].EnumIota.StartIndex)
+			}
+			if got := result[0].EnumIota.Enums[0].Value; got != tt.startIndex {
+				t.Errorf("expected first enum value %d, got %d", tt.startIndex, got)
+			}
+		})
+	}
+}
+
+func TestParser_NoTypeDeclarations(t *testing.T) {
+	t.Parallel()
+	src := `package validation
+
+func helper() {}
+`
+	parser := gofile.NewParser(
+		gofile.WithSource(source.FromReader(strings.NewReader(src))),
+		gofile.WithParserConfiguration(testdata.DefaultConfig),
+	)
+	_, err := parser.Parse(t.Context())
+	if !errors.Is(err, enum.ErrNoEnumsFound) {
+		t.Errorf("expected ErrNoEnumsFound, got %v", err)
 	}
 }
 

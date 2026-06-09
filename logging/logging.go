@@ -42,12 +42,13 @@ func ConfigureWithWriter(w io.Writer, verbose bool) {
 // NewCustomTextHandler creates a text handler with custom formatting that omits
 // the standard "msg=" prefix from log output.
 func NewCustomTextHandler(w io.Writer, opts *slog.HandlerOptions) slog.Handler {
-	if opts == nil {
-		opts = &slog.HandlerOptions{}
+	level := slog.LevelInfo
+	if opts != nil && opts.Level != nil {
+		level = opts.Level.Level()
 	}
 	return &logger{
 		w:     w,
-		level: opts.Level.Level(),
+		level: level,
 		group: "",
 	}
 }
