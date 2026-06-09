@@ -13,9 +13,9 @@ jobs:
   formatting:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: setup go 
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v6
       with:
         go-version-file: 'go.mod'
         cache-dependency-path: 'go.sum'
@@ -35,9 +35,9 @@ jobs:
   vetting:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: setup go 
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v6
       with:
         go-version-file: 'go.mod'
         cache-dependency-path: 'go.sum'
@@ -47,9 +47,9 @@ jobs:
     needs: [formatting, vetting]
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: setup go 
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v6
       with:
         go-version-file: 'go.mod'
         cache-dependency-path: 'go.sum'
@@ -63,9 +63,9 @@ jobs:
     env:
       CGO_ENABLED: 1
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: setup go 
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v6
       with:
         go-version-file: 'go.mod'
         cache-dependency-path: 'go.sum'
@@ -82,13 +82,13 @@ jobs:
       with:
         profile: coverage.out
         local-prefix: github.com/zarldev/goenums
-        config-file: ./.testcoverage.yml
+        config: ./.testcoverage.yml
     - name: function coverage
       run: go tool cover -func coverage.out
     - name: generate coverage report
       run: go tool cover -html=coverage.out -o coverage.html
     - name: upload coverage report
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: coverage-report
         path: coverage.html
@@ -96,9 +96,9 @@ jobs:
     needs: [formatting, vetting, linting, tests-and-coverage]
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: setup go 
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v6
       with:
         go-version-file: 'go.mod'
         cache-dependency-path: 'go.sum'
