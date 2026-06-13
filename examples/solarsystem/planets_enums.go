@@ -3,7 +3,7 @@
 // github.com/zarldev/goenums
 //
 // using the command:
-// goenums planets.go
+// goenums examples/solarsystem/planets.go
 
 package solarsystem
 
@@ -170,6 +170,38 @@ func (p planetsContainer) All() iter.Seq[Planet] {
 	}
 }
 
+// All2 returns an iterator over all enum values paired with their string names.
+// This is useful when both the display name and the enum value are needed, for example
+// in exhaustiveness checks or UI rendering.
+func (p planetsContainer) All2() iter.Seq2[string, Planet] {
+	return func(yield func(string, Planet) bool) {
+		if !yield("Mercury", Planets.MERCURY) {
+			return
+		}
+		if !yield("Venus", Planets.VENUS) {
+			return
+		}
+		if !yield("Earth", Planets.EARTH) {
+			return
+		}
+		if !yield("Mars", Planets.MARS) {
+			return
+		}
+		if !yield("Jupiter", Planets.JUPITER) {
+			return
+		}
+		if !yield("Saturn", Planets.SATURN) {
+			return
+		}
+		if !yield("Uranus", Planets.URANUS) {
+			return
+		}
+		if !yield("Neptune", Planets.NEPTUNE) {
+			return
+		}
+	}
+}
+
 // ParsePlanet parses the input value into an enum value.
 // It returns the parsed enum value or an error if the input is invalid.
 // It is a convenience function that can be used to parse enum values from
@@ -291,6 +323,20 @@ func numberToPlanet[T constraints.Integer | constraints.Float](num T) *Planet {
 func ExhaustivePlanets(f func(Planet)) {
 	for _, p := range Planets.allSlice() {
 		f(p)
+	}
+}
+
+// MatchPlanet dispatches to the handler for the given enum value.
+// It panics if any valid enum value is missing from the handlers map, ensuring
+// runtime exhaustiveness.
+func MatchPlanet(en Planet, handlers map[Planet]func()) {
+	for name, v := range Planets.All2() {
+		if _, ok := handlers[v]; !ok {
+			panic("unhandled: " + name)
+		}
+	}
+	if f, ok := handlers[en]; ok && f != nil {
+		f()
 	}
 }
 

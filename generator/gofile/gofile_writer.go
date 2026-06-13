@@ -110,6 +110,9 @@ func (g *Writer) writeEnumGenerationRequest(req enum.GenerationRequest) {
 	g.writeStringParsingMethod(req)
 	g.writeNumberParsingMethods(req)
 	g.writeExhaustiveFunction(req)
+	if !req.Configuration.Legacy {
+		g.writeMatchFunction(req)
+	}
 	g.writeIsValidFunction(req)
 	if req.Configuration.Handlers.JSON {
 		g.writeJSONMarshalMethod(req)
@@ -904,6 +907,51 @@ func (g *Writer) writeAllFunction(rep enum.GenerationRequest) {
 		Legacy:        rep.Configuration.Legacy,
 	}
 	g.writeTemplate(allFunctionTemplate, allData)
+}
+
+
+type matchFunctionData struct {
+	EnumType    string
+	WrapperName string
+}
+
+var (
+	matchFunctionStr = `
+// Match{{.WrapperName}} dispatches to the handler for the given enum value.
+// It returns an error if any valid enum value is missing from the handlers map.
+func Match{{.WrapperName}}(en {{.WrapperName}}, handlers map[{{.WrapperName}}]func()) error {
+    for p := range {{.EnumType}}.All() {
+        if _, ok := handlers[p]; !ok {
+            return fmt.Errorf("unhandled: %s", p.String())
+        }
+    }
+    if f, ok := handlers[en]; ok && f != nil {
+        f()
+    }
+    return nil
+}
+`
+	mustMatchFunctionStr = `
+// MustMatch{{.WrapperName}} dispatches to the handler for the given enum value.
+// It panics if any valid enum value is missing from the handlers map, ensuring
+// runtime exhaustiveness.
+func MustMatch{{.WrapperName}}(en {{.WrapperName}}, handlers map[{{.WrapperName}}]func()) {
+    if err := Match{{.WrapperName}}(en, handlers); err != nil {
+        panic(err)
+    }
+}
+`
+	matchFunctionTemplate    = template.Must(template.New("matchFunction").Parse(matchFunctionStr))
+	mustMatchFunctionTemplate = template.Must(template.New("mustMatchFunction").Parse(mustMatchFunctionStr))
+)
+
+func (g *Writer) writeMatchFunction(rep enum.GenerationRequest) {
+	d := matchFunctionData{
+		EnumType:    enumType(rep),
+		WrapperName: wrapperName(rep.EnumIota.Type),
+	}
+	g.writeTemplate(matchFunctionTemplate, d)
+	g.writeTemplate(mustMatchFunctionTemplate, d)
 }
 
 type parseFunctionData struct {

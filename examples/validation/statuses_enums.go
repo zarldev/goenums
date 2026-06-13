@@ -3,17 +3,18 @@
 // github.com/zarldev/goenums
 //
 // using the command:
-// goenums -f -c status.go
+// goenums examples/validation/status.go
 
 package validation
 
 import (
 	"bytes"
 	"database/sql/driver"
-	"errors"
 	"fmt"
 	"iter"
 	"math"
+
+	"golang.org/x/exp/constraints"
 )
 
 // Status is a type that represents a single enum value.
@@ -91,7 +92,31 @@ func (s statusesContainer) All() iter.Seq[Status] {
 	}
 }
 
-var ErrParseStatus = errors.New("invalid input provided to parse to Status")
+// All2 returns an iterator over all enum values paired with their string names.
+// This is useful when both the display name and the enum value are needed, for example
+// in exhaustiveness checks or UI rendering.
+func (s statusesContainer) All2() iter.Seq2[string, Status] {
+	return func(yield func(string, Status) bool) {
+		if !yield("FAILED", Statuses.FAILED) {
+			return
+		}
+		if !yield("PASSED", Statuses.PASSED) {
+			return
+		}
+		if !yield("SKIPPED", Statuses.SKIPPED) {
+			return
+		}
+		if !yield("SCHEDULED", Statuses.SCHEDULED) {
+			return
+		}
+		if !yield("RUNNING", Statuses.RUNNING) {
+			return
+		}
+		if !yield("BOOKED", Statuses.BOOKED) {
+			return
+		}
+	}
+}
 
 // ParseStatus parses the input value into an enum value.
 // It returns the parsed enum value or an error if the input is invalid.
@@ -164,7 +189,7 @@ func ParseStatus(input any) (Status, error) {
 	default:
 		return invalidStatus, fmt.Errorf("invalid type %T", input)
 	}
-	return invalidStatus, fmt.Errorf("%w: invalid value %v", ErrParseStatus, input)
+	return invalidStatus, nil
 }
 
 // statusesNameMap is a map of enum values to their Status representation
@@ -192,9 +217,7 @@ func stringToStatus(s string) *Status {
 // numberToStatus converts a numeric value to a Status
 // It returns a pointer to the Status representation of the enum value if the numeric value is valid
 // Otherwise, it returns nil
-func numberToStatus[T interface {
-	int | int8 | int16 | int32 | int64 | uint | uint8 | uint16 | uint32 | uint64 | uintptr | float32 | float64
-}](num T) *Status {
+func numberToStatus[T constraints.Integer | constraints.Float](num T) *Status {
 	f := float64(num)
 	if math.Floor(f) != f {
 		return nil
@@ -215,6 +238,20 @@ func numberToStatus[T interface {
 func ExhaustiveStatuses(f func(Status)) {
 	for _, p := range Statuses.allSlice() {
 		f(p)
+	}
+}
+
+// MatchStatus dispatches to the handler for the given enum value.
+// It panics if any valid enum value is missing from the handlers map, ensuring
+// runtime exhaustiveness.
+func MatchStatus(en Status, handlers map[Status]func()) {
+	for name, v := range Statuses.All2() {
+		if _, ok := handlers[v]; !ok {
+			panic("unhandled: " + name)
+		}
+	}
+	if f, ok := handlers[en]; ok && f != nil {
+		f()
 	}
 }
 

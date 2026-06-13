@@ -3,7 +3,7 @@
 // github.com/zarldev/goenums
 //
 // using the command:
-// goenums planets.go
+// goenums examples/solarsystemsimple/planets.go
 
 package solarsystemsimple
 
@@ -233,6 +233,29 @@ func numberToPlanet[T constraints.Integer | constraints.Float](num T) *Planet {
 func ExhaustivePlanets(f func(Planet)) {
 	for _, p := range Planets.allSlice() {
 		f(p)
+	}
+}
+
+// MatchPlanet dispatches to the handler for the given enum value.
+// It returns an error if any valid enum value is missing from the handlers map.
+func MatchPlanet(en Planet, handlers map[Planet]func()) error {
+	for p := range Planets.All() {
+		if _, ok := handlers[p]; !ok {
+			return fmt.Errorf("unhandled: %s", p.String())
+		}
+	}
+	if f, ok := handlers[en]; ok && f != nil {
+		f()
+	}
+	return nil
+}
+
+// MustMatchPlanet dispatches to the handler for the given enum value.
+// It panics if any valid enum value is missing from the handlers map, ensuring
+// runtime exhaustiveness.
+func MustMatchPlanet(en Planet, handlers map[Planet]func()) {
+	if err := MatchPlanet(en, handlers); err != nil {
+		panic(err)
 	}
 }
 

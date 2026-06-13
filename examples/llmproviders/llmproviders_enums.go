@@ -3,14 +3,13 @@
 // github.com/zarldev/goenums
 //
 // using the command:
-// goenums -f providers.go
+// goenums examples/llmproviders/providers.go
 
 package llmproviders
 
 import (
 	"bytes"
 	"database/sql/driver"
-	"errors"
 	"fmt"
 	"iter"
 	"math"
@@ -102,7 +101,28 @@ func (l llmProvidersContainer) All() iter.Seq[LLMProvider] {
 	}
 }
 
-var ErrParseLLMProvider = errors.New("invalid input provided to parse to LLMProvider")
+// All2 returns an iterator over all enum values paired with their string names.
+// This is useful when both the display name and the enum value are needed, for example
+// in exhaustiveness checks or UI rendering.
+func (l llmProvidersContainer) All2() iter.Seq2[string, LLMProvider] {
+	return func(yield func(string, LLMProvider) bool) {
+		if !yield("openai", LLMProviders.OPENAI) {
+			return
+		}
+		if !yield("anthropic", LLMProviders.ANTHROPIC) {
+			return
+		}
+		if !yield("google", LLMProviders.GOOGLE) {
+			return
+		}
+		if !yield("meta", LLMProviders.META) {
+			return
+		}
+		if !yield("mistral", LLMProviders.MISTRAL) {
+			return
+		}
+	}
+}
 
 // ParseLLMProvider parses the input value into an enum value.
 // It returns the parsed enum value or an error if the input is invalid.
@@ -175,7 +195,7 @@ func ParseLLMProvider(input any) (LLMProvider, error) {
 	default:
 		return invalidLLMProvider, fmt.Errorf("invalid type %T", input)
 	}
-	return invalidLLMProvider, fmt.Errorf("%w: invalid value %v", ErrParseLLMProvider, input)
+	return invalidLLMProvider, nil
 }
 
 // llmProvidersNameMap is a map of enum values to their LLMProvider representation
@@ -222,6 +242,20 @@ func numberToLLMProvider[T constraints.Integer | constraints.Float](num T) *LLMP
 func ExhaustiveLLMProviders(f func(LLMProvider)) {
 	for _, p := range LLMProviders.allSlice() {
 		f(p)
+	}
+}
+
+// MatchLLMProvider dispatches to the handler for the given enum value.
+// It panics if any valid enum value is missing from the handlers map, ensuring
+// runtime exhaustiveness.
+func MatchLLMProvider(en LLMProvider, handlers map[LLMProvider]func()) {
+	for name, v := range LLMProviders.All2() {
+		if _, ok := handlers[v]; !ok {
+			panic("unhandled: " + name)
+		}
+	}
+	if f, ok := handlers[en]; ok && f != nil {
+		f()
 	}
 }
 

@@ -3,14 +3,13 @@
 // github.com/zarldev/goenums
 //
 // using the command:
-// goenums -f discount.go
+// goenums examples/sale/discount.go
 
 package sale
 
 import (
 	"bytes"
 	"database/sql/driver"
-	"errors"
 	"fmt"
 	"iter"
 	"math"
@@ -105,7 +104,25 @@ func (d discountTypesContainer) All() iter.Seq[DiscountType] {
 	}
 }
 
-var ErrParseDiscountType = errors.New("invalid input provided to parse to DiscountType")
+// All2 returns an iterator over all enum values paired with their string names.
+// This is useful when both the display name and the enum value are needed, for example
+// in exhaustiveness checks or UI rendering.
+func (d discountTypesContainer) All2() iter.Seq2[string, DiscountType] {
+	return func(yield func(string, DiscountType) bool) {
+		if !yield("sale", DiscountTypes.SALE) {
+			return
+		}
+		if !yield("percentage", DiscountTypes.PERCENTAGE) {
+			return
+		}
+		if !yield("amount", DiscountTypes.AMOUNT) {
+			return
+		}
+		if !yield("giveaway", DiscountTypes.GIVEAWAY) {
+			return
+		}
+	}
+}
 
 // ParseDiscountType parses the input value into an enum value.
 // It returns the parsed enum value or an error if the input is invalid.
@@ -178,7 +195,7 @@ func ParseDiscountType(input any) (DiscountType, error) {
 	default:
 		return invalidDiscountType, fmt.Errorf("invalid type %T", input)
 	}
-	return invalidDiscountType, fmt.Errorf("%w: invalid value %v", ErrParseDiscountType, input)
+	return invalidDiscountType, nil
 }
 
 // discountTypesNameMap is a map of enum values to their DiscountType representation
@@ -224,6 +241,20 @@ func numberToDiscountType[T constraints.Integer | constraints.Float](num T) *Dis
 func ExhaustiveDiscountTypes(f func(DiscountType)) {
 	for _, p := range DiscountTypes.allSlice() {
 		f(p)
+	}
+}
+
+// MatchDiscountType dispatches to the handler for the given enum value.
+// It panics if any valid enum value is missing from the handlers map, ensuring
+// runtime exhaustiveness.
+func MatchDiscountType(en DiscountType, handlers map[DiscountType]func()) {
+	for name, v := range DiscountTypes.All2() {
+		if _, ok := handlers[v]; !ok {
+			panic("unhandled: " + name)
+		}
+	}
+	if f, ok := handlers[en]; ok && f != nil {
+		f()
 	}
 }
 
