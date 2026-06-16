@@ -36,23 +36,37 @@ const (
 After generation, we can use the extended enum type:
 
 ```go
+type planetHandler struct{}
+
+func (planetHandler) Mercury() {}
+func (planetHandler) Venus()   {}
+func (planetHandler) Earth()   {}
+func (planetHandler) Mars()    {}
+func (planetHandler) Jupiter() {}
+func (planetHandler) Saturn()  {}
+func (planetHandler) Uranus()  {}
+func (planetHandler) Neptune() {}
+
+var _ solarsystem.PlanetMatcher = planetHandler{}
+
 earthWeight := 100.0
 fmt.Printf("Weight on %s: %.2f kg\n", 
     solarsystem.Planets.MARS, 
     earthWeight * solarsystem.Planets.MARS.Gravity)
 
-// Iterate over all planets
+// Iteration
 for p := range solarsystem.Planets.All() {
     fmt.Printf("Planet: %s\n", p)
 }
 
-// Exhaustive handling
+// Process every valid enum value
 solarsystem.ExhaustivePlanets(func(p solarsystem.Planet) {
-    // Process each planet
-    switch p {
-    case solarsystem.Planets.NEPTUNE:
-        // Handle neptune
-    }
+    fmt.Printf("Planet: %s\n", p)
 })
+
+// Compile-time exhaustive matching with runtime dispatch
+if err := solarsystem.MatchPlanet(solarsystem.Planets.NEPTUNE, planetHandler{}); err != nil {
+    // matcher was nil or the enum value was not handled
+}
 ```
 For more examples, see the [testdata](https://github.com/zarldev/goenums/tree/main/internal/testdata) directory.

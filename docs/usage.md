@@ -89,6 +89,7 @@ This file will contain:
   - Validation functions
   - Iteration helpers
   - Compile-time validation
+  - Compile-time exhaustiveness (Matcher interface, Match/MustMatch functions)
 
 ## Using the Generated Code
 
@@ -139,6 +140,37 @@ for _, status := range validation.Statuses.All() {
     fmt.Printf("Status: %s\n", status)
 }
 ```
+
+## Compile-time Exhaustiveness
+
+goenums generates a `Matcher` interface and `Match`/`MustMatch` functions for each enum. The interface has one method per valid enum value. That means the Go compiler can enforce exhaustive handling for any matcher type you pass to `Match` or `MustMatch`.
+
+```go
+type statusHandler struct{}
+
+func (statusHandler) Pending()   {}
+func (statusHandler) Approved()  {}
+func (statusHandler) Rejected()  {}
+func (statusHandler) Completed() {}
+
+// Compile-time check: statusHandler must satisfy StatusMatcher.
+// If a new enum value is added, this line fails to compile until the
+// corresponding method is added to statusHandler.
+var _ validation.StatusMatcher = statusHandler{}
+
+func handleStatus(status validation.Status) error {
+    // Match returns an error if the matcher is nil or the enum value is not handled.
+    if err := validation.MatchStatus(status, statusHandler{}); err != nil {
+        return err
+    }
+
+    // MustMatch panics instead of returning an error.
+    validation.MustMatchStatus(status, statusHandler{})
+    return nil
+}
+```
+
+This is different from `ExhaustiveStatuses`, which iterates over every valid value. `MatchStatus` dispatches one enum value to a handler method, while the `StatusMatcher` interface gives compile-time coverage when enum values are added, removed, or renamed.
 
 Here is some more [Examples]({{ '/examples' | relative_url }}) →
 
@@ -219,6 +251,7 @@ This file will contain:
   - Validation functions
   - Iteration helpers
   - Compile-time validation
+  - Compile-time exhaustiveness (Matcher interface, Match/MustMatch functions)
 
 ## Using the Generated Code
 

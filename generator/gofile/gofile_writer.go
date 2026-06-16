@@ -110,6 +110,9 @@ func (g *Writer) writeEnumGenerationRequest(req enum.GenerationRequest) {
 	g.writeStringParsingMethod(req)
 	g.writeNumberParsingMethods(req)
 	g.writeExhaustiveFunction(req)
+	if !req.Configuration.Legacy {
+		g.writeMatchFunction(req)
+	}
 	g.writeIsValidFunction(req)
 	if req.Configuration.Handlers.JSON {
 		g.writeJSONMarshalMethod(req)
@@ -904,6 +907,81 @@ func (g *Writer) writeAllFunction(rep enum.GenerationRequest) {
 		Legacy:        rep.Configuration.Legacy,
 	}
 	g.writeTemplate(allFunctionTemplate, allData)
+}
+
+type matchFunctionData struct {
+	EnumType    string
+	MatcherName string
+	WrapperName string
+	Enums       []matchHandlerDefinition
+}
+
+type matchHandlerDefinition struct {
+	EnumNameIdentifier string
+	MethodName         string
+}
+
+var (
+	matchFunctionStr = `
+type {{ .MatcherName }} interface {
+    {{- range .Enums }}
+    {{ .MethodName }}()
+    {{- end }}
+}
+
+// Match{{.WrapperName}} dispatches to the matcher method for the given enum value.
+// The {{ .MatcherName }} interface provides compile-time exhaustiveness: when enum
+// values are added, removed, or renamed, existing matcher implementations stop
+// satisfying this interface until they are updated.
+func Match{{.WrapperName}}(en {{.WrapperName}}, matcher {{ .MatcherName }}) error {
+    if matcher == nil {
+        return fmt.Errorf("nil {{ .MatcherName }}")
+    }
+    switch en {
+    {{- range .Enums }}
+    case {{ $.EnumType }}.{{ .EnumNameIdentifier }}:
+        matcher.{{ .MethodName }}()
+    {{- end }}
+    default:
+        return fmt.Errorf("unhandled {{ .WrapperName }}: %v", en)
+    }
+    return nil
+}
+`
+	mustMatchFunctionStr = `
+// MustMatch{{.WrapperName}} dispatches to the matcher method for the given enum value.
+// It panics if matcher is nil or the enum value is not handled.
+func MustMatch{{.WrapperName}}(en {{.WrapperName}}, matcher {{ .MatcherName }}) {
+    if err := Match{{.WrapperName}}(en, matcher); err != nil {
+        panic(err)
+    }
+}
+`
+	matchFunctionTemplate     = template.Must(template.New("matchFunction").Parse(matchFunctionStr))
+	mustMatchFunctionTemplate = template.Must(template.New("mustMatchFunction").Parse(mustMatchFunctionStr))
+)
+
+func (g *Writer) writeMatchFunction(rep enum.GenerationRequest) {
+	enums := validEnumDefinitions(rep)
+	handlers := make([]matchHandlerDefinition, len(enums))
+	for i, e := range enums {
+		handlers[i] = matchHandlerDefinition{
+			EnumNameIdentifier: e.EnumNameIdentifier,
+			MethodName:         strings.Camel(e.EnumName),
+		}
+	}
+	d := matchFunctionData{
+		EnumType:    enumType(rep),
+		MatcherName: matcherName(rep.EnumIota.Type),
+		WrapperName: wrapperName(rep.EnumIota.Type),
+		Enums:       handlers,
+	}
+	g.writeTemplate(matchFunctionTemplate, d)
+	g.writeTemplate(mustMatchFunctionTemplate, d)
+}
+
+func matcherName(enumType string) string {
+	return wrapperName(enumType) + "Matcher"
 }
 
 type parseFunctionData struct {
