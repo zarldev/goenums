@@ -1,6 +1,7 @@
 # Build variables
 VERSION := v0.5.0
-BUILD_TIME := $(shell date +%Y%m%d-%H:%M:%S)GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_TIME := $(shell date +%Y%m%d-%H:%M:%S)
+GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 GIT_DIRTY := $(shell if [ -n "$$(git status --porcelain)" ]; then echo "-dirty"; fi)
 GOLANGCI_LINT_VERSION := v2.12.1
 
