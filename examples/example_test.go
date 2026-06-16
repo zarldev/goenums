@@ -233,3 +233,31 @@ func Example_binaryMarshaling() {
 	// Unmarshaled: Mercury
 	// Orbit days: 88
 }
+
+// planetMatcher is a matcher type that satisfies solarsystem.PlanetMatcher.
+// The compiler enforces that all methods are implemented — if a new planet
+// is added to the enum, this type stops compiling until the missing method is added.
+type planetMatcher struct{}
+
+func (planetMatcher) Mercury() {}
+func (planetMatcher) Venus()   {}
+func (planetMatcher) Earth()   {}
+func (planetMatcher) Mars()    {}
+func (planetMatcher) Jupiter() {}
+func (planetMatcher) Saturn()  {}
+func (planetMatcher) Uranus()  {}
+func (planetMatcher) Neptune() {}
+
+var _ solarsystem.PlanetMatcher = planetMatcher{}
+
+// Example_matchExhaustiveness demonstrates compile-time and runtime exhaustiveness.
+// Match/MustMatch provide compile-time safety via the PlanetMatcher interface:
+// the compiler enforces that any struct passed to MatchPlanet has a method for
+// every valid enum value. If a new planet is added, existing matchers stop compiling.
+func Example_matchExhaustiveness() {
+	// MustMatch panics if matcher is nil, otherwise dispatches to the
+	// appropriate method on the matcher based on the enum value.
+	solarsystem.MustMatchPlanet(solarsystem.Planets.EARTH, planetMatcher{})
+
+	// Output:
+}

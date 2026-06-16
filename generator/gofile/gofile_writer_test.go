@@ -173,3 +173,60 @@ func TestWriter_ConstraintsNoDuplicateTypes(t *testing.T) {
 		}
 	}
 }
+
+func TestWriter_MatchUsesCompileTimeMatcherInterface(t *testing.T) {
+	t.Parallel()
+	memfs := file.NewMemFS()
+	writer := gofile.NewWriter(gofile.WithFileSystem(memfs))
+
+	req := enum.GenerationRequest{
+		Package:        "testpkg",
+		SourceFilename: "status.go",
+		OutputFilename: "status",
+		Version:        "test",
+		EnumIota: enum.EnumIota{
+			Type:       "status",
+			StartIndex: 1,
+			Enums: []enum.Enum{
+				{Name: "unknown", Index: 0, Aliases: []string{"Unknown"}, Valid: false},
+				{Name: "pending", Index: 1, Aliases: []string{"Pending"}, Valid: true},
+				{Name: "failed", Index: 2, Aliases: []string{"Failed"}, Valid: true},
+			},
+		},
+	}
+
+	if err := writer.Write(t.Context(), []enum.GenerationRequest{req}); err != nil {
+		t.Fatalf("write failed: %v", err)
+	}
+
+	content, err := memfs.ReadFile("status_enums.go")
+	if err != nil {
+		t.Fatalf("read generated file: %v", err)
+	}
+	s := string(content)
+
+	want := []string{
+		"type StatusMatcher interface",
+		"Pending()",
+		"Failed()",
+		"func MatchStatus(en Status, matcher StatusMatcher) error",
+		"case Statuses.PENDING:",
+		"matcher.Pending()",
+		"case Statuses.FAILED:",
+		"matcher.Failed()",
+		`return fmt.Errorf("unhandled Status: %v", en)`,
+		"func MustMatchStatus(en Status, matcher StatusMatcher)",
+	}
+	for _, fragment := range want {
+		if !strings.Contains(s, fragment) {
+			t.Errorf("generated output missing %q", fragment)
+		}
+	}
+
+	if strings.Contains(s, "Unknown()") {
+		t.Errorf("invalid enum values should not be part of the matcher interface")
+	}
+	if strings.Contains(s, "map[Status]func()") {
+		t.Errorf("MatchStatus should use the matcher interface, not a handlers map")
+	}
+}

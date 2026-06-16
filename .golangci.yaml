@@ -424,6 +424,9 @@ linters:
       - text: 'comment on exported \S+ \S+ should be of the form ".+"'
         source: '// ?(nolint|TODO)'
         linters: [ revive, staticcheck ]
+      - path: 'generator/gofile/gofile_parser\.go'
+        text: 'missing cases in switch of type token\.Token'
+        linters: [ exhaustive ]
       - path: '_test\.go'
         linters:
           - bodyclose
