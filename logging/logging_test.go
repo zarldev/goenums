@@ -2,6 +2,7 @@ package logging_test
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"log/slog"
 	"strings"
@@ -13,7 +14,7 @@ import (
 
 func TestLoggingOutput(t *testing.T) {
 	t.Parallel()
-	ctx := t.Context()
+	ctx := context.Background()
 
 	tests := []struct {
 		name     string
@@ -89,7 +90,7 @@ func TestLoggingOutput(t *testing.T) {
 
 func TestCustomHandler(t *testing.T) {
 	t.Parallel()
-	ctx := t.Context()
+	ctx := context.Background()
 	var buf bytes.Buffer
 	handler := logging.NewCustomTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelInfo})
 	logger := slog.New(handler)
@@ -145,10 +146,10 @@ func TestConfigure(t *testing.T) {
 	}
 
 	logging.Configure(false)
-	if !slog.Default().Enabled(t.Context(), slog.LevelInfo) {
+	if !slog.Default().Enabled(context.Background(), slog.LevelInfo) {
 		t.Error("default logger should be enabled for info level")
 	}
-	if slog.Default().Enabled(t.Context(), slog.LevelDebug) {
+	if slog.Default().Enabled(context.Background(), slog.LevelDebug) {
 		t.Error("default logger should not be enabled for debug level when not verbose")
 	}
 }
@@ -205,7 +206,7 @@ func TestAttrFormatting(t *testing.T) {
 			t.Parallel()
 			var buf bytes.Buffer
 			logger := slog.New(logging.NewCustomTextHandler(&buf, nil))
-			logger.LogAttrs(t.Context(), slog.LevelInfo, "message", tt.attrs...)
+			logger.LogAttrs(context.Background(), slog.LevelInfo, "message", tt.attrs...)
 			output := buf.String()
 			for _, s := range tt.contains {
 				if !strings.Contains(output, s) {
@@ -231,7 +232,7 @@ func TestHandleWriteError(t *testing.T) {
 	t.Parallel()
 	handler := logging.NewCustomTextHandler(errWriter{}, nil)
 	r := slog.NewRecord(time.Time{}, slog.LevelInfo, "message", 0)
-	err := handler.Handle(t.Context(), r)
+	err := handler.Handle(context.Background(), r)
 	if !errors.Is(err, logging.ErrLogging) {
 		t.Errorf("expected error wrapping ErrLogging, got %v", err)
 	}

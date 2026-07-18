@@ -30,6 +30,10 @@ type Configuration struct {
 	// that are only available in Go 1.21+.
 	Legacy bool
 
+	// LegacyTextMarshal preserves the pre-v0.6 text marshaling behavior.
+	// When true, MarshalText returns a JSON-quoted string instead of raw text.
+	LegacyTextMarshal bool
+
 	// Verbose enables detailed logging throughout the enum generation process.
 	// When true, additional information about parsing and generation steps will
 	// be logged, which is useful for debugging.
@@ -41,7 +45,7 @@ type Configuration struct {
 	// Filenames is the list of paths provided to the reader
 	Filenames []string
 
-	// Constraints is the flag to generate the constraints or not
+	// Constraints controls numeric constraints generation. When true, local constraints are generated; when false, golang.org/x/exp/constraints is imported.
 	Constraints bool
 
 	// Handlers defines the behavior of the enum generation process.

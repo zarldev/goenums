@@ -3,10 +3,11 @@
 package file
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"go/format"
+	goformat "go/format"
 	"io"
 	"io/fs"
 )
@@ -59,40 +60,26 @@ func WriteToFileAndFormatFS(ctx context.Context, fs ReadCreateWriteFileFS, fullP
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	f, err := fs.Create(fullPath)
-	if err != nil {
-		return fmt.Errorf("%w: %s: %w", ErrCreateFile, fullPath, err)
-	}
-	defer f.Close()
-	if err := writeFunc(f); err != nil {
+
+	var output bytes.Buffer
+	if err := writeFunc(&output); err != nil {
 		return fmt.Errorf("%w: %s: %w", ErrWriteFile, fullPath, err)
 	}
+
+	data := output.Bytes()
 	if format {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		if err = formatFile(fs, fullPath); err != nil {
+		formatted, err := goformat.Source(data)
+		if err != nil {
 			return fmt.Errorf("%w: %s: %w", ErrFormatFile, fullPath, err)
 		}
+		data = formatted
 	}
-	return nil
-}
 
-// formatFile applies Go's standard formatting to a file at the specified path.
-// It reads the file content, formats it using go/format, and writes the
-// formatted content back to the file using the provided filesystem. This
-// ensures generated Go code follows standard formatting conventions.
-func formatFile(fs ReadCreateWriteFileFS, filename string) error {
-	f, err := fs.ReadFile(filename)
-	if err != nil {
-		return fmt.Errorf("%w: %s: %w", ErrReadFile, filename, err)
-	}
-	b, err := format.Source(f)
-	if err != nil {
-		return fmt.Errorf("%w: %s: %w", ErrFormatFile, filename, err)
-	}
-	if err = fs.WriteFile(filename, b, 0644); err != nil {
-		return fmt.Errorf("%w: %s: %w", ErrWriteFile, filename, err)
+	if err := fs.WriteFile(fullPath, data, 0644); err != nil {
+		return fmt.Errorf("%w: %s: %w", ErrWriteFile, fullPath, err)
 	}
 	return nil
 }

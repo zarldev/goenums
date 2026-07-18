@@ -119,6 +119,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	stdstrings "strings"
 	"syscall"
 	"text/template"
 
@@ -135,38 +136,96 @@ import (
 
 // Define flag groups
 type flags struct {
-	help, version, failfast, legacy, insensitive, verbose, constraints bool
-	output                                                             string
+	help, version, failfast, legacy, legacyText, insensitive, verbose, constraints, xExpConstraints bool
+	output                                                                                          string
+	interfaces                                                                                      string
+	interfacesSet                                                                                   bool
 }
 
-func parseFlags() (flags, []string) {
+func parseFlags(args []string) (flags, []string, *flag.FlagSet, error) {
 	var f flags
-	flag.BoolVar(&f.help, "help", false,
+	fs := flag.NewFlagSet("goenums", flag.ContinueOnError)
+	fs.BoolVar(&f.help, "help", false,
 		"Print help information")
-	flag.BoolVar(&f.help, "h", false, "")
-	flag.BoolVar(&f.version, "version", false,
+	fs.BoolVar(&f.help, "h", false, "")
+	fs.BoolVar(&f.version, "version", false,
 		"Print version information")
-	flag.BoolVar(&f.version, "v", false, "")
-	flag.BoolVar(&f.failfast, "failfast", false,
+	fs.BoolVar(&f.version, "v", false, "")
+	fs.BoolVar(&f.failfast, "failfast", false,
 		"Enable failfast mode - fail on generation of invalid enum while parsing (default: false)")
-	flag.BoolVar(&f.failfast, "f", false, "")
-	flag.BoolVar(&f.legacy, "legacy", false,
+	fs.BoolVar(&f.failfast, "f", false, "")
+	fs.BoolVar(&f.legacy, "legacy", false,
 		"Generate legacy code without Go 1.23+ iterator support (default: false)")
-	flag.BoolVar(&f.legacy, "l", false, "")
-	flag.BoolVar(&f.insensitive, "insensitive", false,
+	fs.BoolVar(&f.legacy, "l", false, "")
+	fs.BoolVar(&f.legacyText, "legacy-text", false,
+		"Generate legacy quoted MarshalText output (default: false)")
+	fs.BoolVar(&f.insensitive, "insensitive", false,
 		"Generate case insensitive string parsing (default: false)")
-	flag.BoolVar(&f.insensitive, "i", false, "")
-	flag.BoolVar(&f.verbose, "verbose", false,
+	fs.BoolVar(&f.insensitive, "i", false, "")
+	fs.BoolVar(&f.verbose, "verbose", false,
 		"Enable verbose mode - prints out the generated code (default: false)")
-	flag.BoolVar(&f.verbose, "vv", false, "")
-	flag.StringVar(&f.output, "output", "",
+	fs.BoolVar(&f.verbose, "vv", false, "")
+	fs.StringVar(&f.output, "output", "",
 		"Specify the output format (default: go)")
-	flag.StringVar(&f.output, "o", "", "")
-	flag.BoolVar(&f.constraints, "constraints", false,
-		"Specify whether to generate the float and integer constraints or import 'golang.org/x/exp/constraints' (default: false - imports)")
-	flag.BoolVar(&f.constraints, "c", false, "")
-	flag.Parse()
-	return f, flag.Args()
+	fs.StringVar(&f.output, "o", "", "")
+	fs.StringVar(&f.interfaces, "interfaces", "",
+		"Generate only the listed interface handlers: json,text,yaml,sql,binary (default: all)")
+	fs.BoolVar(&f.constraints, "constraints", false,
+		"Generate local numeric constraints instead of importing golang.org/x/exp/constraints (default: true)")
+	fs.BoolVar(&f.constraints, "c", false, "")
+	fs.BoolVar(&f.xExpConstraints, "x-exp-constraints", false,
+		"Import golang.org/x/exp/constraints instead of generating local numeric constraints (default: false)")
+	if err := fs.Parse(args); err != nil {
+		return f, nil, fs, err
+	}
+	fs.Visit(func(selected *flag.Flag) {
+		if selected.Name == "interfaces" {
+			f.interfacesSet = true
+		}
+	})
+	return f, fs.Args(), fs, nil
+}
+
+func parseHandlers(value string, explicitlySet bool) (config.Handlers, error) {
+	all := config.Handlers{
+		JSON:   true,
+		Text:   true,
+		SQL:    true,
+		YAML:   true,
+		Binary: true,
+	}
+	if value == "" {
+		if explicitlySet {
+			return config.Handlers{}, fmt.Errorf("invalid --interfaces value %q: empty interface name", value)
+		}
+		return all, nil
+	}
+
+	var handlers config.Handlers
+	for _, rawPart := range stdstrings.Split(value, ",") {
+		part := stdstrings.ToLower(stdstrings.TrimSpace(rawPart))
+		if part == "" {
+			return config.Handlers{}, fmt.Errorf("invalid --interfaces value %q: empty interface name", value)
+		}
+		switch part {
+		case "json":
+			handlers.JSON = true
+		case "text":
+			handlers.Text = true
+		case "yaml":
+			handlers.YAML = true
+		case "sql":
+			handlers.SQL = true
+		case "binary":
+			handlers.Binary = true
+		default:
+			return config.Handlers{}, fmt.Errorf(
+				"invalid --interfaces value %q: unknown interface %q; valid values are json,text,yaml,sql,binary",
+				value,
+				part)
+		}
+	}
+	return handlers, nil
 }
 
 const (
@@ -225,31 +284,52 @@ func printVersion() {
 }
 
 func main() {
+	os.Exit(mainStatus())
+}
+
+func mainStatus() int {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	logging.Configure(false)
-	// Setup signal handling for graceful shutdown
+
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
 		cancel()
 	}()
-	config, err := configuration(ctx)
+
+	if err := run(ctx, os.Args[1:]); err != nil {
+		return 1
+	}
+	return 0
+}
+
+func run(ctx context.Context, args []string) error {
+	logging.Configure(false)
+	config, err := configuration(ctx, args)
 	if err != nil {
-		return
+		if errors.Is(err, ErrComplete) {
+			return nil
+		}
+		return err
 	}
 	logging.Configure(config.Verbose)
 
 	logo()
-	slog.Default().Info(fmt.Sprintf("\t\tversion: %s", version.CURRENT))
-	slog.Default().Debug("starting generation...")
-	slog.Default().Debug("config settings",
+	slog.Default().InfoContext(ctx, fmt.Sprintf("		version: %s", version.CURRENT))
+	slog.Default().DebugContext(ctx, "starting generation...")
+	slog.Default().DebugContext(ctx, "config settings",
 		slog.Int("file_count", len(config.Filenames)),
 		slog.String("files", buildFileList(config.Filenames)),
 		slog.String("output", config.OutputFormat),
 		slog.Bool("failfast", config.Failfast),
 		slog.Bool("legacy", config.Legacy),
+		slog.Bool("legacy_text", config.LegacyTextMarshal),
+		slog.Bool("handler_json", config.Handlers.JSON),
+		slog.Bool("handler_text", config.Handlers.Text),
+		slog.Bool("handler_yaml", config.Handlers.YAML),
+		slog.Bool("handler_sql", config.Handlers.SQL),
+		slog.Bool("handler_binary", config.Handlers.Binary),
 		slog.Bool("insensitive", config.Insensitive),
 		slog.Bool("verbose", config.Verbose))
 
@@ -258,7 +338,7 @@ func main() {
 		if filename == "" {
 			continue
 		}
-		slog.Default().Info("processing file", slog.String("filename", filename))
+		slog.Default().InfoContext(ctx, "processing file", slog.String("filename", filename))
 		var (
 			parser enum.Parser
 			writer enum.Writer
@@ -267,60 +347,66 @@ func main() {
 		inExt := filepath.Ext(filename)
 		switch inExt {
 		case ".go":
-			slog.Default().Debug("initializing go parser")
+			slog.Default().DebugContext(ctx, "initializing go parser")
 			parser = gofile.NewParser(
 				gofile.WithParserConfiguration(config),
 				gofile.WithSource(source.FromFile(filename)))
 		default:
-			slog.Default().Error("only .go files are supported")
-			return
+			err := fmt.Errorf("unsupported input file extension %q", inExt)
+			slog.Default().ErrorContext(ctx, "only .go files are supported")
+			return err
 		}
 
 		switch config.OutputFormat {
 		case "", "go":
-			slog.Default().Debug("initializing gofile writer")
+			slog.Default().DebugContext(ctx, "initializing gofile writer")
 			writer = gofile.NewWriter(gofile.WithWriterConfiguration(config))
 		default:
-			slog.Default().Error("only outputting to go files is supported")
-			return
+			err := fmt.Errorf("unsupported output format %q", config.OutputFormat)
+			slog.Default().ErrorContext(ctx, "only outputting to go files is supported")
+			return err
 		}
 
-		slog.Default().Debug("initializing generator")
+		slog.Default().DebugContext(ctx, "initializing generator")
 		gen := generator.New(
 			generator.WithConfig(config),
 			generator.WithParser(parser),
 			generator.WithWriter(writer))
-		slog.Default().Info("starting parsing and generation")
+		slog.Default().InfoContext(ctx, "starting parsing and generation")
 		if err := gen.ParseAndWrite(ctx); err != nil {
 			if errors.Is(err, enum.ErrParseSource) {
-				slog.Default().Error("unable to parse file", slog.String("filename", filename))
-				slog.Default().Error("please ensure that the file is a valid input file")
-				slog.Default().Error("for the selected parser")
+				slog.Default().ErrorContext(ctx, "unable to parse file", slog.String("filename", filename))
+				slog.Default().ErrorContext(ctx, "please ensure that the file is a valid input file")
+				slog.Default().ErrorContext(ctx, "for the selected parser")
 			}
 			if errors.Is(err, enum.ErrNoEnumsFound) {
-				slog.Default().Error("no enums found in file", slog.String("filename", filename))
-				slog.Default().Error("please ensure that the file contains enum definitions")
+				slog.Default().ErrorContext(ctx, "no enums found in file", slog.String("filename", filename))
+				slog.Default().ErrorContext(ctx, "please ensure that the file contains enum definitions")
 			}
 			if errors.Is(err, enum.ErrWriteOutput) {
-				slog.Default().Error("could not generate output")
-				slog.Default().Error("please ensure that the output destination is writable")
-				slog.Default().Error("and that input enums contain only valid characters")
+				slog.Default().ErrorContext(ctx, "could not generate output")
+				slog.Default().ErrorContext(ctx, "please ensure that the output destination is writable")
+				slog.Default().ErrorContext(ctx, "and that input enums contain only valid characters")
 			}
-			slog.Default().Error("could not generate enums", slog.String("error", err.Error()))
-			slog.Default().Error("exiting")
-			return
+			slog.Default().ErrorContext(ctx, "could not generate enums", slog.String("error", err.Error()))
+			slog.Default().ErrorContext(ctx, "exiting")
+			return err
 		}
-		slog.Default().Info("successfully generated enums")
+		slog.Default().InfoContext(ctx, "successfully generated enums")
 	}
+	return nil
 }
 
 var ErrComplete = errors.New("completed")
 
-func configuration(ctx context.Context) (config.Configuration, error) {
-	f, args := parseFlags()
+func configuration(ctx context.Context, args []string) (config.Configuration, error) {
+	f, args, fs, err := parseFlags(args)
+	if err != nil {
+		return config.Configuration{}, err
+	}
 
 	if f.help {
-		printHelp()
+		printHelp(fs)
 		return config.Configuration{}, ErrComplete
 	}
 
@@ -334,6 +420,11 @@ func configuration(ctx context.Context) (config.Configuration, error) {
 		return config.Configuration{}, ErrComplete
 	}
 
+	handlers, err := parseHandlers(f.interfaces, f.interfacesSet)
+	if err != nil {
+		return config.Configuration{}, err
+	}
+
 	filenames := args
 
 	for _, filename := range filenames {
@@ -342,37 +433,33 @@ func configuration(ctx context.Context) (config.Configuration, error) {
 			continue
 		}
 
-		if _, err := os.Stat(filename); os.IsNotExist(err) {
+		cleanFilename := filepath.Clean(filename)
+		if _, err := os.Stat(cleanFilename); os.IsNotExist(err) {
 			slog.Default().ErrorContext(ctx, "input file does not exist", slog.String("filename", filename))
 			return config.Configuration{}, fmt.Errorf("input file does not exist %s", filename)
 		}
 	}
 
 	config := config.Configuration{
-		Failfast:     f.failfast,
-		Insensitive:  f.insensitive,
-		Legacy:       f.legacy,
-		Verbose:      f.verbose,
-		OutputFormat: f.output,
-		Filenames:    filenames,
-		Constraints:  f.constraints,
-		Handlers: config.Handlers{
-			JSON:   true,
-			Text:   true,
-			SQL:    true,
-			YAML:   true,
-			Binary: true,
-		},
+		Failfast:          f.failfast,
+		Insensitive:       f.insensitive,
+		Legacy:            f.legacy,
+		LegacyTextMarshal: f.legacyText,
+		Verbose:           f.verbose,
+		OutputFormat:      f.output,
+		Filenames:         filenames,
+		Constraints:       !f.xExpConstraints,
+		Handlers:          handlers,
 	}
 	return config, nil
 }
 
 // printHelp displays usage instructions and command-line options
-func printHelp() {
+func printHelp(fs *flag.FlagSet) {
 	logo()
 	slog.Default().Info("Usage: goenums [options] file.go[,file2.go,...]")
 	slog.Default().Info("Options:")
-	flag.PrintDefaults()
+	fs.PrintDefaults()
 }
 
 func buildFileList(filenames []string) string {

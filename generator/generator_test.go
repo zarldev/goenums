@@ -1,6 +1,7 @@
 package generator_test
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"testing"
@@ -41,7 +42,7 @@ func TestGenerator_ParseAndWrite(t *testing.T) {
 				generator.WithConfig(tc.Config),
 				generator.WithParser(parser),
 				generator.WithWriter(wri))
-			if err := p.ParseAndWrite(t.Context()); err != nil {
+			if err := p.ParseAndWrite(context.Background()); err != nil {
 				if !errors.Is(err, tc.Err) {
 					t.Errorf("failed to generate enums for %s, got %v", tc.Source.Filename(), err)
 					t.Errorf("expected error: %v", tc.Err)

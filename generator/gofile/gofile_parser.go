@@ -72,18 +72,24 @@ func NewParser(opts ...ParserOption) *Parser {
 // It returns a slice of enum representations or an error if parsing fails.
 // The implementation uses Go's standard AST parsing to analyze the source code structure.
 func (p *Parser) Parse(ctx context.Context) ([]enum.GenerationRequest, error) {
-	defer func() {
-		if r := recover(); r != nil {
-			slog.Default().ErrorContext(ctx, "unexpected panic in parser",
-				"version", version.CURRENT,
-				"build", version.BUILD,
-				"commit", version.COMMIT,
-				"recovered", true,
-				"error", fmt.Sprintf("%v", r),
-				"file", p.source.Filename())
-		}
+	var requests []enum.GenerationRequest
+	var err error
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().ErrorContext(ctx, "unexpected panic in parser",
+					"version", version.CURRENT,
+					"build", version.BUILD,
+					"commit", version.COMMIT,
+					"recovered", true,
+					"error", fmt.Sprintf("%v", r),
+					"file", p.source.Filename())
+				err = fmt.Errorf("%w: panic: %v", ErrParseGoSource, r)
+			}
+		}()
+		requests, err = p.doParse(ctx)
 	}()
-	return p.doParse(ctx)
+	return requests, err
 }
 
 const (
@@ -133,7 +139,10 @@ func extractEnumInfo(ctx context.Context, p *Parser, node *ast.File) (string, en
 	slog.Default().DebugContext(ctx, "enum iota", "count", len(enInfo.Enums), "enumIota", enInfo.Enums)
 	for i, enumIota := range enInfo.Enums {
 		slog.Default().DebugContext(ctx, "enum iota", "enumIota", enumIota)
-		enums := p.getEnums(node, &enumIota)
+		enums, parseErr := p.getEnums(node, &enumIota)
+		if parseErr != nil {
+			return "", enumInfo{}, fmt.Errorf("%w: %w", ErrParseGoSource, parseErr)
+		}
 		if len(enums) == 0 {
 			return "", enumInfo{}, fmt.Errorf("%w: %w",
 				ErrParseGoSource,
@@ -179,7 +188,7 @@ func (p *Parser) getPackageName(node *ast.File) string {
 	return packageName
 }
 
-func (p *Parser) getEnums(node *ast.File, enumIota *enum.EnumIota) []enum.Enum {
+func (p *Parser) getEnums(node *ast.File, enumIota *enum.EnumIota) ([]enum.Enum, error) {
 	var enums []enum.Enum
 	enumsFound := false
 	for _, decl := range node.Decls {
@@ -198,19 +207,8 @@ func (p *Parser) getEnums(node *ast.File, enumIota *enum.EnumIota) []enum.Enum {
 				continue
 			}
 
-			// Check for iota in values
-			if vs.Values != nil {
-				for _, v := range vs.Values {
-					if ident, ok := v.(*ast.Ident); ok && ident.Name == iotaIdentifier {
-						blockHasIota = true
-					}
-					// Also check for iota in binary expressions
-					if binExpr, ok := v.(*ast.BinaryExpr); ok {
-						if x, ok := binExpr.X.(*ast.Ident); ok && x.Name == iotaIdentifier {
-							blockHasIota = true
-						}
-					}
-				}
+			if valueSpecHasIota(vs) {
+				blockHasIota = true
 			}
 
 			// Check if this spec has the target type
@@ -234,25 +232,28 @@ func (p *Parser) getEnums(node *ast.File, enumIota *enum.EnumIota) []enum.Enum {
 			if !ok {
 				continue
 			}
-			e := p.getEnum(vs, &idx, enumIota, &constBlockIotaFound)
-			if e == nil {
+			e, ok, err := p.getEnum(vs, &idx, enumIota, &constBlockIotaFound)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
 				continue
 			}
-			enums = append(enums, *e)
+			enums = append(enums, e)
 			enumsFound = true
 			slog.Default().Debug("enum", "enum", e)
 		}
 	}
 	if !enumsFound {
-		return nil
+		return nil, nil
 	}
-	return enums
+	return enums, nil
 }
 
-func (p *Parser) getEnum(vs *ast.ValueSpec, idx *int, enumIota *enum.EnumIota, iotaFound *bool) *enum.Enum {
+func (p *Parser) getEnum(vs *ast.ValueSpec, idx *int, enumIota *enum.EnumIota, iotaFound *bool) (enum.Enum, bool, error) {
 	if len(vs.Names) == 0 {
 		slog.Default().Debug("valuespec has no names")
-		return nil
+		return enum.Enum{}, false, nil
 	}
 	if vs.Values != nil {
 		for _, v := range vs.Values {
@@ -268,16 +269,16 @@ func (p *Parser) getEnum(vs *ast.ValueSpec, idx *int, enumIota *enum.EnumIota, i
 	if vs.Type != nil {
 		t, ok := vs.Type.(*ast.Ident)
 		if !ok {
-			return nil
+			return enum.Enum{}, false, nil
 		}
 		if t.Name != enumIota.Type {
-			return nil
+			return enum.Enum{}, false, nil
 		}
 	}
 	name := vs.Names[0].Name
 	if name == "_" {
 		*idx++
-		return nil
+		return enum.Enum{}, false, nil
 	}
 	en := enum.Enum{
 		Name:  vs.Names[0].Name,
@@ -290,23 +291,23 @@ func (p *Parser) getEnum(vs *ast.ValueSpec, idx *int, enumIota *enum.EnumIota, i
 		}
 		x, ok := t.X.(*ast.Ident)
 		if !ok {
-			return nil
+			return enum.Enum{}, false, nil
 		}
 		if x.Name != iotaIdentifier {
-			return nil
+			return enum.Enum{}, false, nil
 		} else {
 			*iotaFound = true
 		}
 		y, ok := t.Y.(*ast.BasicLit)
 		if !ok {
-			return nil
+			return enum.Enum{}, false, nil
 		}
 		if y.Kind != token.INT {
-			return nil
+			return enum.Enum{}, false, nil
 		}
 		val, err := strconv.Atoi(y.Value)
 		if err != nil {
-			return nil
+			return enum.Enum{}, false, fmt.Errorf("parse iota offset: %w", err)
 		}
 		// Calculate the actual starting value based on the operation
 		switch t.Op {
@@ -314,16 +315,8 @@ func (p *Parser) getEnum(vs *ast.ValueSpec, idx *int, enumIota *enum.EnumIota, i
 			enumIota.StartIndex = 0 + val // iota + val, where iota starts at 0
 		case token.SUB:
 			enumIota.StartIndex = 0 - val // iota - val, where iota starts at 0
-		case token.MUL:
-			enumIota.StartIndex = 0 * val // iota * val, where iota starts at 0
-		case token.QUO:
-			if val != 0 {
-				enumIota.StartIndex = 0 / val // iota / val, where iota starts at 0
-			} else {
-				enumIota.StartIndex = 0
-			}
 		default:
-			enumIota.StartIndex = val // fallback to original behavior
+			return enum.Enum{}, false, fmt.Errorf("unsupported iota expression operator %q", t.Op)
 		}
 	}
 	en.Index = *idx                       // 0-based position in enum sequence
@@ -334,7 +327,7 @@ func (p *Parser) getEnum(vs *ast.ValueSpec, idx *int, enumIota *enum.EnumIota, i
 		commentText := vs.Comment.List[0].Text
 		const commentPrefix = "//"
 		if len(commentText) < len(commentPrefix) || !strings.HasPrefix(commentText, commentPrefix) {
-			return &en
+			return en, true, nil
 		}
 		comment := commentText[len(commentPrefix):]
 		valid := !strings.Contains(comment, "invalid")
@@ -346,39 +339,46 @@ func (p *Parser) getEnum(vs *ast.ValueSpec, idx *int, enumIota *enum.EnumIota, i
 		expectedFields := len(enumIota.Fields)
 
 		if s1 == "" && s2 == "" {
-			return &en
+			return en, true, nil
 		}
 
 		if s1 == "" {
-			return &en
+			return en, true, nil
 		}
 
 		if s2 == "" {
 			if expectedFields > 0 {
 				f, err := enum.ParseEnumFields(s1, *enumIota)
 				if err != nil {
-					slog.Default().Warn("failed to parse enum fields",
-						"enum", vs.Names[0].Name,
-						"error", err)
-					return &en
+					if p.Configuration.Failfast {
+						return enum.Enum{}, false, fmt.Errorf("parse fields for enum %s: %w", en.Name, err)
+					}
+					en.Valid = false
+					slog.Default().Warn("invalid enum fields", "enum", en.Name, "error", err)
+					return en, true, nil
 				}
 				en.Fields = f
-				return &en
+				return en, true, nil
 			}
 			en.Aliases = enum.ParseEnumAliases(s1)
-			return &en
+			return en, true, nil
 		}
 
 		// Both s1 and s2 are not empty
 		en.Aliases = enum.ParseEnumAliases(s1)
 		f, err := enum.ParseEnumFields(s2, *enumIota)
 		if err != nil {
-			return nil
+			if p.Configuration.Failfast {
+				return enum.Enum{}, false, fmt.Errorf("parse fields for enum %s: %w", en.Name, err)
+			}
+			en.Valid = false
+			slog.Default().Warn("invalid enum fields", "enum", en.Name, "error", err)
+			return en, true, nil
 		}
 		en.Fields = f
-		return &en
+		return en, true, nil
 	}
-	return &en
+	return en, true, nil
 }
 
 type enumInfo struct {
@@ -387,6 +387,7 @@ type enumInfo struct {
 }
 
 func (p *Parser) getEnumInfo(node *ast.File) enumInfo {
+	candidateTypes := p.getEnumCandidateTypes(node)
 	var enumIotas []enum.EnumIota
 	for _, decl := range node.Decls {
 		t, ok := decl.(*ast.GenDecl)
@@ -398,30 +399,81 @@ func (p *Parser) getEnumInfo(node *ast.File) enumInfo {
 			if !ok {
 				continue
 			}
-			if ts.Type != nil {
-				enumIota := enum.EnumIota{
-					Type: ts.Name.Name,
-				}
-				if ts.Comment != nil &&
-					len(ts.Comment.List) > 0 {
-					comment := ts.Comment.List[0].Text
-					if strings.HasPrefix(comment, "//") {
-						comment = comment[2:]
-					}
-					opener, closer, fields := enum.ExtractFields(comment)
-
-					enumIota.Comment = comment
-					enumIota.Fields = fields
-					enumIota.Opener = opener
-					enumIota.Closer = closer
-				}
-				enumIotas = append(enumIotas, enumIota)
+			if _, ok := candidateTypes[ts.Name.Name]; !ok || ts.Type == nil {
+				continue
 			}
+			enumIota := enum.EnumIota{
+				Type: ts.Name.Name,
+			}
+			if ts.Comment != nil &&
+				len(ts.Comment.List) > 0 {
+				comment := ts.Comment.List[0].Text
+				if strings.HasPrefix(comment, "//") {
+					comment = comment[2:]
+				}
+				opener, closer, fields := enum.ExtractFields(comment)
+
+				enumIota.Comment = comment
+				enumIota.Fields = fields
+				enumIota.Opener = opener
+				enumIota.Closer = closer
+			}
+			enumIotas = append(enumIotas, enumIota)
 		}
 	}
 	imports := enum.ExtractImports(enumIotas)
 	return enumInfo{
 		Imports: imports,
 		Enums:   enumIotas,
+	}
+}
+
+func (p *Parser) getEnumCandidateTypes(node *ast.File) map[string]struct{} {
+	candidateTypes := make(map[string]struct{})
+	for _, decl := range node.Decls {
+		t, ok := decl.(*ast.GenDecl)
+		if !ok || t.Tok != token.CONST {
+			continue
+		}
+		blockHasIota := false
+		for _, spec := range t.Specs {
+			vs, ok := spec.(*ast.ValueSpec)
+			if !ok {
+				continue
+			}
+			if valueSpecHasIota(vs) {
+				blockHasIota = true
+			}
+			if blockHasIota && vs.Type != nil {
+				if typeIdent, ok := vs.Type.(*ast.Ident); ok {
+					candidateTypes[typeIdent.Name] = struct{}{}
+				}
+			}
+		}
+	}
+	return candidateTypes
+}
+
+func valueSpecHasIota(vs *ast.ValueSpec) bool {
+	for _, v := range vs.Values {
+		if exprHasIota(v) {
+			return true
+		}
+	}
+	return false
+}
+
+func exprHasIota(expr ast.Expr) bool {
+	switch e := expr.(type) {
+	case *ast.Ident:
+		return e.Name == iotaIdentifier
+	case *ast.BinaryExpr:
+		return exprHasIota(e.X) || exprHasIota(e.Y)
+	case *ast.ParenExpr:
+		return exprHasIota(e.X)
+	case *ast.UnaryExpr:
+		return exprHasIota(e.X)
+	default:
+		return false
 	}
 }

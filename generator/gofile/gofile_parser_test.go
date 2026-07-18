@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/zarldev/goenums/enum"
+	"github.com/zarldev/goenums/generator/config"
 	"github.com/zarldev/goenums/generator/gofile"
 	"github.com/zarldev/goenums/internal/testdata"
 	"github.com/zarldev/goenums/source"
@@ -34,7 +35,7 @@ func TestGoFileParser_Parse(t *testing.T) {
 				gofile.WithParserConfiguration(tc.Config),
 				gofile.WithSource(tc.Source)))
 			parser := tc.Parser()
-			representations, err := parser.Parse(t.Context())
+			representations, err := parser.Parse(context.Background())
 			if !errors.Is(err, tc.Err) {
 				t.Errorf("unexpected error: %v expected %v", err, tc.Err)
 				return
@@ -62,7 +63,7 @@ func TestGoFileParser_ParseWithCancelContext(t *testing.T) {
 	t.Parallel()
 	parser := gofile.NewParser(gofile.WithSource(
 		source.FromFileSystem(testdata.FS, "planets/planets.go")))
-	ctx, cancel := context.WithCancel(t.Context())
+	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	_, err := parser.Parse(ctx)
 	if err != nil && !errors.Is(err, context.Canceled) {
@@ -93,7 +94,7 @@ func TestParser_ErrorHandling(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			parser := gofile.NewParser(gofile.WithSource(tt.source))
-			_, err := parser.Parse(t.Context())
+			_, err := parser.Parse(context.Background())
 			if !errors.Is(err, tt.err) {
 				t.Errorf("Parse() error = %v, wantErr %v", err, tt.err)
 			}
@@ -148,7 +149,7 @@ func TestParser_SpecificScenarios(t *testing.T) {
 				gofile.WithParserConfiguration(testdata.DefaultConfig),
 			)
 
-			result, err := parser.Parse(t.Context())
+			result, err := parser.Parse(context.Background())
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -179,6 +180,7 @@ func TestParser_IotaOffsetOperators(t *testing.T) {
 		name       string
 		src        string
 		startIndex int
+		err        error
 	}{
 		{
 			name: "subtraction",
@@ -200,7 +202,7 @@ const (
 	pending
 	active
 )`,
-			startIndex: 0,
+			err: gofile.ErrParseGoSource,
 		},
 		{
 			name: "division",
@@ -211,10 +213,10 @@ const (
 	pending
 	active
 )`,
-			startIndex: 0,
+			err: gofile.ErrParseGoSource,
 		},
 		{
-			name: "unsupported operator falls back to operand value",
+			name: "unsupported operator returns parse error",
 			src: `package validation
 type status int
 const (
@@ -222,7 +224,18 @@ const (
 	pending
 	active
 )`,
-			startIndex: 3,
+			err: gofile.ErrParseGoSource,
+		},
+		{
+			name: "addition",
+			src: `package validation
+type status int
+const (
+	failed status = iota + 2
+	pending
+	active
+)`,
+			startIndex: 2,
 		},
 	}
 
@@ -233,7 +246,13 @@ const (
 				gofile.WithSource(source.FromReader(strings.NewReader(tt.src))),
 				gofile.WithParserConfiguration(testdata.DefaultConfig),
 			)
-			result, err := parser.Parse(t.Context())
+			result, err := parser.Parse(context.Background())
+			if tt.err != nil {
+				if !errors.Is(err, tt.err) {
+					t.Fatalf("expected error %v, got %v", tt.err, err)
+				}
+				return
+			}
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -261,11 +280,57 @@ func helper() {}
 		gofile.WithSource(source.FromReader(strings.NewReader(src))),
 		gofile.WithParserConfiguration(testdata.DefaultConfig),
 	)
-	_, err := parser.Parse(t.Context())
+	_, err := parser.Parse(context.Background())
 	if !errors.Is(err, enum.ErrNoEnumsFound) {
 		t.Errorf("expected ErrNoEnumsFound, got %v", err)
 	}
 }
+
+func TestParser_IgnoresUnrelatedTypeDeclarations(t *testing.T) {
+	t.Parallel()
+	src := `package validation
+
+type helper struct { Name string }
+
+type status int
+
+const (
+	pending status = iota
+	active
+)
+`
+	parser := gofile.NewParser(
+		gofile.WithSource(source.FromReader(strings.NewReader(src))),
+		gofile.WithParserConfiguration(testdata.DefaultConfig),
+	)
+	result, err := parser.Parse(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result) != 1 {
+		t.Fatalf("expected 1 generation request, got %d", len(result))
+	}
+	if result[0].EnumIota.Type != "status" {
+		t.Fatalf("expected status enum, got %q", result[0].EnumIota.Type)
+	}
+	if len(result[0].EnumIota.Enums) != 2 {
+		t.Fatalf("expected 2 enum values, got %d", len(result[0].EnumIota.Enums))
+	}
+}
+
+func TestParser_PanicRecoveryReturnsParseError(t *testing.T) {
+	t.Parallel()
+	parser := gofile.NewParser(gofile.WithSource(panickingSource{}))
+	_, err := parser.Parse(context.Background())
+	if !errors.Is(err, gofile.ErrParseGoSource) {
+		t.Fatalf("expected ErrParseGoSource, got %v", err)
+	}
+}
+
+type panickingSource struct{}
+
+func (panickingSource) Content() ([]byte, error) { panic("boom") }
+func (panickingSource) Filename() string         { return "panic.go" }
 
 // Benchmark tests
 func BenchmarkParser_Parse(b *testing.B) {
@@ -273,7 +338,7 @@ func BenchmarkParser_Parse(b *testing.B) {
 		gofile.WithSource(source.FromFileSystem(testdata.FS, "attributes/planets.go")),
 		gofile.WithParserConfiguration(testdata.DefaultConfig),
 	)
-	ctx := b.Context()
+	ctx := context.Background()
 
 	b.ResetTimer()
 	for range b.N {
@@ -289,5 +354,49 @@ func validateTypeInfo(t *testing.T, info enum.EnumIota) {
 	t.Helper()
 	if info.Type == "" {
 		t.Error("type name is empty")
+	}
+}
+
+func TestParser_FieldCountPolicy(t *testing.T) {
+	t.Parallel()
+	const input = `package testpkg
+
+type status int // Label string, Code int
+
+const (
+	Pending status = iota // pending
+)
+`
+	for _, tt := range []struct {
+		name     string
+		failfast bool
+		wantErr  bool
+	}{
+		{name: "marks enum invalid", failfast: false},
+		{name: "failfast returns error", failfast: true, wantErr: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			parser := gofile.NewParser(
+				gofile.WithParserConfiguration(config.Configuration{Failfast: tt.failfast}),
+				gofile.WithSource(source.FromReader(strings.NewReader(input))),
+			)
+			requests, err := parser.Parse(context.Background())
+			if tt.wantErr {
+				if !errors.Is(err, enum.ErrFieldCount) {
+					t.Fatalf("Parse() error = %v, want ErrFieldCount", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(requests) != 1 || len(requests[0].EnumIota.Enums) != 1 {
+				t.Fatalf("unexpected requests: %#v", requests)
+			}
+			if requests[0].EnumIota.Enums[0].Valid {
+				t.Error("enum with mismatched field count must be invalid")
+			}
+		})
 	}
 }

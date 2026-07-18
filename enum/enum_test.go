@@ -229,13 +229,7 @@ func TestParseEnumFields(t *testing.T) {
 					{Name: "Flag", Value: nil},
 				},
 			},
-			want: []enum.Field{
-				{Name: "Number", Value: 42},
-				{Name: "Flag", Value: enum.ErrParseValue},
-				{Name: "Text", Value: "hello"},
-				{Name: "Message", Value: "extra"},
-			},
-			err: enum.ErrParseValue,
+			err: enum.ErrFieldCount,
 		},
 		{
 			name:  "fewer fields than input",
@@ -247,10 +241,7 @@ func TestParseEnumFields(t *testing.T) {
 					{Name: "Text", Value: ""},
 				},
 			},
-			want: []enum.Field{
-				{Name: "Number", Value: 42},
-			},
-			err: enum.ErrFieldEmptyValue,
+			err: enum.ErrFieldCount,
 		},
 		{
 			name:     "empty input",
@@ -550,8 +541,7 @@ func TestGenerationRequestCommand(t *testing.T) {
 			name: "basic command with no flags",
 			req: enum.GenerationRequest{
 				SourceFilename: "test.go",
-				Configuration:  config.Configuration{},
-			},
+				Configuration:  config.Configuration{Constraints: true}},
 			want: "goenums test.go",
 		},
 		{
@@ -567,7 +557,7 @@ func TestGenerationRequestCommand(t *testing.T) {
 					OutputFormat: "json",
 				},
 			},
-			want: "goenums -f -l -i -c -vv -o json example.go",
+			want: "goenums -f -l -i -vv -o json example.go",
 		},
 		{
 			name: "command with some flags",
@@ -578,15 +568,15 @@ func TestGenerationRequestCommand(t *testing.T) {
 					Constraints: true,
 				},
 			},
-			want: "goenums -f -c status.go",
+			want: "goenums -f status.go",
 		},
 		{
 			name: "command with verbose only",
 			req: enum.GenerationRequest{
 				SourceFilename: "enum.go",
 				Configuration: config.Configuration{
-					Verbose: true,
-				},
+					Constraints: true,
+					Verbose:     true},
 			},
 			want: "goenums -vv enum.go",
 		},
@@ -595,8 +585,8 @@ func TestGenerationRequestCommand(t *testing.T) {
 			req: enum.GenerationRequest{
 				SourceFilename: "types.go",
 				Configuration: config.Configuration{
-					OutputFormat: "go",
-				},
+					Constraints:  true,
+					OutputFormat: "go"},
 			},
 			want: "goenums types.go",
 		},
@@ -605,8 +595,8 @@ func TestGenerationRequestCommand(t *testing.T) {
 			req: enum.GenerationRequest{
 				SourceFilename: "models.go",
 				Configuration: config.Configuration{
-					OutputFormat: "",
-				},
+					Constraints:  true,
+					OutputFormat: ""},
 			},
 			want: "goenums models.go",
 		},
@@ -614,8 +604,8 @@ func TestGenerationRequestCommand(t *testing.T) {
 			name: "command with no source filename",
 			req: enum.GenerationRequest{
 				Configuration: config.Configuration{
-					Failfast: true,
-				},
+					Failfast:    true,
+					Constraints: true},
 			},
 			want: "goenums -f",
 		},

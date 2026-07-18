@@ -205,7 +205,7 @@ func Example_textMarshaling() {
 		fmt.Println("Surface pressure:", unmarshaled.SurfacePressureBars, "bars")
 	}
 
-	// Output: Text representation: "Venus"
+	// Output: Text representation: Venus
 	// Unmarshaled: Neptune
 	// Surface pressure: 1.5 bars
 }
