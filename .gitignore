@@ -4,6 +4,7 @@
 /bin
 
 coverage.*
+.zarlcode/
 cover.*
 
 .claude
