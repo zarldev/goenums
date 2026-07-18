@@ -285,10 +285,9 @@ func TestOSReadWriteFileFS_PathValidation(t *testing.T) {
 	}{
 		{
 			name:      "valid path",
-			path:      "valid.txt",
+			path:      filepath.Join(tempDir, "valid.txt"),
 			shouldErr: false,
-		},
-		{
+		}, {
 			name:      "path with parent directory traversal",
 			path:      "../../../etc/passwd",
 			shouldErr: true,
@@ -299,8 +298,12 @@ func TestOSReadWriteFileFS_PathValidation(t *testing.T) {
 			shouldErr: true,
 		},
 		{
-			name:      "clean path with subdirectory",
-			path:      "subdir/file.txt",
+			name:      "filename containing dotdot is valid",
+			path:      filepath.Join(tempDir, "contains..dots.txt"),
+			shouldErr: false,
+		}, {
+			name:      "absolute path is valid for CLI file arguments",
+			path:      filepath.Join(tempDir, "absolute.txt"),
 			shouldErr: false,
 		},
 	}
@@ -308,8 +311,6 @@ func TestOSReadWriteFileFS_PathValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			fullPath := filepath.Join(tempDir, tt.path)
-
 			// Test ReadFile with path validation
 			_, err := osfs.ReadFile(tt.path)
 			if tt.shouldErr {
@@ -326,6 +327,22 @@ func TestOSReadWriteFileFS_PathValidation(t *testing.T) {
 				}
 			}
 
+			// Test Stat with path validation
+			_, err = osfs.Stat(tt.path)
+			if tt.shouldErr {
+				if err == nil || !errors.Is(err, file.ErrInvalidPath) {
+					t.Errorf("Stat expected ErrInvalidPath for path %q, got %v", tt.path, err)
+				}
+			}
+
+			// Test WriteFile with path validation
+			err = osfs.WriteFile(tt.path, []byte("content"), 0644)
+			if tt.shouldErr {
+				if err == nil || !errors.Is(err, file.ErrInvalidPath) {
+					t.Errorf("WriteFile expected ErrInvalidPath for path %q, got %v", tt.path, err)
+				}
+			}
+
 			// Test Create with path validation
 			f, err := osfs.Create(tt.path)
 			if tt.shouldErr {
@@ -336,7 +353,7 @@ func TestOSReadWriteFileFS_PathValidation(t *testing.T) {
 				// Close the file and set up cleanup
 				f.Close()
 				t.Cleanup(func() {
-					os.Remove(fullPath)
+					_ = os.Remove(tt.path)
 				})
 			}
 		})

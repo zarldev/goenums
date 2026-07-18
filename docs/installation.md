@@ -33,9 +33,8 @@ You should see the `goenums` logo and current version displayed:
 /____/
 
     https://zarldev.github.io/goenums 
-       version :: v0.5.0
+       version :: v0.6.0
 ```
-
 # Prerequisites
 
  - Go 1.23+ for full functionality including iterator support

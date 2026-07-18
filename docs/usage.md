@@ -21,29 +21,36 @@ Usage: goenums [options] file.go[,file2.go,...]
 Options:
   -c
   -constraints
-    	Specify whether to generate the float and integer constraints or import 'golang.org/x/exp/constraints' (default: false - imports)
+        Generate local numeric constraints instead of importing golang.org/x/exp/constraints (default: true)
+  -x-exp-constraints
+        Import golang.org/x/exp/constraints instead of generating local numeric constraints (default: false)
   -f
   -failfast
-    	Enable failfast mode - fail on generation of invalid enum while parsing (default: false)
+        Enable failfast mode - fail on generation of invalid enum while parsing (default: false)
   -h
   -help
-    	Print help information
+        Print help information
   -i
   -insensitive
-    	Generate case insensitive string parsing (default: false)
+        Generate case insensitive string parsing (default: false)
+  -interfaces string
+        Generate only the listed interface handlers: json,text,yaml,sql,binary (default: all)
   -l
   -legacy
-    	Generate legacy code without Go 1.23+ iterator support (default: false)
+        Generate legacy code without Go 1.23+ iterator support (default: false)
+  -legacy-text
+        Generate legacy quoted MarshalText output (default: false)
   -o string
   -output string
-    	Specify the output format (default: go)
+        Specify the output format (default: go)
   -v
   -version
-    	Print version information
+        Print version information
   -vv
   -verbose
-    	Enable verbose mode - prints out the generated code (default: false)
+        Enable verbose mode - prints out the generated code (default: false)
 ```
+For users upgrading existing generated enums, see [Migrating to goenums v0.6](migration-v0.6.md), including the `-legacy-text` compatibility option.
 
 ## Adding a `go:generate` Directive
 
@@ -70,6 +77,18 @@ To generate the enum implementations, run the following command:
 $ go generate ./...
 ```
 This will create the enum implementations in the same directory as the source file.
+
+## Selecting generated interfaces
+
+By default, goenums generates JSON, Text, YAML, SQL, and Binary interface methods. Use `--interfaces` to generate only specific interface implementations:
+
+```bash
+goenums --interfaces=json,sql status.go
+```
+
+Valid values are `json`, `text`, `yaml`, `sql`, and `binary`. If the flag is omitted, all interfaces are generated.
+
+`-legacy-text` only affects generated Text handlers. If `text` is not selected, `-legacy-text` has no generated-code effect.
 
 # What Gets Generated
 

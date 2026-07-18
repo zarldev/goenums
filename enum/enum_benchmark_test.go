@@ -45,7 +45,7 @@ func BenchmarkParseEnumFields(b *testing.B) {
 			{Name: "Float", Value: 0.0},
 		},
 	}
-	for b.Loop() {
+	for range b.N {
 		_, _ = enum.ParseEnumFields(input, enumIota)
 	}
 }

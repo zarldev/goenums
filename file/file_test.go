@@ -91,7 +91,7 @@ func TestWriteToFileAndFormatFS(t *testing.T) {
 			writeFunc: successWriteFunc("package main\nfunc main() {\nfmt.Println(\"hello\")\n}\n"),
 			format:    true,
 			ctx: func() context.Context {
-				ctx, cancel := context.WithCancel(t.Context())
+				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
 				return ctx
 			},
@@ -103,7 +103,7 @@ func TestWriteToFileAndFormatFS(t *testing.T) {
 			writeFunc: successWriteFunc("package main\nfunc main() {\nfmt.Println(\"hello\")\n}\n"),
 			format:    false,
 			ctx: func() context.Context {
-				ctx, cancel := context.WithCancel(t.Context())
+				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
 				return ctx
 			},
@@ -114,7 +114,7 @@ func TestWriteToFileAndFormatFS(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			ctx := t.Context()
+			ctx := context.Background()
 			if tt.ctx != nil {
 				ctx = tt.ctx()
 			}
@@ -147,5 +147,30 @@ func TestWriteToFileAndFormatFS(t *testing.T) {
 					want: %q`, gotContent, tt.expected)
 			}
 		})
+	}
+}
+
+func TestWriteToFileAndFormatFS_DoesNotModifyExistingFileOnFailure(t *testing.T) {
+	t.Parallel()
+	fs := file.NewMemFS()
+	const path = "existing.go"
+	const original = "package main\n"
+	if err := fs.WriteFile(path, []byte(original), 0644); err != nil {
+		t.Fatalf("setup existing file: %v", err)
+	}
+
+	err := file.WriteToFileAndFormatFS(context.Background(), fs, path, true, func(w io.Writer) error {
+		_, writeErr := io.WriteString(w, "this is not valid go code")
+		return writeErr
+	})
+	if !errors.Is(err, file.ErrFormatFile) {
+		t.Fatalf("expected ErrFormatFile, got %v", err)
+	}
+	got, readErr := fs.ReadFile(path)
+	if readErr != nil {
+		t.Fatalf("read existing file: %v", readErr)
+	}
+	if string(got) != original {
+		t.Fatalf("existing file was modified: got %q, want %q", string(got), original)
 	}
 }

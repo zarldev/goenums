@@ -6,14 +6,15 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 var ErrInvalidPath = errors.New("invalid file path")
 
 func validatePath(name string) error {
-	cleaned := filepath.Clean(name)
-	if strings.Contains(cleaned, "..") {
+	if filepath.IsAbs(name) {
+		return nil
+	}
+	if !filepath.IsLocal(name) {
 		return ErrInvalidPath
 	}
 	return nil
@@ -42,14 +43,18 @@ func (o *OSReadWriteFileFS) Open(name string) (fs.File, error) {
 	return os.Open(name) // #nosec G304 - path validated above
 }
 
-// Stat returns the FileInfo for the named file.
 func (o *OSReadWriteFileFS) Stat(name string) (fs.FileInfo, error) {
-	return os.Stat(name)
+	if err := validatePath(name); err != nil {
+		return nil, err
+	}
+	return os.Stat(name) // #nosec G304 - path validated above
 }
 
-// WriteFile writes data to a file named by filename with the provided permissions.
 func (o *OSReadWriteFileFS) WriteFile(name string, data []byte, perm fs.FileMode) error {
-	return os.WriteFile(name, data, perm)
+	if err := validatePath(name); err != nil {
+		return err
+	}
+	return os.WriteFile(name, data, perm) // #nosec G304 - path validated above
 }
 
 // Create creates or truncates the named file.

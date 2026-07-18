@@ -3,7 +3,10 @@ package gofile_test
 
 import (
 	"bytes"
+	"context"
 	"errors"
+	"io"
+	"io/fs"
 	"slices"
 	"strings"
 	"testing"
@@ -26,7 +29,7 @@ func TestWriter_Write(t *testing.T) {
 				gofile.WithWriterConfiguration(tt.Config),
 				gofile.WithFileSystem(memfs))
 
-			err := writer.Write(t.Context(), tt.GenerationRequests)
+			err := writer.Write(context.Background(), tt.GenerationRequests)
 			if err != nil && !errors.Is(err, tt.Err) {
 				t.Errorf("unexpected error: %v", err)
 				return
@@ -64,7 +67,7 @@ func TestWriter_CaseInsensitivePreservesStringOutput(t *testing.T) {
 		},
 	}
 
-	if err := writer.Write(t.Context(), []enum.GenerationRequest{req}); err != nil {
+	if err := writer.Write(context.Background(), []enum.GenerationRequest{req}); err != nil {
 		t.Fatalf("write failed: %v", err)
 	}
 
@@ -140,7 +143,7 @@ func TestWriter_ConstraintsNoDuplicateTypes(t *testing.T) {
 		},
 	}
 
-	if err := writer.Write(t.Context(), reqs); err != nil {
+	if err := writer.Write(context.Background(), reqs); err != nil {
 		t.Fatalf("write failed: %v", err)
 	}
 
@@ -195,7 +198,7 @@ func TestWriter_MatchUsesCompileTimeMatcherInterface(t *testing.T) {
 		},
 	}
 
-	if err := writer.Write(t.Context(), []enum.GenerationRequest{req}); err != nil {
+	if err := writer.Write(context.Background(), []enum.GenerationRequest{req}); err != nil {
 		t.Fatalf("write failed: %v", err)
 	}
 
@@ -229,4 +232,259 @@ func TestWriter_MatchUsesCompileTimeMatcherInterface(t *testing.T) {
 	if strings.Contains(s, "map[Status]func()") {
 		t.Errorf("MatchStatus should use the matcher interface, not a handlers map")
 	}
+}
+
+var errWriterFailure = errors.New("writer failure")
+
+type failingWriteFS struct {
+	*file.MemFS
+}
+
+func (f *failingWriteFS) Create(string) (io.WriteCloser, error) {
+	return failingWriteCloser{}, nil
+}
+
+func (f *failingWriteFS) WriteFile(string, []byte, fs.FileMode) error {
+	return errWriterFailure
+}
+
+type failingWriteCloser struct{}
+
+func (failingWriteCloser) Write([]byte) (int, error) {
+	return 0, errWriterFailure
+}
+
+func (failingWriteCloser) Close() error {
+	return nil
+}
+
+func TestWriter_WriteReturnsOutputError(t *testing.T) {
+	t.Parallel()
+	fs := &failingWriteFS{MemFS: file.NewMemFS()}
+	writer := gofile.NewWriter(gofile.WithFileSystem(fs))
+
+	err := writer.Write(context.Background(), []enum.GenerationRequest{benchmarkRequest(1)})
+	if !errors.Is(err, errWriterFailure) {
+		t.Fatalf("Write() error = %v, want %v", err, errWriterFailure)
+	}
+}
+
+func TestWriter_SerializationContracts(t *testing.T) {
+	t.Parallel()
+	fs := file.NewMemFS()
+	request := benchmarkRequest(1)
+	writer := gofile.NewWriter(gofile.WithFileSystem(fs))
+	if err := writer.Write(context.Background(), []enum.GenerationRequest{request}); err != nil {
+		t.Fatal(err)
+	}
+	content, err := fs.ReadFile("statuses_enums.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	generated := string(content)
+	for _, want := range []string{
+		"return json.Marshal(s.String())",
+		"if err := json.Unmarshal(by, &value); err == nil",
+		"ParseStatus(by)",
+		"return []byte(s.String()), nil",
+	} {
+		if !strings.Contains(generated, want) {
+			t.Errorf("generated output missing %q", want)
+		}
+	}
+}
+
+func TestWriter_ImportsFollowHandlers(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		handlers  config.Handlers
+		want      []string
+		doNotWant []string
+	}{
+		{
+			name:      "json only",
+			handlers:  config.Handlers{JSON: true},
+			want:      []string{`"encoding/json"`},
+			doNotWant: []string{`"database/sql/driver"`},
+		},
+		{
+			name:      "sql only",
+			handlers:  config.Handlers{SQL: true},
+			want:      []string{`"database/sql/driver"`},
+			doNotWant: []string{`"encoding/json"`},
+		},
+		{
+			name:      "no handlers",
+			doNotWant: []string{`"encoding/json"`, `"database/sql/driver"`},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			fs := file.NewMemFS()
+			request := benchmarkRequest(1)
+			request.Configuration.Handlers = tt.handlers
+			writer := gofile.NewWriter(gofile.WithFileSystem(fs))
+			if err := writer.Write(context.Background(), []enum.GenerationRequest{request}); err != nil {
+				t.Fatal(err)
+			}
+			content, err := fs.ReadFile("statuses_enums.go")
+			if err != nil {
+				t.Fatal(err)
+			}
+			generated := string(content)
+			for _, want := range tt.want {
+				if !strings.Contains(generated, want) {
+					t.Errorf("generated output missing import %s", want)
+				}
+			}
+			for _, unwanted := range tt.doNotWant {
+				if strings.Contains(generated, unwanted) {
+					t.Errorf("generated output unexpectedly contains import %s", unwanted)
+				}
+			}
+		})
+	}
+}
+
+func TestWriter_LegacyTextMarshalCompatibility(t *testing.T) {
+	t.Parallel()
+	fs := file.NewMemFS()
+	request := benchmarkRequest(1)
+	request.Configuration.LegacyTextMarshal = true
+	writer := gofile.NewWriter(gofile.WithFileSystem(fs))
+	if err := writer.Write(context.Background(), []enum.GenerationRequest{request}); err != nil {
+		t.Fatal(err)
+	}
+	content, err := fs.ReadFile("statuses_enums.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(content), `return []byte("\"" + s.String() + "\"")`) {
+		t.Fatal("legacy text marshal output did not include quoted MarshalText")
+	}
+}
+
+func TestWriter_GeneratesSelectedInterfaces(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name           string
+		configuration  config.Configuration
+		present        []string
+		absent         []string
+		presentImports []string
+		absentImports  []string
+	}{
+		{
+			name:           "json and sql only",
+			configuration:  config.Configuration{Handlers: config.Handlers{JSON: true, SQL: true}},
+			present:        []string{"MarshalJSON", "UnmarshalJSON", "Scan(value any)", "Value() (driver.Value, error)"},
+			absent:         []string{"MarshalText", "UnmarshalText", "MarshalYAML", "UnmarshalYAML", "MarshalBinary", "UnmarshalBinary"},
+			presentImports: []string{`"encoding/json"`, `"database/sql/driver"`},
+		},
+		{
+			name:          "text only",
+			configuration: config.Configuration{Handlers: config.Handlers{Text: true}},
+			present:       []string{"MarshalText", "UnmarshalText"},
+			absent:        []string{"MarshalJSON", "UnmarshalJSON", "MarshalYAML", "UnmarshalYAML", "MarshalBinary", "UnmarshalBinary", "Scan(value any)", "Value() (driver.Value, error)"},
+			absentImports: []string{`"encoding/json"`, `"database/sql/driver"`},
+		},
+		{
+			name:          "text only legacy marshal",
+			configuration: config.Configuration{LegacyTextMarshal: true, Handlers: config.Handlers{Text: true}},
+			present:       []string{"MarshalText", "UnmarshalText", `return []byte("\"" + s.String() + "\"")`},
+			absent:        []string{"MarshalJSON", "UnmarshalJSON", "MarshalYAML", "UnmarshalYAML", "MarshalBinary", "UnmarshalBinary", "Scan(value any)", "Value() (driver.Value, error)"},
+		},
+		{
+			name:          "yaml only",
+			configuration: config.Configuration{Handlers: config.Handlers{YAML: true}},
+			present:       []string{"MarshalYAML", "UnmarshalYAML"},
+			absent:        []string{"MarshalJSON", "UnmarshalJSON", "MarshalText", "UnmarshalText", "MarshalBinary", "UnmarshalBinary", "Scan(value any)", "Value() (driver.Value, error)"},
+		},
+		{
+			name:          "binary only",
+			configuration: config.Configuration{Handlers: config.Handlers{Binary: true}},
+			present:       []string{"MarshalBinary", "UnmarshalBinary"},
+			absent:        []string{"MarshalJSON", "UnmarshalJSON", "MarshalText", "UnmarshalText", "MarshalYAML", "UnmarshalYAML", "Scan(value any)", "Value() (driver.Value, error)"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			fs := file.NewMemFS()
+			request := benchmarkRequest(1)
+			request.Configuration = tt.configuration
+			writer := gofile.NewWriter(gofile.WithFileSystem(fs))
+			if err := writer.Write(context.Background(), []enum.GenerationRequest{request}); err != nil {
+				t.Fatal(err)
+			}
+			content, err := fs.ReadFile("statuses_enums.go")
+			if err != nil {
+				t.Fatal(err)
+			}
+			generated := string(content)
+			for _, want := range append(tt.present, tt.presentImports...) {
+				if !strings.Contains(generated, want) {
+					t.Errorf("generated output missing %q", want)
+				}
+			}
+			for _, unwanted := range append(tt.absent, tt.absentImports...) {
+				if strings.Contains(generated, unwanted) {
+					t.Errorf("generated output unexpectedly contains %q", unwanted)
+				}
+			}
+		})
+	}
+}
+
+func TestWriter_AliasEscapingAndCollisions(t *testing.T) {
+	t.Parallel()
+	t.Run("escapes aliases as Go string literals", func(t *testing.T) {
+		t.Parallel()
+		fs := file.NewMemFS()
+		request := benchmarkRequest(1)
+		request.EnumIota.Enums[0].Aliases = []string{"ready_to_ship", "ready-to-ship", "quote\"value", "line\nvalue"}
+		writer := gofile.NewWriter(gofile.WithFileSystem(fs))
+		if err := writer.Write(context.Background(), []enum.GenerationRequest{request}); err != nil {
+			t.Fatal(err)
+		}
+		content, err := fs.ReadFile("statuses_enums.go")
+		if err != nil {
+			t.Fatal(err)
+		}
+		generated := string(content)
+		for _, want := range []string{`"ready_to_ship"`, `"ready-to-ship"`, `"quote\"value"`, `"line\nvalue"`} {
+			if !strings.Contains(generated, want) {
+				t.Errorf("generated output missing escaped alias %s", want)
+			}
+		}
+	})
+
+	t.Run("rejects duplicate aliases", func(t *testing.T) {
+		t.Parallel()
+		request := benchmarkRequest(2)
+		request.EnumIota.Enums[0].Aliases = []string{"same-alias"}
+		request.EnumIota.Enums[1].Aliases = []string{"same-alias"}
+		writer := gofile.NewWriter(gofile.WithFileSystem(file.NewMemFS()))
+		err := writer.Write(context.Background(), []enum.GenerationRequest{request})
+		if err == nil {
+			t.Fatal("Write() accepted duplicate aliases")
+		}
+		if !strings.Contains(err.Error(), `duplicate enum alias "same-alias"`) {
+			t.Fatalf("Write() error = %v", err)
+		}
+	})
+
+	t.Run("case insensitive duplicate aliases", func(t *testing.T) {
+		t.Parallel()
+		request := benchmarkRequest(2)
+		request.Configuration.Insensitive = true
+		request.EnumIota.Enums[0].Aliases = []string{"READY_TO_SHIP"}
+		request.EnumIota.Enums[1].Aliases = []string{"ready_to_ship"}
+		writer := gofile.NewWriter(gofile.WithFileSystem(file.NewMemFS()))
+		if err := writer.Write(context.Background(), []enum.GenerationRequest{request}); err == nil {
+			t.Fatal("Write() accepted case-insensitive duplicate aliases")
+		}
+	})
 }

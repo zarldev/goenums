@@ -134,7 +134,7 @@ func FuzzParseEnumFields(f *testing.F) {
 	f.Fuzz(func(t *testing.T, input string) {
 		got, err := enum.ParseEnumFields(input, enumIota)
 		if err != nil {
-			if !errors.Is(err, enum.ErrFieldEmptyValue) && !errors.Is(err, enum.ErrParseValue) {
+			if !errors.Is(err, enum.ErrFieldEmptyValue) && !errors.Is(err, enum.ErrFieldCount) && !errors.Is(err, enum.ErrParseValue) {
 				t.Errorf("ParseEnumFields returned unexpected error: %v", err)
 				return
 			}

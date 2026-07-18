@@ -105,13 +105,14 @@ func TestAlgorithmsNumericParsing(t *testing.T) {
 		expected crypto.Algorithm
 		hasError bool
 	}{
-		// Numeric parsing based on valid algorithm indices (not enum values)
-		{1, crypto.Algorithms.AES256, false},   // First valid algorithm
-		{2, crypto.Algorithms.CHACHA20, false}, // Second valid algorithm
+		// Numeric parsing is based on underlying enum values, including offsets.
+		{-1, crypto.Algorithm{}, true}, // NONE is invalid
+		{0, crypto.Algorithms.AES256, false},
+		{1, crypto.Algorithms.CHACHA20, false},
 
 		// Out of bounds should fail
-		{0, crypto.Algorithm{}, true}, // Invalid index
-		{3, crypto.Algorithm{}, true}, // Out of bounds
+		{2, crypto.Algorithm{}, true},
+		{3, crypto.Algorithm{}, true},
 		{999, crypto.Algorithm{}, true},
 	}
 

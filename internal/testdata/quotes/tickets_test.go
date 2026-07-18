@@ -1,6 +1,7 @@
 package tickets_test
 
 import (
+	"encoding/json"
 	"testing"
 
 	tickets "github.com/zarldev/goenums/internal/testdata/quotes"
@@ -100,5 +101,53 @@ func TestTicketsValidity(t *testing.T) {
 	}
 	if tickets.Tickets.COMPLETED.Validstate {
 		t.Error("COMPLETED ticket should be invalid")
+	}
+}
+
+func TestTicketSerializationContracts(t *testing.T) {
+	t.Parallel()
+	value := tickets.Tickets.APPROVAL_PENDING
+
+	text, err := value.MarshalText()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := string(text), "Pending Approval"; got != want {
+		t.Fatalf("MarshalText() = %q, want %q", got, want)
+	}
+	var fromText tickets.Ticket
+	if err := fromText.UnmarshalText(text); err != nil {
+		t.Fatal(err)
+	}
+	if fromText != value {
+		t.Fatalf("text round trip = %v, want %v", fromText, value)
+	}
+
+	data, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := string(data), `"Pending Approval"`; got != want {
+		t.Fatalf("json.Marshal() = %s, want %s", got, want)
+	}
+	var fromJSON tickets.Ticket
+	if err := json.Unmarshal(data, &fromJSON); err != nil {
+		t.Fatal(err)
+	}
+	if fromJSON != value {
+		t.Fatalf("JSON round trip = %v, want %v", fromJSON, value)
+	}
+	var fromRawJSON tickets.Ticket
+	if err := fromRawJSON.UnmarshalJSON([]byte("Pending Approval")); err != nil {
+		t.Fatal(err)
+	}
+	if fromRawJSON != value {
+		t.Fatalf("raw UnmarshalJSON fallback = %v, want %v", fromRawJSON, value)
+	}
+	if err := json.Unmarshal([]byte(`123`), &fromJSON); err == nil {
+		t.Fatal("UnmarshalJSON accepted a non-string value")
+	}
+	if err := json.Unmarshal([]byte(`"unterminated`), &fromJSON); err == nil {
+		t.Fatal("UnmarshalJSON accepted malformed JSON")
 	}
 }

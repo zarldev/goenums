@@ -105,8 +105,8 @@ func (r GenerationRequest) Command() string {
 	if r.Configuration.Insensitive {
 		b.WriteString(" -i")
 	}
-	if r.Configuration.Constraints {
-		b.WriteString(" -c")
+	if !r.Configuration.Constraints {
+		b.WriteString(" -x-exp-constraints")
 	}
 	if r.Configuration.Verbose {
 		b.WriteString(" -vv")
@@ -271,6 +271,7 @@ func ParseEnumAliases(s string) []string {
 
 var (
 	ErrFieldEmptyValue = errors.New("empty field value")
+	ErrFieldCount      = errors.New("enum field count mismatch")
 )
 
 func ParseEnumFields(s string, enumIota EnumIota) ([]Field, error) {
@@ -280,12 +281,13 @@ func ParseEnumFields(s string, enumIota EnumIota) ([]Field, error) {
 	}
 
 	fcount := len(fieldValues)
-	minLen := min(fcount, len(enumIota.Fields))
+	if fcount != len(enumIota.Fields) {
+		return []Field{}, fmt.Errorf("%w: got %d values, want %d", ErrFieldCount, fcount, len(enumIota.Fields))
+	}
 
-	// Use capacity, append as we go - this is the big win
-	enumFields := make([]Field, 0, minLen)
+	enumFields := make([]Field, 0, fcount)
 
-	for i := range minLen {
+	for i := range fcount {
 		valRaw := strings.TrimSpace(fieldValues[i])
 		if valRaw == "" {
 			return []Field{}, ErrFieldEmptyValue

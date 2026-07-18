@@ -48,9 +48,14 @@ func TestOrdersStringParsing(t *testing.T) {
 		{"APPROVED", orders.Orders.APPROVED, false},
 		{"PROCESSING", orders.Orders.PROCESSING, false},
 		{"READY_TO_SHIP", orders.Orders.READYTOSHIP, false},
+		{"ready-to-ship", orders.Orders.READYTOSHIP, false},
+		{"ready_to_ship", orders.Orders.READYTOSHIP, false},
 		{"SHIPPED", orders.Orders.SHIPPED, false},
 		{"DELIVERED", orders.Orders.DELIVERED, false},
 		{"CANCELLED", orders.Orders.CANCELLED, false},
+
+		// Punctuation is exact: underscore and hyphen aliases are distinct.
+		{"READY-TO-SHIP", orders.Order{}, true},
 
 		// Non-existent should fail
 		{"InvalidOrder", orders.Order{}, true},

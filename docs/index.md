@@ -5,6 +5,7 @@ title: goenums
 
 `goenums` addresses Go's lack of native enum support by generating comprehensive, type-safe enum implementations from simple constant declarations. Transform basic `iota` based constants into feature-rich enums with string conversion, validation, JSON handling, database integration, and more.
 
+> Upgrading an existing project? Review [Migrating to goenums v0.6]({{ '/migration-v0.6' | relative_url }}) for behavior changes and the `-legacy-text` compatibility option.
 ## Key Features
 
 - **Type Safety**: Wrapper types prevent accidental misuse of enum values

@@ -36,7 +36,7 @@ func TestParserContract_Parse(t *testing.T) {
 			t.Run(ct.Name, func(t *testing.T) {
 				t.Parallel()
 				parser := ct.Parser()
-				representations, err := parser.Parse(t.Context())
+				representations, err := parser.Parse(context.Background())
 				if !errors.Is(err, ct.Err) {
 					t.Errorf("unexpected error: %v expected %v", err, ct.Err)
 					return
@@ -58,7 +58,7 @@ func TestParserContract_Parse(t *testing.T) {
 				}
 			})
 			t.Run(ct.Name+" with canceled context", func(t *testing.T) {
-				ctx, cancel := context.WithCancel(t.Context())
+				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
 				_, err := ct.Parser().Parse(ctx)
 				if err != nil && !errors.Is(err, context.Canceled) {
@@ -92,7 +92,7 @@ func TestParser_ErrorHandling(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			parser := gofile.NewParser(gofile.WithSource(tt.source))
-			_, err := parser.Parse(t.Context())
+			_, err := parser.Parse(context.Background())
 			if !errors.Is(err, tt.err) {
 				t.Errorf("Parse() error = %v, wantErr %v", err, tt.err)
 			}
@@ -146,7 +146,7 @@ func TestParser_SpecificScenarios(t *testing.T) {
 				gofile.WithSource(source.FromFileSystem(testdata.FS, tt.file)),
 				gofile.WithParserConfiguration(testdata.DefaultConfig),
 			)
-			result, err := parser.Parse(t.Context())
+			result, err := parser.Parse(context.Background())
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -176,7 +176,7 @@ func BenchmarkParser_Parse(b *testing.B) {
 		gofile.WithSource(source.FromFileSystem(testdata.FS, "planets/planets.go")),
 		gofile.WithParserConfiguration(testdata.DefaultConfig),
 	)
-	ctx := b.Context()
+	ctx := context.Background()
 
 	b.ResetTimer()
 	for range b.N {

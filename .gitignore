@@ -4,7 +4,9 @@
 /bin
 
 coverage.*
+.zarlcode/
 cover.*
+/internal/testdata/aliases/goenums
 
 .claude
 

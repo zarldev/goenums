@@ -14,8 +14,9 @@ go install github.com/zarldev/goenums@latest
 # Documentation
 Documentation is available at [https://zarldev.github.io/goenums](https://zarldev.github.io/goenums).
 
+For behavior changes and compatibility options in the upcoming v0.6 release, see the [v0.6 migration guide](docs/migration-v0.6.md).
 ## Table of Contents
-- [Key Features](#key-features)
+- [Migrating to v0.6](docs/migration-v0.6.md)
 - [Usage](#usage)
 - [Features Expanded](#features-expanded)
   - [Custom String Representations](#custom-string-representations)
@@ -67,30 +68,35 @@ Usage: goenums [options] file.go[,file2.go,...]
 Options:
   -c
   -constraints
-    	Specify whether to generate the float and integer constraints or import 'golang.org/x/exp/constraints' (default: false - imports)
+        Generate local numeric constraints instead of importing golang.org/x/exp/constraints (default: true)
+  -x-exp-constraints
+        Import golang.org/x/exp/constraints instead of generating local numeric constraints (default: false)
   -f
   -failfast
-    	Enable failfast mode - fail on generation of invalid enum while parsing (default: false)
+        Enable failfast mode - fail on generation of invalid enum while parsing (default: false)
   -h
   -help
-    	Print help information
+        Print help information
   -i
   -insensitive
-    	Generate case insensitive string parsing (default: false)
+        Generate case insensitive string parsing (default: false)
+  -interfaces string
+        Generate only the listed interface handlers: json,text,yaml,sql,binary (default: all)
   -l
   -legacy
-    	Generate legacy code without Go 1.23+ iterator support (default: false)
+        Generate legacy code without Go 1.23+ iterator support (default: false)
+  -legacy-text
+        Generate legacy quoted MarshalText output (default: false)
   -o string
   -output string
-    	Specify the output format (default: go)
+        Specify the output format (default: go)
   -v
   -version
-    	Print version information
+        Print version information
   -vv
   -verbose
-    	Enable verbose mode - prints out the generated code (default: false)
-```
-# Features Expanded
+        Enable verbose mode - prints out the generated code (default: false)
+```# Features Expanded
 
 ## Custom String Representations
 
@@ -206,14 +212,22 @@ Here is an example of the generated handling code:
 // MarshalJSON implements the json.Marshaler interface for Status.
 // It returns the JSON representation of the enum value as a byte slice.
 func (p Status) MarshalJSON() ([]byte, error) {
-	return []byte("\"" + p.String() + "\""), nil
+	return json.Marshal(p.String())
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface for Status.
 // It parses the JSON representation of the enum value from the byte slice.
 // It returns an error if the input is not a valid JSON representation.
 func (p *Status) UnmarshalJSON(b []byte) error {
-	b = bytes.Trim(bytes.Trim(b, "\""), "\"")
+	var value string
+	if err := json.Unmarshal(b, &value); err == nil {
+		newp, err := ParseStatus(value)
+		if err != nil {
+			return err
+		}
+		*p = newp
+		return nil
+	}
 	newp, err := ParseStatus(b)
 	if err != nil {
 		return err
@@ -225,7 +239,7 @@ func (p *Status) UnmarshalJSON(b []byte) error {
 // MarshalText implements the encoding.TextMarshaler interface for Status.
 // It returns the string representation of the enum value as a byte slice
 func (p Status) MarshalText() ([]byte, error) {
-	return []byte("\"" + p.String() + "\""), nil
+	return []byte(p.String()), nil
 }
 
 // UnmarshalText implements the encoding.TextUnmarshaler interface for Status.
@@ -277,8 +291,31 @@ func (p *Status) UnmarshalBinary(b []byte) error {
 }
 ```
 
+
+### Selecting generated interfaces
+
+By default, goenums generates JSON, Text, YAML, SQL, and Binary interface methods. Use `--interfaces` to generate only specific interface implementations:
+
+```bash
+goenums --interfaces=json,sql status.go
+```
+
+Valid values are `json`, `text`, `yaml`, `sql`, and `binary`. If the flag is omitted, all interfaces are generated.
+
+`-legacy-text` only affects generated Text handlers. If `text` is not selected, `-legacy-text` has no generated-code effect.
+
+### Text marshaling compatibility
+
+`MarshalText` now returns the raw enum text, which is the standard `encoding.TextMarshaler` behavior. If you need the pre-v0.6 quoted text output for compatibility, generate with `-legacy-text`:
+
+```bash
+goenums -legacy-text status.go
+```
+
+JSON marshaling still emits valid JSON strings via `json.Marshal`, and `UnmarshalJSON` accepts both standard JSON strings and raw enum text for direct-call compatibility.
+
 ## Numeric Parsing Support
-The generated enums support parsing from various numeric types, automatically converting them to the appropriate enum value:
+The generated enums support parsing from various numeric types, matching the numeric input to the underlying enum constant value:
 
 ```go
 // Parse from different numeric types
@@ -293,8 +330,8 @@ status4, _ := validation.ParseStatus(uint8(4)) // uint8
 
 The numeric parsing validates that:
 - Float values are whole numbers (no fractional part)
-- The numeric value corresponds to a valid enum position
-- Values are within the valid range of enum constants
+- The numeric value corresponds to a defined underlying enum constant value, including offsets and gaps
+- Invalid enum constants and values outside the enum set are rejected
 
 ## Exhaustive Handling
 Ensure you handle all enum values with the generated Exhaustive function:
@@ -371,10 +408,10 @@ You can enable legacy mode by using the `-legacy` flag. This will generate code 
 You can enable verbose mode by using the `-verbose` flag. This will print out the generated code to the console.
 
 ## Constraints Mode
-You can enable constraints mode by using the `-constraints` flag. This will generate local type constraints instead of importing `golang.org/x/exp/constraints`. This is useful if you want to avoid external dependencies.
+Local numeric constraints are generated by default, so generated code has no external dependency. Use `-x-exp-constraints` only if you explicitly prefer importing `golang.org/x/exp/constraints`.
 
 ```go
-//go:generate goenums -c status.go
+//go:generate goenums status.go
 
 // Generated code will include local constraint definitions:
 type float interface {
@@ -505,7 +542,7 @@ type Task struct {
 ```
 
 # Requirements
-- Go 1.23+ for iterator support (or use -l flag for legacy mode)
+- Go 1.23+ for iterator support (or use -l flag for legacy generated output). This repository prefers the Go toolchain declared in go.mod.
 
 # Examples
 
@@ -533,9 +570,8 @@ Produces a go output file called `planets_enums.go` with the following content:
 
 ```go
 // DO NOT EDIT.
-// code generated by goenums v0.5.0
-//
-// github.com/zarldev/goenums
+// code generated by goenums v0.6.0
+//// github.com/zarldev/goenums
 //
 // using the command:
 // goenums -f planets.go
@@ -550,7 +586,6 @@ import (
 	"iter"
 	"math"
 
-	"golang.org/x/exp/constraints"
 )
 
 // Planet is a type that represents a single enum value.
@@ -803,7 +838,9 @@ func stringToPlanet(s string) *Planet {
 // numberToPlanet converts a numeric value to a Planet
 // It returns a pointer to the Planet representation of the enum value if the numeric value is valid
 // Otherwise, it returns nil
-func numberToPlanet[T constraints.Integer | constraints.Float](num T) *Planet {
+func numberToPlanet[T interface {
+	int | int8 | int16 | int32 | int64 | uint | uint8 | uint16 | uint32 | uint64 | uintptr | float32 | float64
+}](num T) *Planet {
 	f := float64(num)
 	if math.Floor(f) != f {
 		return nil
@@ -848,14 +885,22 @@ func (p Planet) IsValid() bool {
 // MarshalJSON implements the json.Marshaler interface for Planet.
 // It returns the JSON representation of the enum value as a byte slice.
 func (p Planet) MarshalJSON() ([]byte, error) {
-	return []byte("\"" + p.String() + "\""), nil
+	return json.Marshal(p.String())
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface for Planet.
 // It parses the JSON representation of the enum value from the byte slice.
 // It returns an error if the input is not a valid JSON representation.
 func (p *Planet) UnmarshalJSON(b []byte) error {
-	b = bytes.Trim(bytes.Trim(b, "\""), "\"")
+	var value string
+	if err := json.Unmarshal(b, &value); err == nil {
+		newp, err := ParsePlanet(value)
+		if err != nil {
+			return err
+		}
+		*p = newp
+		return nil
+	}
 	newp, err := ParsePlanet(b)
 	if err != nil {
 		return err
@@ -867,7 +912,7 @@ func (p *Planet) UnmarshalJSON(b []byte) error {
 // MarshalText implements the encoding.TextMarshaler interface for Planet.
 // It returns the string representation of the enum value as a byte slice
 func (p Planet) MarshalText() ([]byte, error) {
-	return []byte("\"" + p.String() + "\""), nil
+	return []byte(p.String()), nil
 }
 
 // UnmarshalText implements the encoding.TextUnmarshaler interface for Planet.

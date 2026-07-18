@@ -105,9 +105,23 @@ The generated enum type implements the:
 
 These interfaces allow you to use the enum type in JSON, text, binary, YAML, and database storage seamlessly.
 
+## Selecting generated interfaces
+
+By default, goenums generates JSON, Text, YAML, SQL, and Binary interface methods. Use `--interfaces` when you only want a subset:
+
+```bash
+goenums --interfaces=json,sql ticket_status.go
+```
+
+Valid values are `json`, `text`, `yaml`, `sql`, and `binary`. If `text` is not selected, `-legacy-text` has no generated-code effect.
+
+## Text and JSON compatibility
+
+`MarshalText` returns raw enum text by default. Use `goenums -legacy-text file.go` if you need the older quoted `MarshalText` output. JSON marshaling uses standard JSON string escaping, and JSON unmarshaling also accepts raw enum text when called directly.
+
 ## Numeric Parsing Support
 
-The generated enums support parsing from various numeric types:
+The generated enums support parsing from various numeric types. Numeric inputs are matched against the underlying enum constant values, not ordinal positions:
 
 ```go
 // Parse from different numeric types
