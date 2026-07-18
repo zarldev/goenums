@@ -49,9 +49,9 @@ var (
 // {{ .EnumLower }}Names is a constant string slice containing all enum values cononical absolute names
 const {{ .EnumLower }}Names = "{{ .NameString }}"
 
-// {{ .EnumLower }}NamesMap is a map of enum values to their canonical absolute// name positions within the {{ .EnumLower }}Names string slice
-var {{ .EnumLower }}NamesMap = map[{{ .WrapperName }}]string{
-    {{- range .EnumDefs }}
+// {{ .EnumLower }}NamesMap is a map of enum values to their canonical absolute
+// name positions within the {{ .EnumLower }}Names string slice
+var {{ .EnumLower }}NamesMap = map[{{ .WrapperName }}]string{    {{- range .EnumDefs }}
     {{ $.EnumType }}.{{ .EnumNameIdentifier }}: {{ $.EnumLower }}Names[{{ index $.NameOffsets .EnumNameIdentifier "start" }}:{{ index $.NameOffsets .EnumNameIdentifier "end" }}],
     {{- end }}
 }
