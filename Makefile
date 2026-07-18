@@ -228,7 +228,10 @@ test-fuzz-quick:
 
 generate:
 	@echo "⚙️  Running code generation..."
-	go generate ./...
+	@tmpbin=$$(mktemp -d); \
+	trap 'rm -rf "$$tmpbin"' EXIT; \
+	go build -o "$$tmpbin/goenums" goenums.go; \
+	PATH="$$tmpbin:$$PATH" go generate ./...
 	@echo "✅ Code generation completed"
 
 clean:
