@@ -17,7 +17,7 @@ import (
 )
 
 // Ticket is a type that represents a single enum value.
-// It combines the core information about the enum constant and it's defined fields.
+// It combines the core information about the enum constant and its defined fields.
 type Ticket struct {
 	ticket
 	Comment    string
@@ -25,7 +25,7 @@ type Ticket struct {
 }
 
 // ticketsContainer is the container for all enum values.
-// It is private and should not be used directly use the public methods on the Ticket type.
+// It is private; use the exported Ticket values and methods instead.
 type ticketsContainer struct {
 	UNKNOWN           Ticket
 	CREATED           Ticket
@@ -37,7 +37,7 @@ type ticketsContainer struct {
 }
 
 // Tickets is a main entry point using the Ticket type.
-// It is a container for all enum values and provides a convenient way to access all enum values and perform// operations, with convenience methods for common use cases.
+// It holds every generated enum value and exposes convenience methods for common operations.
 var Tickets = ticketsContainer{
 	UNKNOWN: Ticket{
 		ticket:     unknown,
@@ -437,7 +437,7 @@ func (t *Ticket) UnmarshalYAML(by []byte) error {
 	return nil
 }
 
-// ticketNames is a constant string slice containing all enum values cononical absolute names
+// ticketNames is a constant string containing the canonical names for all enum values.
 const ticketNames = "Not FoundCreated SuccessfullyIn ProgressPending ApprovalFully ApprovedHas Been RejectedSuccessfully Completed"
 
 // ticketNamesMap is a map of enum values to their canonical absolute

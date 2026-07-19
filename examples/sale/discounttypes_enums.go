@@ -18,7 +18,7 @@ import (
 )
 
 // DiscountType is a type that represents a single enum value.
-// It combines the core information about the enum constant and it's defined fields.
+// It combines the core information about the enum constant and its defined fields.
 type DiscountType struct {
 	discountTypes
 	Available bool
@@ -29,7 +29,7 @@ type DiscountType struct {
 }
 
 // discountTypesContainer is the container for all enum values.
-// It is private and should not be used directly use the public methods on the DiscountType type.
+// It is private; use the exported DiscountType values and methods instead.
 type discountTypesContainer struct {
 	SALE       DiscountType
 	PERCENTAGE DiscountType
@@ -38,7 +38,7 @@ type discountTypesContainer struct {
 }
 
 // DiscountTypes is a main entry point using the DiscountType type.
-// It is a container for all enum values and provides a convenient way to access all enum values and perform// operations, with convenience methods for common use cases.
+// It holds every generated enum value and exposes convenience methods for common operations.
 var DiscountTypes = discountTypesContainer{
 	SALE: DiscountType{
 		discountTypes: sale,
@@ -396,7 +396,7 @@ func (d *DiscountType) UnmarshalYAML(by []byte) error {
 	return nil
 }
 
-// discounttypesNames is a constant string slice containing all enum values cononical absolute names
+// discounttypesNames is a constant string containing the canonical names for all enum values.
 const discounttypesNames = "salepercentageamountgiveaway"
 
 // discounttypesNamesMap is a map of enum values to their canonical absolute

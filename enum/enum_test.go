@@ -560,6 +560,16 @@ func TestGenerationRequestCommand(t *testing.T) {
 			want: "goenums -f -l -i -vv -o json example.go",
 		},
 		{
+			name: "command with go accessor style",
+			req: enum.GenerationRequest{
+				SourceFilename: "status.go",
+				Configuration: config.Configuration{
+					Constraints:   true,
+					AccessorStyle: config.AccessorStyleGo,
+				},
+			},
+			want: "goenums --accessor-style=go status.go",
+		}, {
 			name: "command with some flags",
 			req: enum.GenerationRequest{
 				SourceFilename: "status.go",

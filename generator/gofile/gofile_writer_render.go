@@ -9,17 +9,19 @@ type renderRequest struct {
 	ParseEnums []enumDefinition
 }
 
-func newRenderRequest(req enum.GenerationRequest) renderRequest {
-	allEnums := buildEnumDefinitions(req)
+func newRenderRequest(req enum.GenerationRequest) (renderRequest, error) {
+	allEnums, err := buildEnumDefinitions(req)
+	if err != nil {
+		return renderRequest{}, err
+	}
 	validEnums := filterValidEnumDefinitions(allEnums)
 	return renderRequest{
 		GenerationRequest: req,
 		AllEnums:          allEnums,
 		ValidEnums:        validEnums,
 		ParseEnums:        buildParseEnumDefinitions(allEnums, req.Configuration.Insensitive),
-	}
+	}, nil
 }
-
 func filterValidEnumDefinitions(defs []enumDefinition) []enumDefinition {
 	valid := make([]enumDefinition, 0, len(defs))
 	for _, def := range defs {

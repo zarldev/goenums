@@ -16,14 +16,14 @@ import (
 )
 
 // Planet is a type that represents a single enum value.
-// It combines the core information about the enum constant and it's defined fields.
+// It combines the core information about the enum constant and its defined fields.
 type Planet struct {
 	planet
 	Gravity float64
 }
 
 // planetsContainer is the container for all enum values.
-// It is private and should not be used directly use the public methods on the Planet type.
+// It is private; use the exported Planet values and methods instead.
 type planetsContainer struct {
 	UNKNOWN Planet
 	MERCURY Planet
@@ -37,7 +37,7 @@ type planetsContainer struct {
 }
 
 // Planets is a main entry point using the Planet type.
-// It is a container for all enum values and provides a convenient way to access all enum values and perform// operations, with convenience methods for common use cases.
+// It holds every generated enum value and exposes convenience methods for common operations.
 var Planets = planetsContainer{
 	UNKNOWN: Planet{
 		planet: unknown,
@@ -452,7 +452,7 @@ func (p *Planet) UnmarshalYAML(by []byte) error {
 	return nil
 }
 
-// planetNames is a constant string slice containing all enum values cononical absolute names
+// planetNames is a constant string containing the canonical names for all enum values.
 const planetNames = "unknownMercuryVenusEarthMarsJupiterSaturnUranusNeptune"
 
 // planetNamesMap is a map of enum values to their canonical absolute

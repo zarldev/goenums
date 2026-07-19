@@ -1,10 +1,12 @@
 package gofile
 
 import (
+	"fmt"
 	"slices"
 	"text/template"
 
 	"github.com/zarldev/goenums/enum"
+	"github.com/zarldev/goenums/generator/naming"
 	"github.com/zarldev/goenums/strings"
 )
 
@@ -18,7 +20,7 @@ type containerDefinition struct {
 var (
 	containerDefinitionStr = `
 // {{.ContainerName}} is a main entry point using the {{.WrapperName}} type.
-// It is a container for all enum values and provides a convenient way to access all enum values and perform// operations, with convenience methods for common use cases.
+// It holds every generated enum value and exposes convenience methods for common operations.
 var {{.ContainerName}} = {{.ContainerType}}{
 {{- range .EnumDefs }}
 	{{.EnumNameIdentifier}}: {{.EnumType}} {
@@ -44,8 +46,9 @@ func (g *Writer) writeContainerDefinition(rep renderRequest) {
 	g.writeTemplate(containerDefinitionTemplate, cdef)
 }
 
-func buildEnumDefinitions(rep enum.GenerationRequest) []enumDefinition {
+func buildEnumDefinitions(rep enum.GenerationRequest) ([]enumDefinition, error) {
 	edefs := make([]enumDefinition, 0, len(rep.EnumIota.Enums))
+	style := rep.Configuration.AccessorStyle.Normalized()
 	for _, e := range rep.EnumIota.Enums {
 		fields := e.Fields
 		ffields := make([]enum.Field, len(fields))
@@ -55,11 +58,15 @@ func buildEnumDefinitions(rep enum.GenerationRequest) []enumDefinition {
 				Value: strings.Ify(f.Value),
 			}
 		}
+		accessor, err := enumAccessorIdentifier(e.Name, style)
+		if err != nil {
+			return nil, fmt.Errorf("%w for %s: %w", ErrInvalidAccessorIdentifier, wrapperName(rep.EnumIota.Type), err)
+		}
 		aliases := enumAliases(e)
 		edefs = append(edefs, enumDefinition{
 			EnumName:           e.Name,
 			Value:              e.Value,
-			EnumNameIdentifier: strings.ToUpper(e.Name),
+			EnumNameIdentifier: accessor,
 			EnumType:           wrapperName(rep.EnumIota.Type),
 			Fields:             ffields,
 			IotaType:           rep.EnumIota.Type,
@@ -68,7 +75,10 @@ func buildEnumDefinitions(rep enum.GenerationRequest) []enumDefinition {
 			Valid:              e.Valid,
 		})
 	}
-	return edefs
+	if err := validateAccessorCollisions(rep.EnumIota.Type, edefs, style); err != nil {
+		return nil, err
+	}
+	return edefs, nil
 }
 
 type allFunctionData struct {
@@ -198,7 +208,7 @@ func (g *Writer) writeMatchFunction(rep renderRequest) {
 }
 
 func matcherName(enumType string) string {
-	return wrapperName(enumType) + "Matcher"
+	return naming.WrapperName(enumType) + "Matcher"
 }
 
 func enumAliases(e enum.Enum) []string {

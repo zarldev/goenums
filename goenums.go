@@ -137,8 +137,8 @@ import (
 // Define flag groups
 type flags struct {
 	help, version, failfast, legacy, legacyText, insensitive, verbose, constraints, xExpConstraints bool
-	output                                                                                          string
-	interfaces                                                                                      string
+	output, interfaces                                                                              string
+	accessorStyle                                                                                   string
 	interfacesSet                                                                                   bool
 }
 
@@ -168,6 +168,8 @@ func parseFlags(args []string) (flags, []string, *flag.FlagSet, error) {
 	fs.StringVar(&f.output, "output", "",
 		"Specify the output format (default: go)")
 	fs.StringVar(&f.output, "o", "", "")
+	fs.StringVar(&f.accessorStyle, "accessor-style", string(config.AccessorStyleUpper),
+		"Set enum accessor naming style: upper or go (default: upper)")
 	fs.StringVar(&f.interfaces, "interfaces", "",
 		"Generate only the listed interface handlers: json,text,yaml,sql,binary (default: all)")
 	fs.BoolVar(&f.constraints, "constraints", false,
@@ -226,6 +228,14 @@ func parseHandlers(value string, explicitlySet bool) (config.Handlers, error) {
 		}
 	}
 	return handlers, nil
+}
+
+func parseAccessorStyle(value string) (config.AccessorStyle, error) {
+	style := config.AccessorStyle(value)
+	if !style.Valid() {
+		return "", fmt.Errorf("invalid --accessor-style value %q: valid values are upper, go", value)
+	}
+	return style, nil
 }
 
 const (
@@ -331,8 +341,8 @@ func run(ctx context.Context, args []string) error {
 		slog.Bool("handler_sql", config.Handlers.SQL),
 		slog.Bool("handler_binary", config.Handlers.Binary),
 		slog.Bool("insensitive", config.Insensitive),
-		slog.Bool("verbose", config.Verbose))
-
+		slog.Bool("verbose", config.Verbose),
+		slog.String("accessor_style", string(config.AccessorStyle.Normalized())))
 	for _, filename := range config.Filenames {
 		filename = strings.TrimSpace(filename)
 		if filename == "" {
@@ -424,6 +434,10 @@ func configuration(ctx context.Context, args []string) (config.Configuration, er
 	if err != nil {
 		return config.Configuration{}, err
 	}
+	accessorStyle, err := parseAccessorStyle(f.accessorStyle)
+	if err != nil {
+		return config.Configuration{}, err
+	}
 
 	filenames := args
 
@@ -450,7 +464,7 @@ func configuration(ctx context.Context, args []string) (config.Configuration, er
 		Filenames:         filenames,
 		Constraints:       !f.xExpConstraints,
 		Handlers:          handlers,
-	}
+		AccessorStyle:     accessorStyle}
 	return config, nil
 }
 

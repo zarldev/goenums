@@ -19,6 +19,8 @@ $ goenums -h
 /____/
 Usage: goenums [options] file.go[,file2.go,...]
 Options:
+  -accessor-style string
+        Set enum accessor naming style: upper or go (default: upper)
   -c
   -constraints
         Generate local numeric constraints instead of importing golang.org/x/exp/constraints (default: true)
@@ -89,6 +91,26 @@ goenums --interfaces=json,sql status.go
 Valid values are `json`, `text`, `yaml`, `sql`, and `binary`. If the flag is omitted, all interfaces are generated.
 
 `-legacy-text` only affects generated Text handlers. If `text` is not selected, `-legacy-text` has no generated-code effect.
+
+## Selecting enum accessor style
+
+By default, goenums preserves the historical upper-case container accessor style:
+
+```go
+Statuses.PENDING_APPROVAL
+```
+
+New projects that prefer idiomatic exported Go selectors can opt in to Go-style accessors:
+
+```bash
+goenums --accessor-style=go status.go
+```
+
+```go
+Statuses.PendingApproval
+```
+
+Changing accessor style requires updating Go call sites, but it does not change enum aliases, parsing, serialized values, database values, or generated filenames.
 
 # What Gets Generated
 

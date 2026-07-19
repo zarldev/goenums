@@ -2,9 +2,9 @@ package gofile
 
 import (
 	"text/template"
-	"unicode"
 
 	"github.com/zarldev/goenums/enum"
+	"github.com/zarldev/goenums/generator/naming"
 	"github.com/zarldev/goenums/strings"
 )
 
@@ -82,16 +82,8 @@ func newInterfaceFunctionData(rep enum.GenerationRequest) interfaceFunctionData 
 }
 
 func receiver(enumType string) string {
-	if strings.Contains(enumType, ".") {
-		return strings.Split(enumType, ".")[0]
-	}
-	if len(enumType) == 0 {
-		return "r"
-	}
-	firstChar := enumType[0]
-	return string(unicode.ToLower(rune(firstChar)))
+	return naming.Receiver(enumType)
 }
-
 func (g *Writer) writeJSONMarshalMethod(rep enum.GenerationRequest) {
 	g.writeTemplate(jsonMarshalTemplate, newInterfaceFunctionData(rep))
 }

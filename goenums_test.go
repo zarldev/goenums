@@ -27,49 +27,44 @@ func TestConfiguration(t *testing.T) {
 		{
 			name: "defaults",
 			args: []string{input},
-			want: config.Configuration{Filenames: []string{input}, Constraints: true},
-		},
-		{
+			want: config.Configuration{Filenames: []string{input}, Constraints: true, AccessorStyle: config.AccessorStyleUpper},
+		}, {
 			name: "short flags",
 			args: []string{"-f", "-l", "-i", "-vv", "-c", "-o", "go", input},
 			want: config.Configuration{
-				Failfast:     true,
-				Legacy:       true,
-				Insensitive:  true,
-				Verbose:      true,
-				Constraints:  true,
-				OutputFormat: "go",
-				Filenames:    []string{input},
-			},
-		},
+				Failfast:      true,
+				Legacy:        true,
+				Insensitive:   true,
+				Verbose:       true,
+				Constraints:   true,
+				OutputFormat:  "go",
+				AccessorStyle: config.AccessorStyleUpper,
+				Filenames:     []string{input},
+			}},
 		{
 			name: "legacy text flag",
 			args: []string{"-legacy-text", input},
-			want: config.Configuration{LegacyTextMarshal: true, Constraints: true, Filenames: []string{input}},
-		},
-		{
+			want: config.Configuration{LegacyTextMarshal: true, Constraints: true, AccessorStyle: config.AccessorStyleUpper, Filenames: []string{input}},
+		}, {
 			name: "selected interfaces",
 			args: []string{"--interfaces=json,sql", input},
-			want: config.Configuration{Filenames: []string{input}, Constraints: true, Handlers: config.Handlers{JSON: true, SQL: true}},
-		},
-		{
+			want: config.Configuration{Filenames: []string{input}, Constraints: true, AccessorStyle: config.AccessorStyleUpper, Handlers: config.Handlers{JSON: true, SQL: true}},
+		}, {
 			name: "selected interfaces case and spaces",
 			args: []string{"--interfaces=JSON, sql", input},
-			want: config.Configuration{Filenames: []string{input}, Constraints: true, Handlers: config.Handlers{JSON: true, SQL: true}},
-		},
-		{
+			want: config.Configuration{Filenames: []string{input}, Constraints: true, AccessorStyle: config.AccessorStyleUpper, Handlers: config.Handlers{JSON: true, SQL: true}},
+		}, {
 			name: "selected interfaces duplicates",
 			args: []string{"--interfaces=json,json", input},
-			want: config.Configuration{Filenames: []string{input}, Constraints: true, Handlers: config.Handlers{JSON: true}},
-		},
-		{
+			want: config.Configuration{Filenames: []string{input}, Constraints: true, AccessorStyle: config.AccessorStyleUpper, Handlers: config.Handlers{JSON: true}},
+		}, {
 			name: "legacy text with text interface",
 			args: []string{"--interfaces=text", "-legacy-text", input},
 			want: config.Configuration{
 				LegacyTextMarshal: true,
 				Constraints:       true,
-				Filenames:         []string{input},
-				Handlers:          config.Handlers{Text: true},
+				AccessorStyle:     config.AccessorStyleUpper, Filenames: []string{input},
+				Handlers: config.Handlers{Text: true},
 			},
 		},
 		{
@@ -78,11 +73,20 @@ func TestConfiguration(t *testing.T) {
 			want: config.Configuration{
 				LegacyTextMarshal: true,
 				Constraints:       true,
-				Filenames:         []string{input},
-				Handlers:          config.Handlers{JSON: true, SQL: true},
+				AccessorStyle:     config.AccessorStyleUpper, Filenames: []string{input},
+				Handlers: config.Handlers{JSON: true, SQL: true},
 			},
 		},
-	}
+		{
+			name: "go accessor style",
+			args: []string{"--accessor-style=go", input},
+			want: config.Configuration{Filenames: []string{input}, Constraints: true, AccessorStyle: config.AccessorStyleGo},
+		},
+		{
+			name: "explicit upper accessor style",
+			args: []string{"--accessor-style=upper", input},
+			want: config.Configuration{Filenames: []string{input}, Constraints: true, AccessorStyle: config.AccessorStyleUpper},
+		}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
@@ -92,7 +96,7 @@ func TestConfiguration(t *testing.T) {
 			}
 			if got.Failfast != tt.want.Failfast || got.Legacy != tt.want.Legacy || got.Insensitive != tt.want.Insensitive ||
 				got.Verbose != tt.want.Verbose || got.Constraints != tt.want.Constraints || got.LegacyTextMarshal != tt.want.LegacyTextMarshal ||
-				got.OutputFormat != tt.want.OutputFormat {
+				got.OutputFormat != tt.want.OutputFormat || got.AccessorStyle != tt.want.AccessorStyle {
 				t.Fatalf("configuration() = %#v, want %#v", got, tt.want)
 			}
 			if len(got.Filenames) != 1 || got.Filenames[0] != input {
@@ -157,6 +161,9 @@ func TestConfigurationErrors(t *testing.T) {
 		{value: "--interfaces=", want: "empty interface name"},
 		{value: "--interfaces=json,,sql", want: "empty interface name"},
 		{value: "--interfaces=json,xml", want: `unknown interface "xml"`},
+		{value: "--accessor-style=", want: `invalid --accessor-style value ""`},
+		{value: "--accessor-style=camel", want: `invalid --accessor-style value "camel"`},
+		{value: "--accessor-style=GO", want: `invalid --accessor-style value "GO"`},
 	} {
 		_, err = configuration(context.Background(), []string{tt.value, input})
 		if err == nil {

@@ -643,6 +643,107 @@ func Camel(s string) string {
 	return strings.ToUpper(s[:1]) + s[1:]
 }
 
+// ExportIdentifier converts an enum source identifier into an exported Go
+// identifier while preserving common initialisms. It is intended for generated
+// selector names, not for general-purpose case conversion.
+func ExportIdentifier(s string) string {
+	parts := strings.Split(s, "_")
+	var b strings.Builder
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
+		b.WriteString(exportIdentifierPart(part))
+	}
+	return b.String()
+}
+
+func exportIdentifierPart(part string) string {
+	if part == "" {
+		return ""
+	}
+	if isAllUpperIdentifierPart(part) {
+		part = strings.ToLower(part)
+	}
+
+	var b strings.Builder
+	for _, word := range splitIdentifierWords(part) {
+		if word == "" {
+			continue
+		}
+		upper := strings.ToUpper(word)
+		if commonInitialisms[upper] {
+			b.WriteString(upper)
+			continue
+		}
+		if initialism := leadingInitialism(word); initialism != "" {
+			b.WriteString(initialism)
+			b.WriteString(exportIdentifierPart(word[len(initialism):]))
+			continue
+		}
+		b.WriteString(strings.ToUpper(word[:1]))
+		if len(word) > 1 {
+			b.WriteString(word[1:])
+		}
+	}
+	return b.String()
+}
+
+func isAllUpperIdentifierPart(part string) bool {
+	seenLetter := false
+	for _, r := range part {
+		if unicode.IsLetter(r) {
+			seenLetter = true
+			if unicode.IsLower(r) {
+				return false
+			}
+		}
+	}
+	return seenLetter
+}
+
+func leadingInitialism(word string) string {
+	upperWord := strings.ToUpper(word)
+	longest := ""
+	for initialism := range commonInitialisms {
+		if len(initialism) <= len(longest) {
+			continue
+		}
+		if strings.HasPrefix(upperWord, initialism) {
+			longest = initialism
+		}
+	}
+	return longest
+}
+
+func splitIdentifierWords(s string) []string {
+	if s == "" {
+		return nil
+	}
+	var words []string
+	start := 0
+	runes := []rune(s)
+	for i := 1; i < len(runes); i++ {
+		prev := runes[i-1]
+		cur := runes[i]
+		nextLower := i+1 < len(runes) && unicode.IsLower(runes[i+1])
+
+		split := unicode.IsLower(prev) && unicode.IsUpper(cur)
+		if unicode.IsUpper(prev) && unicode.IsUpper(cur) && nextLower {
+			split = true
+		}
+		if unicode.IsDigit(prev) && unicode.IsLetter(cur) {
+			split = true
+		}
+		if split {
+			words = append(words, string(runes[start:i]))
+			start = i
+		}
+	}
+	words = append(words, string(runes[start:]))
+	return words
+}
+
 func Lower1stCharacter(s string) string {
 	if len(s) == 0 {
 		return ""

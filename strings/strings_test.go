@@ -859,6 +859,40 @@ func TestCamel(t *testing.T) {
 	}
 }
 
+func TestExportIdentifier(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{input: "", expected: ""},
+		{input: "_", expected: ""},
+		{input: "pending", expected: "Pending"},
+		{input: "pendingApproval", expected: "PendingApproval"},
+		{input: "pending_approval", expected: "PendingApproval"},
+		{input: "PENDING_APPROVAL", expected: "PendingApproval"},
+		{input: "apiError", expected: "APIError"},
+		{input: "api_error", expected: "APIError"},
+		{input: "API_ERROR", expected: "APIError"},
+		{input: "http2Enabled", expected: "HTTP2Enabled"},
+		{input: "http2_enabled", expected: "HTTP2Enabled"},
+		{input: "userID", expected: "UserID"},
+		{input: "user_id", expected: "UserID"},
+		{input: "id", expected: "ID"},
+		{input: "__pending__", expected: "Pending"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
+			got := strings.ExportIdentifier(tt.input)
+			if got != tt.expected {
+				t.Errorf("ExportIdentifier(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+
 func TestLower1stCharacter(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
