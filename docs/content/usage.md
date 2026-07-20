@@ -2,58 +2,50 @@
 title: Usage
 ---
 
-Using goenums involves a simple workflow:
+Using goenums follows a simple workflow:
 
-1. Define your enum constants as you normally would with Go's `iota`
-2. Add a `go:generate` directive to invoke goenums
-3. Run `go generate` to create the enum implementation
-4. Use the generated code in your project
+1. Define enum constants with Go's `iota`.
+2. Add a `go:generate` directive.
+3. Run `go generate`.
+4. Use the generated wrapper and enum container in your code.
 
-```
-$ goenums -h
-   ____ _____  ___  ____  __  ______ ___  _____
-  / __ '/ __ \/ _ \/ __ \/ / / / __ '__ \/ ___/
- / /_/ / /_/ /  __/ / / / /_/ / / / / / (__  ) \\__, /\\____/\\___/_/ /_/\\__,_/_/ /_/ /_/____//____/
+## Command-line options
+
+```text
 Usage: goenums [options] file.go[,file2.go,...]
+
 Options:
   -accessor-style string
         Set enum accessor naming style: upper or go (default: upper)
-  -c
   -constraints
         Generate local numeric constraints instead of importing golang.org/x/exp/constraints (default: true)
   -x-exp-constraints
         Import golang.org/x/exp/constraints instead of generating local numeric constraints (default: false)
-  -f
   -failfast
         Enable failfast mode - fail on generation of invalid enum while parsing (default: false)
-  -h
   -help
         Print help information
-  -i
   -insensitive
         Generate case insensitive string parsing (default: false)
   -interfaces string
         Generate only the listed interface handlers: json,text,yaml,sql,binary (default: all)
-  -l
   -legacy
         Generate legacy code without Go 1.23+ iterator support (default: false)
   -legacy-text
         Generate legacy quoted MarshalText output (default: false)
-  -o string
   -output string
         Specify the output format (default: go)
-  -v
   -version
         Print version information
-  -vv
   -verbose
         Enable verbose mode - prints out the generated code (default: false)
 ```
-For users upgrading existing generated enums, see [Migrating to goenums v0.6](migration-v0.6.md), including the `-legacy-text` compatibility option.
 
-## Adding a `go:generate` Directive
+For existing generated enums, see [Migrating to goenums v0.6]({{< relref "/migration-v0.6" >}}) for the `-legacy-text` compatibility option.
+## Add a `go:generate` directive
 
-To use goenums, add a `go:generate` directive to your Go source file:
+Add a directive to the Go file that declares the enum:
+
 ```go
 package validation
 
@@ -61,43 +53,41 @@ type status int
 
 //go:generate goenums status.go
 const (
-    unknown   status = iota // invalid Unknown
-    pending                 // Pending
-    approved                // Approved
-    rejected                // Rejected
-    completed               // Completed
+	unknown status = iota // invalid Unknown
+	pending               // Pending
+	approved              // Approved
+	rejected              // Rejected
+	completed             // Completed
 )
 ```
-## Running Code Generation
 
-To generate the enum implementations, run the following command:
+Generate all directives in your module:
 
 ```bash
-$ go generate ./...
+go generate ./...
 ```
-This will create the enum implementations in the same directory as the source file.
 
-## Selecting generated interfaces
+For a `status` type, goenums writes `statuses_enums.go` alongside the source file.
 
-By default, goenums generates JSON, Text, YAML, SQL, and Binary interface methods. Use `--interfaces` to generate only specific interface implementations:
+## Select generated interfaces
+
+By default, goenums generates JSON, Text, YAML, SQL, and Binary interface methods. Select only the handlers your package needs:
 
 ```bash
 goenums --interfaces=json,sql status.go
 ```
 
-Valid values are `json`, `text`, `yaml`, `sql`, and `binary`. If the flag is omitted, all interfaces are generated.
+Valid values are `json`, `text`, `yaml`, `sql`, and `binary`. If the flag is omitted, all interfaces are generated. `-legacy-text` affects only Text handlers.
 
-`-legacy-text` only affects generated Text handlers. If `text` is not selected, `-legacy-text` has no generated-code effect.
+## Select enum accessor style
 
-## Selecting enum accessor style
-
-By default, goenums preserves the historical upper-case container accessor style:
+The default preserves the historical uppercase container selectors:
 
 ```go
 Statuses.PENDING_APPROVAL
 ```
 
-New projects that prefer idiomatic exported Go selectors can opt in to Go-style accessors:
+New projects can opt into idiomatic exported Go selectors:
 
 ```bash
 goenums --accessor-style=go status.go
@@ -107,81 +97,31 @@ goenums --accessor-style=go status.go
 Statuses.PendingApproval
 ```
 
-Changing accessor style requires updating Go call sites, but it does not change enum aliases, parsing, serialized values, database values, or generated filenames.
+Changing accessor style requires updating Go call sites. It does not change aliases, parsing, serialized values, database values, numeric values, or generated filenames.
 
-# What Gets Generated
+## Use generated code
 
-goenums will create a new file alongside your enum definition, named after the type. For example, a `status` type will generate a `statuses_enums.go` file in the same directory.
-
-This file will contain:
-
-  - A type-safe wrapper struct around your enum
-  - A singleton container with all valid enum values
-  - String conversion methods
-  - Parsing functions for various input types (including numeric types)
-  - JSON marshaling/unmarshaling
-  - YAML marshaling/unmarshaling
-  - Database scanning/valuing
-  - Binary marshaling/unmarshaling
-  - Text marshaling/unmarshaling
-  - Validation functions
-  - Iteration helpers
-  - Compile-time validation
-  - Compile-time exhaustiveness (Matcher interface, Match/MustMatch functions)
-
-## Using the Generated Code
-
-After generating the enum implementations, you can use the generated code in your Go project.
+Generated code includes a wrapper type, a container of enum values, parsing and validation methods, iteration helpers, and the selected interface implementations.
 
 ```go
-// Import the package containing your enum
 import "yourpackage/validation"
 
-// Access enum values via the container
 status := validation.Statuses.PASSED
+fmt.Println(status.String())
 
-// Convert to string
-statusName := status.String() // "PASSED"
-
-// Parse from string
-parsed := validation.ParseStatus("FAILED")
-
-// Check validity
-if !parsed.IsValid() {
-    // Handle invalid status
+parsed, err := validation.ParseStatus("FAILED")
+if err != nil {
+	return err
 }
 
-// JSON marshaling/unmarshaling
-type Task struct {
-    ID     int              `json:"id"`
-    Status validation.Status `json:"status"`
-}
-
-// Use in exhaustive function (great for tests)
-validation.ExhaustiveStatuses(func(status validation.Status) {
-    // Process each status
-    switch status {
-    case validation.Statuses.PASSED:
-        // Handle passed
-    case validation.Statuses.FAILED:
-        // Handle failed
-    // ...handle other cases
-    }
-})
-
-// Iterate using modern Go 1.23+ range-over-func
 for status := range validation.Statuses.All() {
-    fmt.Printf("Status: %s\n", status)
-}
-// Legacy iteration
-for _, status := range validation.Statuses.All() {
-    fmt.Printf("Status: %s\n", status)
+	fmt.Printf("Status: %s\n", status)
 }
 ```
 
-## Compile-time Exhaustiveness
+## Compile-time exhaustiveness
 
-goenums generates a `Matcher` interface and `Match`/`MustMatch` functions for each enum. The interface has one method per valid enum value. That means the Go compiler can enforce exhaustive handling for any matcher type you pass to `Match` or `MustMatch`.
+Each enum has a matcher interface and `Match`/`MustMatch` functions. Implement every matcher method to have the compiler enforce coverage when enum values change:
 
 ```go
 type statusHandler struct{}
@@ -191,155 +131,11 @@ func (statusHandler) Approved()  {}
 func (statusHandler) Rejected()  {}
 func (statusHandler) Completed() {}
 
-// Compile-time check: statusHandler must satisfy StatusMatcher.
-// If a new enum value is added, this line fails to compile until the
-// corresponding method is added to statusHandler.
 var _ validation.StatusMatcher = statusHandler{}
 
 func handleStatus(status validation.Status) error {
-    // Match returns an error if the matcher is nil or the enum value is not handled.
-    if err := validation.MatchStatus(status, statusHandler{}); err != nil {
-        return err
-    }
-
-    // MustMatch panics instead of returning an error.
-    validation.MustMatchStatus(status, statusHandler{})
-    return nil
+	return validation.MatchStatus(status, statusHandler{})
 }
 ```
 
-This is different from `ExhaustiveStatuses`, which iterates over every valid value. `MatchStatus` dispatches one enum value to a handler method, while the `StatusMatcher` interface gives compile-time coverage when enum values are added, removed, or renamed.
-
-Here is some more [Examples]({{< relref "/examples" >}}) →
-
-
-
-Now you can use the generated `status` enums type in your code:
-
-```go
-/// Access enum constants safely
-myStatus := validation.Statuses.PASSED
-
-// Convert to string
-fmt.Println(myStatus.String()) // "PASSED"
-
-// Parse from various sources
-parsed, _ := validation.ParseStatus("SKIPPED")
-
-// Validate enum values
-if !parsed.IsValid() {
-    fmt.Println("Invalid status")
-}
-```
-
-## Basic Command Syntax
-
-```bash
-goenums [options] file.go[,file2.go,...]
-```
-
-Where <filename> is the Go source file containing your enum definitions.
-
-# Adding a `go:generate` Directive
-
-To use goenums, you need to add a `go:generate` directive to your Go source file.
-
-```go
-package validation
-
-type status int
-
-//go:generate goenums status.go
-const (
-	unknown status = iota // invalid
-	failed
-	passed
-	skipped
-	scheduled
-	running
-	booked
-)
-```
-
-## Running Code Generation
-
-To generate the enum implementations, run the following command:
-
-```bash
-go generate ./...
-```
-
-This will create the enum implementations in the same directory as the source file.
-
-# What Gets Generated
-
-goenums will create a new file alongside your enum definition, named after the type. For example, a `status` type will generate a `statuses_enums.go` file in the same directory.
-
-This file will contain:
-
-  - A type-safe wrapper struct around your enum
-  - A singleton container with all valid enum values
-  - String conversion methods
-  - Parsing functions for various input types (including numeric types)
-  - JSON marshaling/unmarshaling
-  - YAML marshaling/unmarshaling
-  - Database scanning/valuing
-  - Binary marshaling/unmarshaling
-  - Text marshaling/unmarshaling
-  - Validation functions
-  - Iteration helpers
-  - Compile-time validation
-  - Compile-time exhaustiveness (Matcher interface, Match/MustMatch functions)
-
-## Using the Generated Code
-
-After generating the enum implementations, you can use the generated code in your Go project.
-
-```go
-// Import the package containing your enum
-import "yourpackage/validation"
-
-// Access enum values via the container
-status := validation.Statuses.PASSED
-
-// Convert to string
-statusName := status.String() // "PASSED"
-
-// Parse from string
-parsed, err := validation.ParseStatus("FAILED")
-if err != nil {
-    // Handle error
-
-
-
-
-// Check validity
-if !parsed.IsValid() {
-    // Handle invalid status
-}
-
-// JSON marshaling/unmarshaling
-type Task struct {
-    ID     int              `json:"id"`
-    Status validation.Status `json:"status"`
-}
-
-// Use in exhaustive function (great for tests)
-validation.ExhaustiveStatuses(func(status validation.Status) {
-    // Process each status
-    switch status {
-    case validation.Statuses.PASSED:
-        // Handle passed
-    case validation.Statuses.FAILED:
-        // Handle failed
-    // ...handle other cases
-    }
-})
-
-// Iterate using modern Go 1.23+ range-over-func
-for status := range validation.Statuses.All() {
-    fmt.Printf("Status: %s\n", status)
-}
-```
-
-Here is some more [Examples]({{< relref "/examples" >}}) →
+See the [examples]({{< relref "/examples" >}}) for more complete scenarios.

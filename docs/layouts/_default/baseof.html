@@ -1,11 +1,24 @@
 <!doctype html>
-<html lang="{{ .Site.Language.LanguageCode }}" data-theme="light">
-  <head>
+<html lang="{{ .Site.Language.LanguageCode }}">  <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="{{ .Description | default .Site.Params.description }}">
     <title>{{ with .Title }}{{ . }} | {{ end }}{{ .Site.Title }}</title>
-    {{ with resources.Get "css/styles.css" | minify | fingerprint }}
+    <meta name="color-scheme" content="light dark">
+    <style>
+      html { background: #fff; }
+      html[data-theme="dark"] { background: #1e1e1e; }
+      @media (prefers-color-scheme: dark) {
+        html:not([data-theme]) { background: #1e1e1e; }
+      }
+    </style>
+    <script>
+      (() => {
+        const theme = localStorage.getItem("goenums-theme") ||
+          (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>    {{ with resources.Get "css/styles.css" | minify | fingerprint }}
       <link rel="stylesheet" href="{{ .RelPermalink }}" integrity="{{ .Data.Integrity }}">
     {{ end }}
   </head>

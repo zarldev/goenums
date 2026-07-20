@@ -46,7 +46,7 @@ jobs:
       - name: Build site
         run: >-
           hugo --source docs --destination docs/public --baseURL "${{ steps.pages.outputs.base_url }}/"
-          --minify --gc --panicOnWarning
+          --cleanDestinationDir --minify --gc --panicOnWarning
 
       - name: Check internal links
         run: go run ./internal/doccheck docs/public /goenums/

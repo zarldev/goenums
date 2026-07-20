@@ -242,7 +242,7 @@ DOCS_BASE_URL := http://localhost:1313/goenums/
 docs-build:
 	@command -v hugo >/dev/null || { echo "❌ Hugo $(HUGO_VERSION) is required; install Hugo extended from https://gohugo.io/installation/"; exit 1; }
 	@echo "🏗️  Building documentation site..."
-	cd docs && hugo --destination public --baseURL "$(DOCS_BASE_URL)" --minify --gc --panicOnWarning
+	cd docs && hugo --destination public --baseURL "$(DOCS_BASE_URL)" --cleanDestinationDir --minify --gc --panicOnWarning
 docs-serve:
 	@command -v hugo >/dev/null || { echo "❌ Hugo $(HUGO_VERSION) is required; install Hugo extended from https://gohugo.io/installation/"; exit 1; }
 	@echo "📚 Serving documentation site at $(DOCS_BASE_URL)"

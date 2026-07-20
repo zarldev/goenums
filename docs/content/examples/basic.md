@@ -155,33 +155,27 @@ status4, _ := validation.ParseTicketStatus(uint8(4)) // uint8
 
 # Basic Usage After Generation
 
-Use the generated code in your Go project:
+Use the generated code from the `ticketStatus` example above:
 
 ```go
-
 ticketStatus := validation.TicketStatuses.PENDING
+fmt.Println(ticketStatus.String()) // "Pending"
 
-// Convert to string
-fmt.Println(ticketStatus.String()) // "PENDING"
-
-// Parse from various sources
-input := "SKIPPED"
-parsed, _ := validation.ParseTicketStatus(input)
-
-// Validate enum values
+parsed, err := validation.ParseTicketStatus("Approved")
+if err != nil {
+	return err
+}
 if !parsed.IsValid() {
-    fmt.Println("Invalid status")
+	return fmt.Errorf("invalid ticket status")
 }
 
-// JSON marshaling/unmarshaling
 type Task struct {
-    ID     int              `json:"id"`
-    Status validation.TicketStatus `json:"status"`
+	ID     int                     `json:"id"`
+	Status validation.TicketStatus `json:"status"`
 }
 
-// Iterate through all values
-for status := range validation.Statuses.All() {
-    fmt.Printf("Status: %s\n", status)
+for status := range validation.TicketStatuses.All() {
+	fmt.Printf("Status: %s\n", status)
 }
 ```
 

@@ -76,35 +76,41 @@ func SaveMission(db *sql.DB, mission Mission) error {
 // The Planet type will be stored as "Mars" in the database
 ```
 
-## Exhaustive Handling
 
-Use exhaustive handling function to ensure you handle all enum values with the generated `Exhaustive` function:
+## Compile-time exhaustive handling
+
+For branch-specific behavior, implement the generated matcher interface and pass it to `MatchStatus`. The compiler then requires a method for every valid enum value:
 
 ```go
-// Process all enum values safely
-// This is especially useful in tests to ensure all enum values are covered
-validation.ExhaustiveTicketStatuses(func(status validation.TicketStatus) {
-    // Process each status
-    switch status {
-    case validation.TicketStatuses.FAILED:
-        handleFailed()
-    case validation.TicketStatuses.PASSED:
-        handlePassed()
-    // ...
-    }
-})
+type statusHandler struct{}
 
-// We can also iterate over all enum values to do exhaustive calculations
-weightKg := 100.0
-solarsystem.ExhaustivePlanets(func(p solarsystem.Planet) {
-    // calculate weight on each planet
-    gravity := p.Gravity
-    planetMass := weightKg * gravity
-    fmt.Printf("Weight on %s is %fKg with gravity %f\n", p, planetMass, gravity)
-})
+func (statusHandler) Failed()    { handleFailed() }
+func (statusHandler) Passed()    { handlePassed() }
+func (statusHandler) Skipped()   { handleSkipped() }
+func (statusHandler) Scheduled() { handleScheduled() }
+func (statusHandler) Running()   { handleRunning() }
+func (statusHandler) Booked()    { handleBooked() }
+
+var _ validation.StatusMatcher = statusHandler{}
+
+func handleStatus(status validation.Status) error {
+	return validation.MatchStatus(status, statusHandler{})
+}
 ```
-## Failfast Mode / Strict Mode
 
+If a status is added, removed, or renamed, `statusHandler` no longer satisfies `StatusMatcher` until it is updated. Use `MustMatchStatus` instead when an unhandled value should panic rather than return an error:
+
+```go
+validation.MustMatchStatus(status, statusHandler{})
+```
+
+To iterate over every value for reporting or tests, use the generated `All` iterator:
+
+```go
+for status := range validation.Statuses.All() {
+	fmt.Printf("Status: %s\n", status)
+}
+```
 Enable strict validation of enum values with the failfast flag:
 
 ```go

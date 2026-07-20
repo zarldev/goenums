@@ -548,40 +548,19 @@ html[data-theme='dark'] .highlight .py {
 }
 
 
-.header-left {
+.header-actions {
   display: flex;
   align-items: center;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  /* Space between GitHub link and theme toggle */
-}
-
-.logo {
-  display: flex;
-  align-items: center;
-  text-decoration: none;
-  color: var(--text-color);
-}
-
-.title {
-  font-weight: 600;
-  font-size: 20px;
-  /* Slightly larger font */
-  margin: 0;
-  padding: 0;
+  gap: 8px;
 }
 
 .github-link {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
   color: var(--text-color);
   text-decoration: none;
-  padding: 6px 12px;
+  padding: 6px;
   border-radius: 4px;
   transition: background-color 0.2s ease;
 }
@@ -597,14 +576,13 @@ html[data-theme='dark'] .highlight .py {
   fill: currentColor;
 }
 
-/* Theme toggle button */
 .theme-toggle {
   background-color: transparent;
   border: 1px solid var(--border-color);
   border-radius: 5px;
   color: var(--text-color);
   cursor: pointer;
-  padding: 6px 12px;
+  padding: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -625,7 +603,6 @@ html[data-theme='dark'] .highlight .py {
   fill: none;
 }
 
-/* Responsive adjustments for the header */
 @media (max-width: 600px) {
   .header-container {
     flex-direction: column;
@@ -633,14 +610,9 @@ html[data-theme='dark'] .highlight .py {
     gap: 15px;
   }
 
-  .header-right {
+  .header-actions {
     width: 100%;
     justify-content: flex-start;
-  }
-
-  .github-link span {
-    display: none;
-    /* Hide the text on very small screens */
   }
 }
 
@@ -670,6 +642,7 @@ html[data-theme='dark'] .logo-img {
   font-weight: 600;
   font-size: 18px;
   margin-right: 10px;
+
 }
 
 .subtitle {
@@ -684,12 +657,10 @@ html[data-theme='dark'] .logo-img {
   border-radius: 5px;
   color: var(--text-color);
   cursor: pointer;
-  padding: 6px 12px;
-  display: flex;
+  padding: 6px;  display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.2s ease, border-color 0.2s ease;
-}
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;}
 
 .theme-toggle:hover {
   background-color: var(--code-bg);
