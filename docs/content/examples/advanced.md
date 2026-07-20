@@ -1,5 +1,4 @@
 ---
-layout: default
 title: Advanced Examples
 ---
 
@@ -177,4 +176,4 @@ func _() {
 
 This ensures that if you change the order or values of your enum constants, you'll get a compile error reminding you to regenerate the enum code.
 
-[Back to Examples]({{ '/examples' | relative_url }})
+[Back to Examples]({{< relref "/examples" >}})

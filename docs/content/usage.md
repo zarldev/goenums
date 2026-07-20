@@ -1,5 +1,4 @@
 ---
-layout: default
 title: Usage
 ---
 
@@ -14,9 +13,7 @@ Using goenums involves a simple workflow:
 $ goenums -h
    ____ _____  ___  ____  __  ______ ___  _____
   / __ '/ __ \/ _ \/ __ \/ / / / __ '__ \/ ___/
- / /_/ / /_/ /  __/ / / / /_/ / / / / / (__  ) 
- \__, /\____/\___/_/ /_/\__,_/_/ /_/ /_/____/  
-/____/
+ / /_/ / /_/ /  __/ / / / /_/ / / / / / (__  ) \\__, /\\____/\\___/_/ /_/\\__,_/_/ /_/ /_/____//____/
 Usage: goenums [options] file.go[,file2.go,...]
 Options:
   -accessor-style string
@@ -213,7 +210,7 @@ func handleStatus(status validation.Status) error {
 
 This is different from `ExhaustiveStatuses`, which iterates over every valid value. `MatchStatus` dispatches one enum value to a handler method, while the `StatusMatcher` interface gives compile-time coverage when enum values are added, removed, or renamed.
 
-Here is some more [Examples]({{ '/examples' | relative_url }}) →
+Here is some more [Examples]({{< relref "/examples" >}}) →
 
 
 
@@ -245,7 +242,7 @@ Where <filename> is the Go source file containing your enum definitions.
 
 # Adding a `go:generate` Directive
 
-To use goenums, you need to add a `go:generate` directive to your Go source file. 
+To use goenums, you need to add a `go:generate` directive to your Go source file.
 
 ```go
 package validation
@@ -312,7 +309,9 @@ statusName := status.String() // "PASSED"
 parsed, err := validation.ParseStatus("FAILED")
 if err != nil {
     // Handle error
-}
+
+
+
 
 // Check validity
 if !parsed.IsValid() {
@@ -343,4 +342,4 @@ for status := range validation.Statuses.All() {
 }
 ```
 
-Here is some more [Examples]({{ '/examples' | relative_url }}) → 
+Here is some more [Examples]({{< relref "/examples" >}}) →

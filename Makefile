@@ -234,6 +234,22 @@ generate:
 	PATH="$$tmpbin:$$PATH" go generate ./...
 	@echo "✅ Code generation completed"
 
+
+HUGO_VERSION := 0.128.2
+
+DOCS_BASE_URL := http://localhost:1313/goenums/
+
+docs-build:
+	@command -v hugo >/dev/null || { echo "❌ Hugo $(HUGO_VERSION) is required; install Hugo extended from https://gohugo.io/installation/"; exit 1; }
+	@echo "🏗️  Building documentation site..."
+	cd docs && hugo --destination public --baseURL "$(DOCS_BASE_URL)" --minify --gc --panicOnWarning
+docs-serve:
+	@command -v hugo >/dev/null || { echo "❌ Hugo $(HUGO_VERSION) is required; install Hugo extended from https://gohugo.io/installation/"; exit 1; }
+	@echo "📚 Serving documentation site at $(DOCS_BASE_URL)"
+	cd docs && hugo server --buildDrafts --disableFastRender --baseURL "$(DOCS_BASE_URL)"
+docs-check: docs-build
+	@echo "🔗 Checking documentation links..."
+	go run ./internal/doccheck docs/public /goenums/
 clean:
 	@echo "🧹 Cleaning build artifacts..."
 	rm -rf bin/
@@ -287,6 +303,11 @@ help:
 	@echo "  release-tag-force - force recreate an existing git tag"
 	@echo "  release-build     - build release version"
 	@echo "  release-all       - build and archive all platforms"
+	@echo ""
+	@echo "📚 Documentation Commands:"
+	@echo "  docs-build        - build the Hugo documentation site"
+	@echo "  docs-serve        - serve the Hugo documentation site locally"
+	@echo "  docs-check        - build the site and check internal links"
 	@echo ""
 	@echo "🧪 Testing Commands:"
 	@echo "  test              - run tests"

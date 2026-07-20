@@ -1,5 +1,4 @@
 ---
-layout: default
 title: Basic Examples
 ---
 
@@ -115,6 +114,26 @@ goenums --interfaces=json,sql ticket_status.go
 
 Valid values are `json`, `text`, `yaml`, `sql`, and `binary`. If `text` is not selected, `-legacy-text` has no generated-code effect.
 
+## Enum accessor style
+
+Generated enum values are exposed through a container such as `TicketStatuses`. The default `upper` style preserves the existing selector names:
+
+```go
+TicketStatuses.PENDING_APPROVAL
+```
+
+For idiomatic exported Go selectors, opt in when generating:
+
+```go
+//go:generate goenums --accessor-style=go ticket_status.go
+```
+
+```go
+TicketStatuses.PendingApproval
+```
+
+Changing styles requires updating Go call sites. It does not change aliases, parsing, serialized values, database values, numeric values, or generated filenames.
+
 ## Text and JSON compatibility
 
 `MarshalText` returns raw enum text by default. Use `goenums -legacy-text file.go` if you need the older quoted `MarshalText` output. JSON marshaling uses standard JSON string escaping, and JSON unmarshaling also accepts raw enum text when called directly.
@@ -166,4 +185,4 @@ for status := range validation.Statuses.All() {
 }
 ```
 
-[Back to Examples]({{ '/examples' | relative_url }})
+[Back to Examples]({{< relref "/examples" >}})

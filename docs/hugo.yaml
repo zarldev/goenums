@@ -1,0 +1,26 @@
+baseURL: "https://zarldev.github.io/goenums/"
+baseURL: "https://zarldev.github.io/goenums/"
+languageCode: "en-us"
+title: "goenums"
+enableRobotsTXT: true
+disableKinds: ["taxonomy", "term", "RSS"]
+
+params:
+  subtitle: "A type-safe enum generator for Go"
+  description: "Type-safe enum generation for Go with configurable accessor naming"
+  version: "0.6.0"
+  repository: "zarldev/goenums"
+  author:
+    name: "Zarldev"
+
+
+markup:
+  highlight:
+    noClasses: false
+    lineNos: false
+  goldmark:
+    renderer:
+      unsafe: false
+
+build:
+  writeStats: true

@@ -1,5 +1,4 @@
 ---
-layout: default
 title: Migrating to goenums v0.6
 ---
 
