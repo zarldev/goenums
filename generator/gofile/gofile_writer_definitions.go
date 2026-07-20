@@ -165,7 +165,7 @@ func (g *Writer) writeNumberParsingMethods(rep renderRequest) {
 }
 
 func enumType(rep enum.GenerationRequest) string {
-	return strings.Pluralise(strings.Camel(rep.EnumIota.Type))
+	return naming.ContainerName(rep.EnumIota.Type)
 }
 
 var (

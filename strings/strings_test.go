@@ -880,7 +880,20 @@ func TestExportIdentifier(t *testing.T) {
 		{input: "user_id", expected: "UserID"},
 		{input: "id", expected: "ID"},
 		{input: "__pending__", expected: "Pending"},
-	}
+		{input: "HTTPStatus", expected: "HTTPStatus"},
+		{input: "sha256Hash", expected: "SHA256Hash"},
+		{input: "base64Encoding", expected: "Base64Encoding"},
+		{input: "UUIDv4", expected: "UUIDV4"},
+		{input: "v2API", expected: "V2API"},
+		{input: "is2D", expected: "Is2D"},
+		{input: "idempotent", expected: "Idempotent"},
+		{input: "identify", expected: "Identify"},
+		{input: "apiary", expected: "Apiary"},
+		{input: "urlish", expected: "Urlish"},
+		{input: "jsonnet", expected: "Jsonnet"},
+		{input: "éclair", expected: "Éclair"},
+		{input: "éclairStatus", expected: "ÉclairStatus"},
+		{input: "用户状态", expected: "用户状态"}}
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {

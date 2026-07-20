@@ -40,7 +40,7 @@ func (g *Writer) writeContainerDefinition(rep renderRequest) {
 	cdef := containerDefinition{
 		WrapperName:   wrapperName(rep.EnumIota.Type),
 		ContainerType: containerType(rep.GenerationRequest),
-		ContainerName: strings.Pluralise(strings.Camel(rep.EnumIota.Type)),
+		ContainerName: naming.ContainerName(rep.EnumIota.Type),
 		EnumDefs:      edefs,
 	}
 	g.writeTemplate(containerDefinitionTemplate, cdef)
@@ -128,7 +128,7 @@ func (g *Writer) writeAllFunction(rep renderRequest) {
 	allData := allFunctionData{
 		Receiver:      receiver(rep.EnumIota.Type),
 		ContainerType: containerType(rep.GenerationRequest),
-		ContainerName: strings.Pluralise(strings.Camel(rep.EnumIota.Type)),
+		ContainerName: naming.ContainerName(rep.EnumIota.Type),
 		WrapperName:   wrapperName(rep.EnumIota.Type),
 		EnumDefs:      rep.ValidEnums,
 		Legacy:        rep.Configuration.Legacy,
@@ -194,7 +194,7 @@ func (g *Writer) writeMatchFunction(rep renderRequest) {
 	for i, e := range enums {
 		handlers[i] = matchHandlerDefinition{
 			EnumNameIdentifier: e.EnumNameIdentifier,
-			MethodName:         strings.Camel(e.EnumName),
+			MethodName:         naming.AccessorMethodName(e.EnumName),
 		}
 	}
 	d := matchFunctionData{
@@ -208,7 +208,7 @@ func (g *Writer) writeMatchFunction(rep renderRequest) {
 }
 
 func matcherName(enumType string) string {
-	return naming.WrapperName(enumType) + "Matcher"
+	return naming.MatcherName(enumType)
 }
 
 func enumAliases(e enum.Enum) []string {

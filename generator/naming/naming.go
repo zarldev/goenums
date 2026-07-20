@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"go/token"
 	stdstrings "strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/zarldev/goenums/generator/config"
 	"github.com/zarldev/goenums/strings"
@@ -18,8 +20,14 @@ var (
 	ErrAccessorCollision = errors.New("enum accessor identifier collision")
 )
 
-var reservedAccessorIdentifiers = map[string]struct{}{
-	"All": {},
+var reservedAccessorIdentifiers = reservedAccessorIdentifierSet()
+
+func reservedAccessorIdentifierSet() map[string]struct{} {
+	reserved := make(map[string]struct{}, len(ContainerMethodNames()))
+	for _, name := range ContainerMethodNames() {
+		reserved[name] = struct{}{}
+	}
+	return reserved
 }
 
 // AccessorCandidate describes one source enum value and its generated accessor.
@@ -88,6 +96,21 @@ func ContainerType(enumType string) string {
 	return container + "Container"
 }
 
+// ContainerName returns the exported package-level enum container value name.
+func ContainerName(enumType string) string {
+	return strings.Pluralise(strings.Camel(enumType))
+}
+
+// MatcherName returns the generated matcher interface name.
+func MatcherName(enumType string) string {
+	return WrapperName(enumType) + "Matcher"
+}
+
+// ContainerMethodNames returns exported method names on the generated enum container.
+func ContainerMethodNames() []string {
+	return []string{"All"}
+}
+
 // Receiver returns the generated method receiver name for enumType.
 func Receiver(enumType string) string {
 	if stdstrings.Contains(enumType, ".") {
@@ -96,5 +119,11 @@ func Receiver(enumType string) string {
 	if len(enumType) == 0 {
 		return "r"
 	}
-	return stdstrings.ToLower(enumType[:1])
+	first, _ := utf8.DecodeRuneInString(enumType)
+	return string(unicode.ToLower(first))
+}
+
+// AccessorMethodName returns the matcher method name for one source enum value.
+func AccessorMethodName(source string) string {
+	return strings.Camel(source)
 }

@@ -117,7 +117,22 @@ func TestWriter_AccessorStyleCollisions(t *testing.T) {
 			},
 			want: gofile.ErrAccessorCollision,
 		},
-	}
+		{
+			name: "initialism style duplicate",
+			enums: []enum.Enum{
+				{Name: "apiError", Value: 0, Valid: true},
+				{Name: "api_error", Value: 1, Valid: true},
+			},
+			want: gofile.ErrAccessorCollision,
+		},
+		{
+			name: "digit style duplicate",
+			enums: []enum.Enum{
+				{Name: "http2Enabled", Value: 0, Valid: true},
+				{Name: "http2_enabled", Value: 1, Valid: true},
+			},
+			want: gofile.ErrAccessorCollision,
+		}}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

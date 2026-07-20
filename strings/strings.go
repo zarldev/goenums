@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 )
 
 // irregularToPlural contains mappings for words that don't follow standard English
@@ -613,7 +614,7 @@ var commonInitialisms = map[string]bool{
 	"HTTP": true, "HTTPS": true, "ID": true, "IP": true, "JSON": true,
 	"LLM": true, "LHS": true, "QPS": true, "RAM": true, "RHS": true,
 	"RPC": true, "SLA": true, "SMTP": true, "SQL": true, "SSH": true,
-	"TCP": true, "TLS": true, "TTL": true, "UDP": true, "UI": true,
+	"SHA": true, "TCP": true, "TLS": true, "TTL": true, "UDP": true, "UI": true,
 	"UID": true, "UUID": true, "URI": true, "URL": true, "UTF8": true,
 	"VM": true, "XML": true, "XMPP": true, "XSRF": true, "XSS": true,
 }
@@ -647,46 +648,41 @@ func Camel(s string) string {
 // identifier while preserving common initialisms. It is intended for generated
 // selector names, not for general-purpose case conversion.
 func ExportIdentifier(s string) string {
-	parts := strings.Split(s, "_")
 	var b strings.Builder
-	for _, part := range parts {
-		if part == "" {
-			continue
-		}
-		b.WriteString(exportIdentifierPart(part))
+	for _, word := range splitIdentifierWords(s) {
+		b.WriteString(exportIdentifierWord(normalizeAllUpperIdentifierWord(word)))
 	}
 	return b.String()
 }
 
-func exportIdentifierPart(part string) string {
-	if part == "" {
+func exportIdentifierWord(word string) string {
+	if word == "" {
 		return ""
 	}
-	if isAllUpperIdentifierPart(part) {
-		part = strings.ToLower(part)
+	upper := strings.ToUpper(word)
+	if commonInitialisms[upper] {
+		return upper
 	}
+	if initialism := leadingStructuralInitialism(word); initialism != "" {
+		return initialism + ExportIdentifier(strings.ToUpper(word[len(initialism):]))
+	}
+	runes := []rune(word)
+	first := unicode.ToUpper(runes[0])
+	return string(first) + string(runes[1:])
+}
 
-	var b strings.Builder
-	for _, word := range splitIdentifierWords(part) {
-		if word == "" {
-			continue
-		}
-		upper := strings.ToUpper(word)
-		if commonInitialisms[upper] {
-			b.WriteString(upper)
-			continue
-		}
-		if initialism := leadingInitialism(word); initialism != "" {
-			b.WriteString(initialism)
-			b.WriteString(exportIdentifierPart(word[len(initialism):]))
-			continue
-		}
-		b.WriteString(strings.ToUpper(word[:1]))
-		if len(word) > 1 {
-			b.WriteString(word[1:])
-		}
+func normalizeAllUpperIdentifierWord(word string) string {
+	if !isAllUpperIdentifierPart(word) {
+		return word
 	}
-	return b.String()
+	runes := []rune(strings.ToLower(word))
+	for i, r := range runes {
+		if i == 0 || unicode.IsLetter(runes[i-1]) {
+			continue
+		}
+		runes[i] = unicode.ToUpper(r)
+	}
+	return string(runes)
 }
 
 func isAllUpperIdentifierPart(part string) bool {
@@ -702,57 +698,138 @@ func isAllUpperIdentifierPart(part string) bool {
 	return seenLetter
 }
 
-func leadingInitialism(word string) string {
+func leadingStructuralInitialism(word string) string {
 	upperWord := strings.ToUpper(word)
 	longest := ""
 	for initialism := range commonInitialisms {
-		if len(initialism) <= len(longest) {
+		if len(initialism) <= len(longest) || len(initialism) >= len(word) {
 			continue
 		}
-		if strings.HasPrefix(upperWord, initialism) {
+		if !strings.HasPrefix(upperWord, initialism) {
+			continue
+		}
+		next, _ := utf8.DecodeRuneInString(word[len(initialism):])
+		if unicode.IsDigit(next) || (len(initialism) >= 4 && (unicode.IsUpper(next) || isLowerVersionSuffix(word[len(initialism):]))) {
 			longest = initialism
 		}
 	}
 	return longest
 }
 
+func isLowerVersionSuffix(s string) bool {
+	first, size := utf8.DecodeRuneInString(s)
+	if !unicode.IsLower(first) || size >= len(s) {
+		return false
+	}
+	for _, r := range s[size:] {
+		if !unicode.IsDigit(r) {
+			return false
+		}
+	}
+	return true
+}
+
+func mergeVersionWords(words []string) []string {
+	if len(words) < 2 {
+		return words
+	}
+	merged := make([]string, 0, len(words))
+	for i := 0; i < len(words); i++ {
+		if i+1 < len(words) && isInitialismVersionPrefix(words[i]) && isDigitsOnly(words[i+1]) {
+			merged = append(merged, words[i]+words[i+1])
+			i++
+			continue
+		}
+		merged = append(merged, words[i])
+	}
+	return merged
+}
+
+func isInitialismVersionPrefix(word string) bool {
+	if len(word) < 2 {
+		return false
+	}
+	last, size := utf8.DecodeLastRuneInString(word)
+	if !unicode.IsLower(last) {
+		return false
+	}
+	prefix := word[:len(word)-size]
+	return commonInitialisms[strings.ToUpper(prefix)]
+}
+
+func isDigitsOnly(word string) bool {
+	if word == "" {
+		return false
+	}
+	for _, r := range word {
+		if !unicode.IsDigit(r) {
+			return false
+		}
+	}
+	return true
+}
+
 func splitIdentifierWords(s string) []string {
 	if s == "" {
 		return nil
 	}
-	var words []string
-	start := 0
 	runes := []rune(s)
-	for i := 1; i < len(runes); i++ {
-		prev := runes[i-1]
-		cur := runes[i]
-		nextLower := i+1 < len(runes) && unicode.IsLower(runes[i+1])
-
-		split := unicode.IsLower(prev) && unicode.IsUpper(cur)
-		if unicode.IsUpper(prev) && unicode.IsUpper(cur) && nextLower {
-			split = true
+	words := make([]string, 0, len(runes))
+	start := -1
+	for i, r := range runes {
+		if r == '_' {
+			if start >= 0 {
+				words = append(words, string(runes[start:i]))
+				start = -1
+			}
+			continue
 		}
-		if unicode.IsDigit(prev) && unicode.IsLetter(cur) {
-			split = true
+		if start < 0 {
+			start = i
+			continue
 		}
-		if split {
+		if shouldSplitIdentifierWord(runes, i) {
 			words = append(words, string(runes[start:i]))
 			start = i
 		}
 	}
-	words = append(words, string(runes[start:]))
-	return words
+	if start >= 0 {
+		words = append(words, string(runes[start:]))
+	}
+	return mergeVersionWords(words)
+}
+
+func shouldSplitIdentifierWord(runes []rune, i int) bool {
+	prev := runes[i-1]
+	cur := runes[i]
+	if unicode.IsLower(prev) && unicode.IsUpper(cur) {
+		return true
+	}
+	if unicode.IsLetter(prev) && unicode.IsDigit(cur) {
+		return true
+	}
+	if unicode.IsDigit(prev) && unicode.IsLetter(cur) {
+		return true
+	}
+	if unicode.IsUpper(prev) && unicode.IsUpper(cur) && i+1 < len(runes) && unicode.IsLower(runes[i+1]) && commonInitialisms[strings.ToUpper(string(runes[:i]))] {
+		return true
+	}
+	return false
+}
+
+func lowerFirstRune(s string) string {
+	if s == "" {
+		return ""
+	}
+	first, size := utf8.DecodeRuneInString(s)
+	if first == utf8.RuneError && size == 0 {
+		return ""
+	}
+	return string(unicode.ToLower(first)) + s[size:]
 }
 
 func Lower1stCharacter(s string) string {
-	if len(s) == 0 {
-		return ""
-	}
-	if len(s) == 1 {
-		return strings.ToLower(s)
-	}
-	c := unicode.ToLower(rune(s[0]))
-	return string(c) + s[1:]
+	return lowerFirstRune(s)
 }
 
 // Integer defines a type constraint for all integer types.
