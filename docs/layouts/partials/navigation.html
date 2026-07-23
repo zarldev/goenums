@@ -1,7 +1,7 @@
 <nav class="main-nav" aria-label="Documentation">
   <ul>
     {{ $current := . }}
-    {{ range .Site.Data.navigation }}
+    {{ range hugo.Data.navigation }}
       {{ $item := . }}
       {{ $target := $current.Site.GetPage .pageRef }}
       {{ $active := and $target (or (eq $target.RelPermalink $current.RelPermalink) ($target.IsAncestor $current)) }}

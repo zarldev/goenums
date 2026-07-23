@@ -1,6 +1,5 @@
 baseURL: "https://zarldev.github.io/goenums/"
-baseURL: "https://zarldev.github.io/goenums/"
-languageCode: "en-us"
+locale: "en-us"
 title: "goenums"
 enableRobotsTXT: true
 disableKinds: ["taxonomy", "term", "RSS"]

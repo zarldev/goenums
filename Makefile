@@ -16,7 +16,7 @@ FUZZ_TESTS := FuzzParseValue_String FuzzParseValue_Int FuzzParseValue_Bool FuzzP
 .DEFAULT_GOAL := build
 
 # Phony targets to avoid conflicts with files of the same name
-.PHONY: build build-prod build-linux build-darwin build-windows deps test test-coverage test-fuzz test-fuzz-quick test-fuzz-long generate clean install uninstall lint fmt-check vet verify help version logo debug-version release-tag release-tag-force release-build release-all
+.PHONY: build build-prod build-linux build-darwin build-windows deps test test-coverage test-fuzz test-fuzz-quick test-fuzz-long generate clean install uninstall lint fmt-check vet verify help version logo debug-version release-tag release-tag-force release-build release-all docs-require-hugo docs-build docs-serve docs-check
 
 release-tag: verify
 	@echo "🔍 Checking for uncommitted changes..."
@@ -235,16 +235,23 @@ generate:
 	@echo "✅ Code generation completed"
 
 
-HUGO_VERSION := 0.128.2
+HUGO_VERSION := 0.164.0
 
 DOCS_BASE_URL := http://localhost:1313/goenums/
 
-docs-build:
+docs-require-hugo:
 	@command -v hugo >/dev/null || { echo "❌ Hugo $(HUGO_VERSION) is required; install Hugo extended from https://gohugo.io/installation/"; exit 1; }
+	@found=$$(hugo version | sed -n 's/^hugo v\([0-9][0-9.]*\).*/\1/p'); \
+	if [ "$$found" != "$(HUGO_VERSION)" ]; then \
+		echo "❌ Hugo $(HUGO_VERSION) is required, found $${found:-unknown}"; \
+		echo "   The docs build uses --panicOnWarning, so a version drift fails on deprecations CI would not hit."; \
+		echo "   Install $(HUGO_VERSION) from https://gohugo.io/installation/, or bump HUGO_VERSION here and in .github/workflows/docs.yml together."; \
+		exit 1; \
+	fi
+docs-build: docs-require-hugo
 	@echo "🏗️  Building documentation site..."
 	cd docs && hugo --destination public --baseURL "$(DOCS_BASE_URL)" --cleanDestinationDir --minify --gc --panicOnWarning
-docs-serve:
-	@command -v hugo >/dev/null || { echo "❌ Hugo $(HUGO_VERSION) is required; install Hugo extended from https://gohugo.io/installation/"; exit 1; }
+docs-serve: docs-require-hugo
 	@echo "📚 Serving documentation site at $(DOCS_BASE_URL)"
 	cd docs && hugo server --buildDrafts --disableFastRender --baseURL "$(DOCS_BASE_URL)"
 docs-check: docs-build

@@ -40,12 +40,12 @@ jobs:
       - name: Set up Hugo
         uses: peaceiris/actions-hugo@v3
         with:
-          hugo-version: "0.128.2"
+          hugo-version: "0.164.0"
           extended: true
 
       - name: Build site
         run: >-
-          hugo --source docs --destination docs/public --baseURL "${{ steps.pages.outputs.base_url }}/"
+          hugo --source docs --destination public --baseURL "${{ steps.pages.outputs.base_url }}/"
           --cleanDestinationDir --minify --gc --panicOnWarning
 
       - name: Check internal links
