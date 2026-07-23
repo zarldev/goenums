@@ -1,11 +1,10 @@
 ---
-layout: default
 title: goenums
 ---
 
 `goenums` addresses Go's lack of native enum support by generating comprehensive, type-safe enum implementations from simple constant declarations. Transform basic `iota` based constants into feature-rich enums with string conversion, validation, JSON handling, database integration, and more.
 
-> Upgrading an existing project? Review [Migrating to goenums v0.6]({{ '/migration-v0.6' | relative_url }}) for behavior changes and the `-legacy-text` compatibility option.
+> Upgrading an existing project? Review [Migrating to goenums v0.6]({{< relref "/migration-v0.6" >}}) for behavior changes and the `-legacy-text` compatibility option.
 ## Key Features
 
 - **Type Safety**: Wrapper types prevent accidental misuse of enum values
@@ -17,9 +16,10 @@ title: goenums
 - **Numeric Parsing**: Parse enums from various numeric types (int, float, etc.)
 - **Validation**: Methods to check for valid enum values
 - **Iteration**: Modern Go 1.23+ iteration support with legacy fallback
+- **Accessor Naming**: Choose backward-compatible uppercase or idiomatic Go-style enum selectors
 - **Extensibility**: Add custom fields to enums via comments
 - **Exhaustive Handling**: Helper functions to ensure you handle all enum values
 - **Alias Support**: Alternative enum names via comment syntax
 - **Zero Dependencies**: Completely dependency-free, using only the Go standard library
 
-Get Started with [Installation]({{ '/installation' | relative_url }}) → 
+Get Started with [Installation]({{< relref "/installation" >}}) →

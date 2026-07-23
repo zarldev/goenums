@@ -1,0 +1,15 @@
+- title: Home
+  pageRef: /
+- title: Installation
+  pageRef: /installation
+- title: Usage
+  pageRef: /usage
+- title: Examples
+  pageRef: /examples
+  children:
+    - title: Basic Examples
+      pageRef: /examples/basic
+    - title: Advanced Examples
+      pageRef: /examples/advanced
+- title: Migration v0.6
+  pageRef: /migration-v0.6

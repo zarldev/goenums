@@ -7,6 +7,7 @@ import (
 	"text/template"
 
 	"github.com/zarldev/goenums/enum"
+	"github.com/zarldev/goenums/generator/naming"
 	"github.com/zarldev/goenums/strings"
 )
 
@@ -46,7 +47,7 @@ func (g *Writer) writeCompileCheck(rep enum.GenerationRequest) {
 
 var (
 	stringMethodStr = `
-// {{ .EnumLower }}Names is a constant string slice containing all enum values cononical absolute names
+// {{ .EnumLower }}Names is a constant string containing the canonical names for all enum values.
 const {{ .EnumLower }}Names = "{{ .NameString }}"
 
 // {{ .EnumLower }}NamesMap is a map of enum values to their canonical absolute
@@ -164,7 +165,7 @@ func (g *Writer) writeNumberParsingMethods(rep renderRequest) {
 }
 
 func enumType(rep enum.GenerationRequest) string {
-	return strings.Pluralise(strings.Camel(rep.EnumIota.Type))
+	return naming.ContainerName(rep.EnumIota.Type)
 }
 
 var (
@@ -204,7 +205,7 @@ type cenum struct {
 var (
 	wrapperDefinitionStr = `
 // {{ .WrapperName }} is a type that represents a single enum value.
-// It combines the core information about the enum constant and it's defined fields.
+// It combines the core information about the enum constant and its defined fields.
 type {{ .WrapperName }} struct {
   {{ .EnumType }}
   {{- range .Fields }}
@@ -213,7 +214,7 @@ type {{ .WrapperName }} struct {
 }
 
 // {{ .EnumContainerName }} is the container for all enum values.
-// It is private and should not be used directly use the public methods on the {{.WrapperName}} type.
+// It is private; use the exported {{ .WrapperName }} values and methods instead.
 type {{ .EnumContainerName }} struct {
   {{- range .Enums }}
   {{ .Name }} {{ .EnumType }}
@@ -224,23 +225,17 @@ type {{ .EnumContainerName }} struct {
 		template.New("wrapperDefinition").Parse(wrapperDefinitionStr))
 )
 
-func (g *Writer) writeWrapperDefinition(enum enum.GenerationRequest) {
+func (g *Writer) writeWrapperDefinition(req renderRequest) {
 	var (
-		fields = make([]field, len(enum.EnumIota.Fields)) // wrapper fields
-		cenums = make([]cenum, len(enum.EnumIota.Enums))  // container enums
-		wName  = wrapperName(enum.EnumIota.Type)          // wrapper name
-		wType  = wrapperType(enum.EnumIota.Type)          // wrapper type
+		fields = make([]field, len(req.EnumIota.Fields)) // wrapper fields
+		cenums = buildContainerEnums(req.AllEnums)       // container enums
+		wName  = wrapperName(req.EnumIota.Type)          // wrapper name
+		wType  = wrapperType(req.EnumIota.Type)          // wrapper type
 	)
-	for i, f := range enum.EnumIota.Fields {
+	for i, f := range req.EnumIota.Fields {
 		fields[i] = field{
 			Name: f.Name,
 			Type: strings.AsType(f.Value),
-		}
-	}
-	for i, e := range enum.EnumIota.Enums {
-		cenums[i] = cenum{
-			Name:     strings.ToUpper(e.Name),
-			EnumType: wName,
 		}
 	}
 
@@ -248,26 +243,21 @@ func (g *Writer) writeWrapperDefinition(enum enum.GenerationRequest) {
 		WrapperName:       wName,
 		WrapperType:       wType,
 		Enums:             cenums,
-		EnumType:          enum.EnumIota.Type,
+		EnumType:          req.EnumIota.Type,
 		Fields:            fields,
-		EnumContainerName: containerType(enum),
+		EnumContainerName: containerType(req.GenerationRequest),
 	}
 	g.writeTemplate(wrapperDefinitionTemplate, d)
 }
 
-func wrapperName(enum string) string {
-	if strings.IsPlural(enum) {
-		enum = strings.Singularise(enum)
-	}
-	return strings.Camel(enum)
+func wrapperName(enumType string) string {
+	return naming.WrapperName(enumType)
 }
 
-func wrapperType(enum string) string {
-	return strings.Camel(enum)
+func wrapperType(enumType string) string {
+	return naming.WrapperType(enumType)
 }
 
-func containerType(enum enum.GenerationRequest) string {
-	cName := strings.Lower1stCharacter(enum.EnumIota.Type)
-	cName = strings.Pluralise(cName)
-	return fmt.Sprintf("%sContainer", cName)
+func containerType(rep enum.GenerationRequest) string {
+	return naming.ContainerType(rep.EnumIota.Type)
 }

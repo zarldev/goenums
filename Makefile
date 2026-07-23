@@ -1,5 +1,5 @@
 # Build variables
-VERSION := v0.6.0
+VERSION := v0.7.0
 BUILD_TIME := $(shell date +%Y%m%d-%H:%M:%S)
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 GIT_DIRTY := $(shell if [ -n "$$(git status --porcelain)" ]; then echo "-dirty"; fi)
@@ -16,7 +16,7 @@ FUZZ_TESTS := FuzzParseValue_String FuzzParseValue_Int FuzzParseValue_Bool FuzzP
 .DEFAULT_GOAL := build
 
 # Phony targets to avoid conflicts with files of the same name
-.PHONY: build build-prod build-linux build-darwin build-windows deps test test-coverage test-fuzz test-fuzz-quick test-fuzz-long generate clean install uninstall lint fmt-check vet verify help version logo debug-version release-tag release-tag-force release-build release-all
+.PHONY: build build-prod build-linux build-darwin build-windows deps test test-coverage test-fuzz test-fuzz-quick test-fuzz-long generate clean install uninstall lint fmt-check vet verify help version logo debug-version release-tag release-tag-force release-build release-all docs-require-hugo docs-build docs-serve docs-check
 
 release-tag: verify
 	@echo "🔍 Checking for uncommitted changes..."
@@ -234,6 +234,29 @@ generate:
 	PATH="$$tmpbin:$$PATH" go generate ./...
 	@echo "✅ Code generation completed"
 
+
+HUGO_VERSION := 0.164.0
+
+DOCS_BASE_URL := http://localhost:1313/goenums/
+
+docs-require-hugo:
+	@command -v hugo >/dev/null || { echo "❌ Hugo $(HUGO_VERSION) is required; install Hugo extended from https://gohugo.io/installation/"; exit 1; }
+	@found=$$(hugo version | sed -n 's/^hugo v\([0-9][0-9.]*\).*/\1/p'); \
+	if [ "$$found" != "$(HUGO_VERSION)" ]; then \
+		echo "❌ Hugo $(HUGO_VERSION) is required, found $${found:-unknown}"; \
+		echo "   The docs build uses --panicOnWarning, so a version drift fails on deprecations CI would not hit."; \
+		echo "   Install $(HUGO_VERSION) from https://gohugo.io/installation/, or bump HUGO_VERSION here and in .github/workflows/docs.yml together."; \
+		exit 1; \
+	fi
+docs-build: docs-require-hugo
+	@echo "🏗️  Building documentation site..."
+	cd docs && hugo --destination public --baseURL "$(DOCS_BASE_URL)" --cleanDestinationDir --minify --gc --panicOnWarning
+docs-serve: docs-require-hugo
+	@echo "📚 Serving documentation site at $(DOCS_BASE_URL)"
+	cd docs && hugo server --buildDrafts --disableFastRender --baseURL "$(DOCS_BASE_URL)"
+docs-check: docs-build
+	@echo "🔗 Checking documentation links..."
+	go run ./internal/doccheck docs/public /goenums/
 clean:
 	@echo "🧹 Cleaning build artifacts..."
 	rm -rf bin/
@@ -287,6 +310,11 @@ help:
 	@echo "  release-tag-force - force recreate an existing git tag"
 	@echo "  release-build     - build release version"
 	@echo "  release-all       - build and archive all platforms"
+	@echo ""
+	@echo "📚 Documentation Commands:"
+	@echo "  docs-build        - build the Hugo documentation site"
+	@echo "  docs-serve        - serve the Hugo documentation site locally"
+	@echo "  docs-check        - build the site and check internal links"
 	@echo ""
 	@echo "🧪 Testing Commands:"
 	@echo "  test              - run tests"

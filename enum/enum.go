@@ -108,6 +108,9 @@ func (r GenerationRequest) Command() string {
 	if !r.Configuration.Constraints {
 		b.WriteString(" -x-exp-constraints")
 	}
+	if r.Configuration.AccessorStyle.Normalized() == config.AccessorStyleGo {
+		b.WriteString(" --accessor-style=go")
+	}
 	if r.Configuration.Verbose {
 		b.WriteString(" -vv")
 	}

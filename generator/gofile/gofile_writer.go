@@ -84,8 +84,11 @@ func (g *Writer) Write(ctx context.Context,
 			return fmt.Errorf("%w: '%s' contains invalid characters", ErrWriteGoFile, outFilename)
 		}
 		fullPath := filepath.Clean(filepath.Join(dirPath, outFilename))
-		renderReq := newRenderRequest(req)
-		err := file.WriteToFileAndFormatFS(ctx, g.fs, fullPath, true,
+		renderReq, err := newRenderRequest(req)
+		if err != nil {
+			return fmt.Errorf("%w: %s: %w", ErrWriteGoFile, req.SourceFilename, err)
+		}
+		err = file.WriteToFileAndFormatFS(ctx, g.fs, fullPath, true,
 			func(w io.Writer) error {
 				var output bytes.Buffer
 				output.Grow(estimateGeneratedSize(renderReq))
@@ -108,7 +111,7 @@ func (g *Writer) Write(ctx context.Context,
 func (g *Writer) writeEnumGenerationRequest(req renderRequest) {
 	g.writeGeneratedComments(req.GenerationRequest)
 	g.writePackageAndImports(req.GenerationRequest)
-	g.writeWrapperDefinition(req.GenerationRequest)
+	g.writeWrapperDefinition(req)
 	g.writeContainerDefinition(req)
 	g.writeInvalidEnumDefinition(req.GenerationRequest)
 	g.writeAllFunction(req)

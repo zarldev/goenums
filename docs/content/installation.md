@@ -1,5 +1,4 @@
 ---
-layout: default
 title: Installation
 ---
 
@@ -33,7 +32,7 @@ You should see the `goenums` logo and current version displayed:
 /____/
 
     https://zarldev.github.io/goenums 
-       version :: v0.6.0
+       version :: v0.7.0
 ```
 # Prerequisites
 
@@ -44,4 +43,4 @@ You should see the `goenums` logo and current version displayed:
 
 goenums is completely dependency-free, using only the Go standard library. This ensures minimal bloat, maximum stability, and eliminates dependency-related security concerns.
 
-Next Steps: Learn how to [use goenums in your project]({{ '/usage' | relative_url }}).
+Next Steps: Learn how to [use goenums in your project]({{< relref "/usage" >}}).

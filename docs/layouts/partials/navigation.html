@@ -1,0 +1,24 @@
+<nav class="main-nav" aria-label="Documentation">
+  <ul>
+    {{ $current := . }}
+    {{ range hugo.Data.navigation }}
+      {{ $item := . }}
+      {{ $target := $current.Site.GetPage .pageRef }}
+      {{ $active := and $target (or (eq $target.RelPermalink $current.RelPermalink) ($target.IsAncestor $current)) }}
+      <li class="nav-item{{ if $active }} active{{ end }}">
+        {{ with $target }}<a href="{{ .RelPermalink }}">{{ $item.title }}</a>{{ end }}
+        {{ with .children }}
+          <ul class="subnav">
+            {{ range . }}
+              {{ $childItem := . }}
+              {{ $child := $current.Site.GetPage .pageRef }}
+              <li class="subnav-item{{ if and $child (eq $child.RelPermalink $current.RelPermalink) }} active{{ end }}">
+                {{ with $child }}<a href="{{ .RelPermalink }}">{{ $childItem.title }}</a>{{ end }}
+              </li>
+            {{ end }}
+          </ul>
+        {{ end }}
+      </li>
+    {{ end }}
+  </ul>
+</nav>

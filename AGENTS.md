@@ -56,6 +56,17 @@ internal/
 examples/               ← example enums + generated output (validation/, solarsystem/, etc.)
 ```
 
+### Documentation site
+
+The documentation site is built with Hugo—no Ruby or Jekyll tooling is required.
+
+```bash
+make docs-serve  # serve locally at http://localhost:1313/goenums/
+make docs-check  # build and verify internal links
+```
+
+Install Hugo extended v0.128.2 before running these commands.
+
 ## Key details an agent would miss
 
 ### Binary entrypoint
@@ -85,11 +96,11 @@ Despite the extensible interface design, the concrete implementations only handl
 ### Version injection
 Version is baked via ldflags:
 ```
--X github.com/zarldev/goenums/internal/version.CURRENT='v0.6.0'
+-X github.com/zarldev/goenums/internal/version.CURRENT='v0.7.0'
 -X github.com/zarldev/goenums/internal/version.BUILD='...'
--X github.com/zarldev/goenums/internal/version.COMMIT='...'```
+-X github.com/zarldev/goenums/internal/version.COMMIT='...'
+```
 The Makefile handles this; `make debug-version` shows current values.
-
 ### Fuzz tests
 Fuzz tests live in `enum/enum_fuzz_test.go` (package `enum_test`). The Makefile runs them via the `FUZZ_TESTS` variable. Run a single one with:
 ```bash

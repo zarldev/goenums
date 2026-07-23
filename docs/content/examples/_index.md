@@ -1,5 +1,4 @@
 ---
-layout: default
 title: Examples
 ---
 
@@ -7,8 +6,8 @@ title: Examples
 
 Explore different usage patterns and features with practical examples:
 
-- [Basic Examples]({{ '/examples/basic' | relative_url }}) → Core functionality examples
-- [Advanced Examples]({{ '/examples/advanced' | relative_url }}) → More complex scenarios and features
+- [Basic Examples]({{< relref "/examples/basic" >}}) → Core functionality examples
+- [Advanced Examples]({{< relref "/examples/advanced" >}}) → More complex scenarios and features
 
 ## Featured Example: Solar System Planets
 

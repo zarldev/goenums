@@ -859,6 +859,53 @@ func TestCamel(t *testing.T) {
 	}
 }
 
+func TestExportIdentifier(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{input: "", expected: ""},
+		{input: "_", expected: ""},
+		{input: "pending", expected: "Pending"},
+		{input: "pendingApproval", expected: "PendingApproval"},
+		{input: "pending_approval", expected: "PendingApproval"},
+		{input: "PENDING_APPROVAL", expected: "PendingApproval"},
+		{input: "apiError", expected: "APIError"},
+		{input: "api_error", expected: "APIError"},
+		{input: "API_ERROR", expected: "APIError"},
+		{input: "http2Enabled", expected: "HTTP2Enabled"},
+		{input: "http2_enabled", expected: "HTTP2Enabled"},
+		{input: "userID", expected: "UserID"},
+		{input: "user_id", expected: "UserID"},
+		{input: "id", expected: "ID"},
+		{input: "__pending__", expected: "Pending"},
+		{input: "HTTPStatus", expected: "HTTPStatus"},
+		{input: "sha256Hash", expected: "SHA256Hash"},
+		{input: "base64Encoding", expected: "Base64Encoding"},
+		{input: "UUIDv4", expected: "UUIDV4"},
+		{input: "v2API", expected: "V2API"},
+		{input: "is2D", expected: "Is2D"},
+		{input: "idempotent", expected: "Idempotent"},
+		{input: "identify", expected: "Identify"},
+		{input: "apiary", expected: "Apiary"},
+		{input: "urlish", expected: "Urlish"},
+		{input: "jsonnet", expected: "Jsonnet"},
+		{input: "éclair", expected: "Éclair"},
+		{input: "éclairStatus", expected: "ÉclairStatus"},
+		{input: "用户状态", expected: "用户状态"}}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			t.Parallel()
+			got := strings.ExportIdentifier(tt.input)
+			if got != tt.expected {
+				t.Errorf("ExportIdentifier(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+
 func TestLower1stCharacter(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

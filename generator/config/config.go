@@ -12,6 +12,31 @@
 // system, ensuring all components respect the same settings.
 package config
 
+// AccessorStyle controls the exported enum accessor fields generated on the
+// enum container, such as Statuses.PENDING or Statuses.Pending.
+type AccessorStyle string
+
+const (
+	// AccessorStyleUpper preserves the historical all-uppercase accessor style.
+	AccessorStyleUpper AccessorStyle = "upper"
+	// AccessorStyleGo generates exported Go-style accessor identifiers.
+	AccessorStyleGo AccessorStyle = "go"
+)
+
+// Normalized returns the effective accessor style. The zero value preserves the
+// historical upper style for programmatic callers using Configuration{}.
+func (s AccessorStyle) Normalized() AccessorStyle {
+	if s == "" {
+		return AccessorStyleUpper
+	}
+	return s
+}
+
+// Valid reports whether s is a supported non-zero accessor style.
+func (s AccessorStyle) Valid() bool {
+	return s == AccessorStyleUpper || s == AccessorStyleGo
+}
+
 // Configuration holds all the settings that control enum generation behavior.
 // It is passed to both parsers and generators to ensure consistent behavior
 // throughout the generation process.
@@ -48,7 +73,10 @@ type Configuration struct {
 	// Constraints controls numeric constraints generation. When true, local constraints are generated; when false, golang.org/x/exp/constraints is imported.
 	Constraints bool
 
-	// Handlers defines the behavior of the enum generation process.
+	// AccessorStyle controls the naming style for generated enum container accessors.
+	AccessorStyle AccessorStyle
+
+	// Handlers defines which interface implementations are generated.
 	Handlers Handlers
 }
 

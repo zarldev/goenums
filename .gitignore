@@ -6,6 +6,10 @@
 coverage.*
 .zarlcode/
 cover.*
+/docs/public/
+/docs/resources/
+/docs/.hugo_build.lock
+/docs/hugo_stats.json
 /internal/testdata/aliases/goenums
 
 .claude
