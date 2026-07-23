@@ -7,7 +7,7 @@ disableKinds: ["taxonomy", "term", "RSS"]
 params:
   subtitle: "A type-safe enum generator for Go"
   description: "Type-safe enum generation for Go with configurable accessor naming"
-  version: "0.6.0"
+  version: "0.7.0"
   repository: "zarldev/goenums"
   author:
     name: "Zarldev"

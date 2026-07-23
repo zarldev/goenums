@@ -96,7 +96,7 @@ Despite the extensible interface design, the concrete implementations only handl
 ### Version injection
 Version is baked via ldflags:
 ```
--X github.com/zarldev/goenums/internal/version.CURRENT='v0.6.0'
+-X github.com/zarldev/goenums/internal/version.CURRENT='v0.7.0'
 -X github.com/zarldev/goenums/internal/version.BUILD='...'
 -X github.com/zarldev/goenums/internal/version.COMMIT='...'
 ```

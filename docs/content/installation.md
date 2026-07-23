@@ -32,7 +32,7 @@ You should see the `goenums` logo and current version displayed:
 /____/
 
     https://zarldev.github.io/goenums 
-       version :: v0.6.0
+       version :: v0.7.0
 ```
 # Prerequisites
 
