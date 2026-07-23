@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
+	"io/fs"
 	"net/url"
 	"os"
-	"path/filepath"
+	"path"
 	"regexp"
 	"strings"
 )
@@ -12,47 +13,61 @@ import (
 var linkPattern = regexp.MustCompile(`(?i)\b(?:href|src)=["']([^"']+)["']`)
 
 func main() {
-	if len(os.Args) != 3 {
+	os.Exit(run(os.Args))
+}
+
+func run(args []string) int {
+	if len(args) != 3 {
 		fmt.Fprintln(os.Stderr, "usage: doccheck <site-directory> <base-path>")
-		os.Exit(2)
+		return 2
 	}
 
-	siteDir, err := filepath.Abs(os.Args[1])
+	root, err := os.OpenRoot(args[1])
 	if err != nil {
-		fail(err)
+		fmt.Fprintln(os.Stderr, err)
+		return 1
 	}
-	basePath := normalizeBasePath(os.Args[2])
+	defer root.Close()
 
+	failures, err := checkSite(root, normalizeBasePath(args[2]))
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	for _, failure := range failures {
+		fmt.Fprintln(os.Stderr, failure)
+	}
+	if len(failures) > 0 {
+		return 1
+	}
+	return 0
+}
+
+// checkSite walks every HTML page under root and returns a message for each
+// broken internal link. A non-nil error signals the walk itself failed.
+func checkSite(root *os.Root, basePath string) ([]string, error) {
 	var failures []string
-	err = filepath.WalkDir(siteDir, func(path string, entry os.DirEntry, walkErr error) error {
+	err := fs.WalkDir(root.FS(), ".", func(name string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
-		if entry.IsDir() || filepath.Ext(path) != ".html" {
+		if entry.IsDir() || path.Ext(name) != ".html" {
 			return nil
 		}
-		content, err := os.ReadFile(path)
+		content, err := root.ReadFile(name)
 		if err != nil {
 			return err
 		}
 		for _, match := range linkPattern.FindAllStringSubmatch(string(content), -1) {
 			if target := match[1]; shouldCheck(target) {
-				if err := checkTarget(siteDir, basePath, path, target); err != nil {
-					failures = append(failures, fmt.Sprintf("%s: %v", path, err))
+				if err := checkTarget(root, basePath, name, target); err != nil {
+					failures = append(failures, fmt.Sprintf("%s: %v", name, err))
 				}
 			}
 		}
 		return nil
 	})
-	if err != nil {
-		fail(err)
-	}
-	if len(failures) > 0 {
-		for _, failure := range failures {
-			fmt.Fprintln(os.Stderr, failure)
-		}
-		os.Exit(1)
-	}
+	return failures, err
 }
 
 func normalizeBasePath(basePath string) string {
@@ -74,7 +89,11 @@ func shouldCheck(target string) bool {
 	return parsed.Scheme == "" && parsed.Host == ""
 }
 
-func checkTarget(siteDir, basePath, pagePath, target string) error {
+// checkTarget resolves an internal link to a path within root and reports
+// whether the target file exists. Paths are relative to the site root so all
+// lookups stay inside it. pageName is the root-relative path of the page the
+// link was found in.
+func checkTarget(root *os.Root, basePath, pageName, target string) error {
 	parsed, err := url.Parse(target)
 	if err != nil {
 		return fmt.Errorf("invalid URL %q: %w", target, err)
@@ -90,26 +109,28 @@ func checkTarget(siteDir, basePath, pagePath, target string) error {
 		if !strings.HasPrefix(linkPath, basePath) {
 			return fmt.Errorf("link %q does not use base path %q", target, basePath)
 		}
-		candidate = filepath.Join(siteDir, strings.TrimPrefix(linkPath, basePath))
+		candidate = strings.TrimPrefix(linkPath, basePath)
 	default:
-		candidate = filepath.Join(filepath.Dir(pagePath), linkPath)
+		candidate = path.Join(path.Dir(pageName), linkPath)
+	}
+	candidate = strings.Trim(candidate, "/")
+	if candidate == "" {
+		candidate = "."
 	}
 
-	if exists(candidate) || exists(filepath.Join(candidate, "index.html")) {
+	if exists(root, candidate) || exists(root, path.Join(candidate, "index.html")) {
 		return nil
 	}
-	if filepath.Ext(candidate) == "" && exists(candidate+".html") {
+	if path.Ext(candidate) == "" && exists(root, candidate+".html") {
 		return nil
 	}
 	return fmt.Errorf("broken internal link %q", target)
 }
 
-func exists(path string) bool {
-	_, err := os.Stat(path)
+func exists(root *os.Root, name string) bool {
+	if !fs.ValidPath(name) {
+		return false
+	}
+	_, err := root.Stat(name)
 	return err == nil
-}
-
-func fail(err error) {
-	fmt.Fprintln(os.Stderr, err)
-	os.Exit(1)
 }

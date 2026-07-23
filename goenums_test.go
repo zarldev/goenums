@@ -190,18 +190,7 @@ const (
 		t.Fatal(err)
 	}
 
-	oldwd, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chdir(tmp); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if err := os.Chdir(oldwd); err != nil {
-			t.Errorf("restore cwd: %v", err)
-		}
-	})
+	t.Chdir(tmp)
 
 	if err := run(context.Background(), []string{"-c", input}); err != nil {
 		t.Fatal(err)

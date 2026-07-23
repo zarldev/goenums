@@ -9,7 +9,8 @@ import (
 func TestCheckTarget(t *testing.T) {
 	t.Parallel()
 	siteDir := t.TempDir()
-	pagePath := filepath.Join(siteDir, "examples", "basic", "index.html")
+	const pageName = "examples/basic/index.html"
+	pagePath := filepath.Join(siteDir, filepath.FromSlash(pageName))
 	if err := os.MkdirAll(filepath.Dir(pagePath), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -26,6 +27,12 @@ func TestCheckTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	root, err := os.OpenRoot(siteDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { root.Close() })
+
 	tests := []struct {
 		name    string
 		target  string
@@ -40,7 +47,7 @@ func TestCheckTarget(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			err := checkTarget(siteDir, "/goenums/", pagePath, tt.target)
+			err := checkTarget(root, "/goenums/", pageName, tt.target)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("checkTarget(%q) error = %v, wantErr %v", tt.target, err, tt.wantErr)
 			}
