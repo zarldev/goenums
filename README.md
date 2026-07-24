@@ -25,6 +25,9 @@ For behavior changes and compatibility options in the upcoming v0.6 release, see
   - [Extended Enum Types with Custom Fields](#extended-enum-types-with-custom-fields)
   - [Case Insensitive String Parsing](#case-insensitive-string-parsing)
   - [JSON, Text, Binary, YAML, and Database Storage](#json-text-binary-yaml-and-database-storage)
+    - [Selecting generated interfaces](#selecting-generated-interfaces)
+    - [Selecting enum accessor style](#selecting-enum-accessor-style)
+    - [Text marshaling compatibility](#text-marshaling-compatibility)
   - [Numeric Parsing Support](#numeric-parsing-support)
   - [Exhaustive Handling](#exhaustive-handling)
   - [Iterator Support (Go 1.23+)](#iterator-support-go-123)
@@ -54,6 +57,7 @@ For behavior changes and compatibility options in the upcoming v0.6 release, see
  - Extensibility: Add custom fields to enums via comments
  - Exhaustive Handling: Helper functions to ensure you handle all enum values
  - Alias Support: Alternative enum names via comment syntax
+ - Accessor Style: Choose upper-case or idiomatic Go-style enum accessors via `--accessor-style`
  - Zero Dependencies: Completely dependency-free, using only the Go standard library
 
 # Usage
