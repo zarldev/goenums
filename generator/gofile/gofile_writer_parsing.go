@@ -27,7 +27,9 @@ var ErrParse{{.WrapperName}} = errors.New("invalid input provided to parse to {{
 func Parse{{.WrapperName}}(input any) ({{.WrapperName}}, error) {
 	switch v := input.(type) {
 	case {{.WrapperName}}:
-		return v, nil
+		if v.IsValid() {
+			return v, nil
+		}
 	case string:
 		if result := stringTo{{.WrapperName}}(v); result != nil {
 			return *result, nil
@@ -89,7 +91,11 @@ func Parse{{.WrapperName}}(input any) ({{.WrapperName}}, error) {
 			return *result, nil
 		}
 	default:
+		{{- if .FailFast}}
+		return invalid{{.WrapperName}}, fmt.Errorf("%w: invalid type %T", ErrParse{{.WrapperName}}, input)
+		{{- else}}
 		return invalid{{.WrapperName}}, fmt.Errorf("invalid type %T", input)
+		{{- end}}
 	}
 	{{- if .FailFast}}
 	return invalid{{.WrapperName}}, fmt.Errorf("%w: invalid value %v", ErrParse{{.WrapperName}}, input)

@@ -111,7 +111,9 @@ var ErrParseDiscountType = errors.New("invalid input provided to parse to Discou
 func ParseDiscountType(input any) (DiscountType, error) {
 	switch v := input.(type) {
 	case DiscountType:
-		return v, nil
+		if v.IsValid() {
+			return v, nil
+		}
 	case string:
 		if result := stringToDiscountType(v); result != nil {
 			return *result, nil
@@ -173,7 +175,7 @@ func ParseDiscountType(input any) (DiscountType, error) {
 			return *result, nil
 		}
 	default:
-		return invalidDiscountType, fmt.Errorf("invalid type %T", input)
+		return invalidDiscountType, fmt.Errorf("%w: invalid type %T", ErrParseDiscountType, input)
 	}
 	return invalidDiscountType, fmt.Errorf("%w: invalid value %v", ErrParseDiscountType, input)
 }
@@ -361,16 +363,23 @@ func (d DiscountType) Value() (driver.Value, error) {
 }
 
 // MarshalBinary implements the encoding.BinaryMarshaler interface for DiscountType.
-// It returns the binary representation of the enum value as a byte slice.
+// It returns the canonical enum name as unquoted bytes.
 func (d DiscountType) MarshalBinary() ([]byte, error) {
-	return []byte("\"" + d.String() + "\""), nil
+	return []byte(d.String()), nil
 }
 
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface for DiscountType.
 // It parses the binary representation of the enum value from the byte slice.
+// It accepts the canonical name, or the name wrapped in one pair of unescaped
+// double quotes as emitted by older generators. A valid raw name takes precedence.
 // It returns an error if the byte slice does not contain a valid enum value.
 func (d *DiscountType) UnmarshalBinary(by []byte) error {
 	newd, err := ParseDiscountType(by)
+	if len(by) >= 2 && by[0] == '"' && by[len(by)-1] == '"' {
+		if raw := stringToDiscountType(string(by)); raw == nil || !raw.IsValid() {
+			newd, err = ParseDiscountType(by[1 : len(by)-1])
+		}
+	}
 	if err != nil {
 		return err
 	}

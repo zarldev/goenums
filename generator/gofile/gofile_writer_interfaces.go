@@ -122,9 +122,9 @@ func (g *Writer) writeTextUnmarshalMethod(rep enum.GenerationRequest) {
 var (
 	binaryMarshalStr = `
 // MarshalBinary implements the encoding.BinaryMarshaler interface for {{ .WrapperName }}.
-// It returns the binary representation of the enum value as a byte slice.
+// It returns the canonical enum name as unquoted bytes.
 func ({{ .Receiver }} {{ .WrapperName }}) MarshalBinary() ([]byte, error) {
-	return []byte("\"" + {{ .Receiver }}.String() + "\""), nil
+	return []byte({{ .Receiver }}.String()), nil
 }
 `
 	binaryMarshalTemplate = template.Must(template.New("binaryMarshal").Parse(binaryMarshalStr))
@@ -132,9 +132,16 @@ func ({{ .Receiver }} {{ .WrapperName }}) MarshalBinary() ([]byte, error) {
 	binaryUnmarshalStr = `
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface for {{ .WrapperName }}.
 // It parses the binary representation of the enum value from the byte slice.
+// It accepts the canonical name, or the name wrapped in one pair of unescaped
+// double quotes as emitted by older generators. A valid raw name takes precedence.
 // It returns an error if the byte slice does not contain a valid enum value.
 func ({{ .Receiver }} *{{ .WrapperName }}) UnmarshalBinary(by []byte) error {
 	new{{ .Receiver }}, err := Parse{{ .WrapperName }}(by)
+	if len(by) >= 2 && by[0] == '"' && by[len(by)-1] == '"' {
+		if raw := stringTo{{ .WrapperName }}(string(by)); raw == nil || !raw.IsValid() {
+			new{{ .Receiver }}, err = Parse{{ .WrapperName }}(by[1 : len(by)-1])
+		}
+	}
 	if err != nil {
 		return err
 	}

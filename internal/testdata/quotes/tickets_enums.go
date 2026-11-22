@@ -115,7 +115,9 @@ var ErrParseTicket = errors.New("invalid input provided to parse to Ticket")
 func ParseTicket(input any) (Ticket, error) {
 	switch v := input.(type) {
 	case Ticket:
-		return v, nil
+		if v.IsValid() {
+			return v, nil
+		}
 	case string:
 		if result := stringToTicket(v); result != nil {
 			return *result, nil
@@ -177,7 +179,7 @@ func ParseTicket(input any) (Ticket, error) {
 			return *result, nil
 		}
 	default:
-		return invalidTicket, fmt.Errorf("invalid type %T", input)
+		return invalidTicket, fmt.Errorf("%w: invalid type %T", ErrParseTicket, input)
 	}
 	return invalidTicket, fmt.Errorf("%w: invalid value %v", ErrParseTicket, input)
 }
@@ -402,16 +404,23 @@ func (t Ticket) Value() (driver.Value, error) {
 }
 
 // MarshalBinary implements the encoding.BinaryMarshaler interface for Ticket.
-// It returns the binary representation of the enum value as a byte slice.
+// It returns the canonical enum name as unquoted bytes.
 func (t Ticket) MarshalBinary() ([]byte, error) {
-	return []byte("\"" + t.String() + "\""), nil
+	return []byte(t.String()), nil
 }
 
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface for Ticket.
 // It parses the binary representation of the enum value from the byte slice.
+// It accepts the canonical name, or the name wrapped in one pair of unescaped
+// double quotes as emitted by older generators. A valid raw name takes precedence.
 // It returns an error if the byte slice does not contain a valid enum value.
 func (t *Ticket) UnmarshalBinary(by []byte) error {
 	newt, err := ParseTicket(by)
+	if len(by) >= 2 && by[0] == '"' && by[len(by)-1] == '"' {
+		if raw := stringToTicket(string(by)); raw == nil || !raw.IsValid() {
+			newt, err = ParseTicket(by[1 : len(by)-1])
+		}
+	}
 	if err != nil {
 		return err
 	}

@@ -100,7 +100,9 @@ var ErrParseOrder = errors.New("invalid input provided to parse to Order")
 func ParseOrder(input any) (Order, error) {
 	switch v := input.(type) {
 	case Order:
-		return v, nil
+		if v.IsValid() {
+			return v, nil
+		}
 	case string:
 		if result := stringToOrder(v); result != nil {
 			return *result, nil
@@ -162,7 +164,7 @@ func ParseOrder(input any) (Order, error) {
 			return *result, nil
 		}
 	default:
-		return invalidOrder, fmt.Errorf("invalid type %T", input)
+		return invalidOrder, fmt.Errorf("%w: invalid type %T", ErrParseOrder, input)
 	}
 	return invalidOrder, fmt.Errorf("%w: invalid value %v", ErrParseOrder, input)
 }
@@ -385,16 +387,23 @@ func (o Order) Value() (driver.Value, error) {
 }
 
 // MarshalBinary implements the encoding.BinaryMarshaler interface for Order.
-// It returns the binary representation of the enum value as a byte slice.
+// It returns the canonical enum name as unquoted bytes.
 func (o Order) MarshalBinary() ([]byte, error) {
-	return []byte("\"" + o.String() + "\""), nil
+	return []byte(o.String()), nil
 }
 
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface for Order.
 // It parses the binary representation of the enum value from the byte slice.
+// It accepts the canonical name, or the name wrapped in one pair of unescaped
+// double quotes as emitted by older generators. A valid raw name takes precedence.
 // It returns an error if the byte slice does not contain a valid enum value.
 func (o *Order) UnmarshalBinary(by []byte) error {
 	newo, err := ParseOrder(by)
+	if len(by) >= 2 && by[0] == '"' && by[len(by)-1] == '"' {
+		if raw := stringToOrder(string(by)); raw == nil || !raw.IsValid() {
+			newo, err = ParseOrder(by[1 : len(by)-1])
+		}
+	}
 	if err != nil {
 		return err
 	}

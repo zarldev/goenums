@@ -85,7 +85,9 @@ var ErrParseVersion = errors.New("invalid input provided to parse to Version")
 func ParseVersion(input any) (Version, error) {
 	switch v := input.(type) {
 	case Version:
-		return v, nil
+		if v.IsValid() {
+			return v, nil
+		}
 	case string:
 		if result := stringToVersion(v); result != nil {
 			return *result, nil
@@ -147,7 +149,7 @@ func ParseVersion(input any) (Version, error) {
 			return *result, nil
 		}
 	default:
-		return invalidVersion, fmt.Errorf("invalid type %T", input)
+		return invalidVersion, fmt.Errorf("%w: invalid type %T", ErrParseVersion, input)
 	}
 	return invalidVersion, fmt.Errorf("%w: invalid value %v", ErrParseVersion, input)
 }
@@ -335,16 +337,23 @@ func (v Version) Value() (driver.Value, error) {
 }
 
 // MarshalBinary implements the encoding.BinaryMarshaler interface for Version.
-// It returns the binary representation of the enum value as a byte slice.
+// It returns the canonical enum name as unquoted bytes.
 func (v Version) MarshalBinary() ([]byte, error) {
-	return []byte("\"" + v.String() + "\""), nil
+	return []byte(v.String()), nil
 }
 
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface for Version.
 // It parses the binary representation of the enum value from the byte slice.
+// It accepts the canonical name, or the name wrapped in one pair of unescaped
+// double quotes as emitted by older generators. A valid raw name takes precedence.
 // It returns an error if the byte slice does not contain a valid enum value.
 func (v *Version) UnmarshalBinary(by []byte) error {
 	newv, err := ParseVersion(by)
+	if len(by) >= 2 && by[0] == '"' && by[len(by)-1] == '"' {
+		if raw := stringToVersion(string(by)); raw == nil || !raw.IsValid() {
+			newv, err = ParseVersion(by[1 : len(by)-1])
+		}
+	}
 	if err != nil {
 		return err
 	}

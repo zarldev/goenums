@@ -108,7 +108,9 @@ var ErrParseLLMProvider = errors.New("invalid input provided to parse to LLMProv
 func ParseLLMProvider(input any) (LLMProvider, error) {
 	switch v := input.(type) {
 	case LLMProvider:
-		return v, nil
+		if v.IsValid() {
+			return v, nil
+		}
 	case string:
 		if result := stringToLLMProvider(v); result != nil {
 			return *result, nil
@@ -170,7 +172,7 @@ func ParseLLMProvider(input any) (LLMProvider, error) {
 			return *result, nil
 		}
 	default:
-		return invalidLLMProvider, fmt.Errorf("invalid type %T", input)
+		return invalidLLMProvider, fmt.Errorf("%w: invalid type %T", ErrParseLLMProvider, input)
 	}
 	return invalidLLMProvider, fmt.Errorf("%w: invalid value %v", ErrParseLLMProvider, input)
 }
@@ -369,16 +371,23 @@ func (l LLMProvider) Value() (driver.Value, error) {
 }
 
 // MarshalBinary implements the encoding.BinaryMarshaler interface for LLMProvider.
-// It returns the binary representation of the enum value as a byte slice.
+// It returns the canonical enum name as unquoted bytes.
 func (l LLMProvider) MarshalBinary() ([]byte, error) {
-	return []byte("\"" + l.String() + "\""), nil
+	return []byte(l.String()), nil
 }
 
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface for LLMProvider.
 // It parses the binary representation of the enum value from the byte slice.
+// It accepts the canonical name, or the name wrapped in one pair of unescaped
+// double quotes as emitted by older generators. A valid raw name takes precedence.
 // It returns an error if the byte slice does not contain a valid enum value.
 func (l *LLMProvider) UnmarshalBinary(by []byte) error {
 	newl, err := ParseLLMProvider(by)
+	if len(by) >= 2 && by[0] == '"' && by[len(by)-1] == '"' {
+		if raw := stringToLLMProvider(string(by)); raw == nil || !raw.IsValid() {
+			newl, err = ParseLLMProvider(by[1 : len(by)-1])
+		}
+	}
 	if err != nil {
 		return err
 	}

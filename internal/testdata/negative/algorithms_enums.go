@@ -79,7 +79,9 @@ var ErrParseAlgorithm = errors.New("invalid input provided to parse to Algorithm
 func ParseAlgorithm(input any) (Algorithm, error) {
 	switch v := input.(type) {
 	case Algorithm:
-		return v, nil
+		if v.IsValid() {
+			return v, nil
+		}
 	case string:
 		if result := stringToAlgorithm(v); result != nil {
 			return *result, nil
@@ -141,7 +143,7 @@ func ParseAlgorithm(input any) (Algorithm, error) {
 			return *result, nil
 		}
 	default:
-		return invalidAlgorithm, fmt.Errorf("invalid type %T", input)
+		return invalidAlgorithm, fmt.Errorf("%w: invalid type %T", ErrParseAlgorithm, input)
 	}
 	return invalidAlgorithm, fmt.Errorf("%w: invalid value %v", ErrParseAlgorithm, input)
 }
@@ -315,16 +317,23 @@ func (a Algorithm) Value() (driver.Value, error) {
 }
 
 // MarshalBinary implements the encoding.BinaryMarshaler interface for Algorithm.
-// It returns the binary representation of the enum value as a byte slice.
+// It returns the canonical enum name as unquoted bytes.
 func (a Algorithm) MarshalBinary() ([]byte, error) {
-	return []byte("\"" + a.String() + "\""), nil
+	return []byte(a.String()), nil
 }
 
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface for Algorithm.
 // It parses the binary representation of the enum value from the byte slice.
+// It accepts the canonical name, or the name wrapped in one pair of unescaped
+// double quotes as emitted by older generators. A valid raw name takes precedence.
 // It returns an error if the byte slice does not contain a valid enum value.
 func (a *Algorithm) UnmarshalBinary(by []byte) error {
 	newa, err := ParseAlgorithm(by)
+	if len(by) >= 2 && by[0] == '"' && by[len(by)-1] == '"' {
+		if raw := stringToAlgorithm(string(by)); raw == nil || !raw.IsValid() {
+			newa, err = ParseAlgorithm(by[1 : len(by)-1])
+		}
+	}
 	if err != nil {
 		return err
 	}

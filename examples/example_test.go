@@ -229,7 +229,7 @@ func Example_binaryMarshaling() {
 		fmt.Println("Orbit days:", unmarshaled.OrbitDays)
 	}
 
-	// Output: Binary representation: "Uranus"
+	// Output: Binary representation: Uranus
 	// Unmarshaled: Mercury
 	// Orbit days: 88
 }

@@ -177,7 +177,9 @@ var ErrParsePlanet = errors.New("invalid input provided to parse to Planet")
 func ParsePlanet(input any) (Planet, error) {
 	switch v := input.(type) {
 	case Planet:
-		return v, nil
+		if v.IsValid() {
+			return v, nil
+		}
 	case string:
 		if result := stringToPlanet(v); result != nil {
 			return *result, nil
@@ -239,7 +241,7 @@ func ParsePlanet(input any) (Planet, error) {
 			return *result, nil
 		}
 	default:
-		return invalidPlanet, fmt.Errorf("invalid type %T", input)
+		return invalidPlanet, fmt.Errorf("%w: invalid type %T", ErrParsePlanet, input)
 	}
 	return invalidPlanet, fmt.Errorf("%w: invalid value %v", ErrParsePlanet, input)
 }
@@ -471,16 +473,23 @@ func (p Planet) Value() (driver.Value, error) {
 }
 
 // MarshalBinary implements the encoding.BinaryMarshaler interface for Planet.
-// It returns the binary representation of the enum value as a byte slice.
+// It returns the canonical enum name as unquoted bytes.
 func (p Planet) MarshalBinary() ([]byte, error) {
-	return []byte("\"" + p.String() + "\""), nil
+	return []byte(p.String()), nil
 }
 
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface for Planet.
 // It parses the binary representation of the enum value from the byte slice.
+// It accepts the canonical name, or the name wrapped in one pair of unescaped
+// double quotes as emitted by older generators. A valid raw name takes precedence.
 // It returns an error if the byte slice does not contain a valid enum value.
 func (p *Planet) UnmarshalBinary(by []byte) error {
 	newp, err := ParsePlanet(by)
+	if len(by) >= 2 && by[0] == '"' && by[len(by)-1] == '"' {
+		if raw := stringToPlanet(string(by)); raw == nil || !raw.IsValid() {
+			newp, err = ParsePlanet(by[1 : len(by)-1])
+		}
+	}
 	if err != nil {
 		return err
 	}

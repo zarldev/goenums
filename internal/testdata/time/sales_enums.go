@@ -111,7 +111,9 @@ var ErrParseSale = errors.New("invalid input provided to parse to Sale")
 func ParseSale(input any) (Sale, error) {
 	switch v := input.(type) {
 	case Sale:
-		return v, nil
+		if v.IsValid() {
+			return v, nil
+		}
 	case string:
 		if result := stringToSale(v); result != nil {
 			return *result, nil
@@ -173,7 +175,7 @@ func ParseSale(input any) (Sale, error) {
 			return *result, nil
 		}
 	default:
-		return invalidSale, fmt.Errorf("invalid type %T", input)
+		return invalidSale, fmt.Errorf("%w: invalid type %T", ErrParseSale, input)
 	}
 	return invalidSale, fmt.Errorf("%w: invalid value %v", ErrParseSale, input)
 }
@@ -361,16 +363,23 @@ func (s Sale) Value() (driver.Value, error) {
 }
 
 // MarshalBinary implements the encoding.BinaryMarshaler interface for Sale.
-// It returns the binary representation of the enum value as a byte slice.
+// It returns the canonical enum name as unquoted bytes.
 func (s Sale) MarshalBinary() ([]byte, error) {
-	return []byte("\"" + s.String() + "\""), nil
+	return []byte(s.String()), nil
 }
 
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface for Sale.
 // It parses the binary representation of the enum value from the byte slice.
+// It accepts the canonical name, or the name wrapped in one pair of unescaped
+// double quotes as emitted by older generators. A valid raw name takes precedence.
 // It returns an error if the byte slice does not contain a valid enum value.
 func (s *Sale) UnmarshalBinary(by []byte) error {
 	news, err := ParseSale(by)
+	if len(by) >= 2 && by[0] == '"' && by[len(by)-1] == '"' {
+		if raw := stringToSale(string(by)); raw == nil || !raw.IsValid() {
+			news, err = ParseSale(by[1 : len(by)-1])
+		}
+	}
 	if err != nil {
 		return err
 	}
