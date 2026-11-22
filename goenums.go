@@ -125,6 +125,7 @@ import (
 
 	"github.com/zarldev/goenums/enum"
 
+	"github.com/zarldev/goenums/file"
 	"github.com/zarldev/goenums/generator"
 	"github.com/zarldev/goenums/generator/config"
 	"github.com/zarldev/goenums/generator/gofile"
@@ -447,10 +448,19 @@ func configuration(ctx context.Context, args []string) (config.Configuration, er
 			continue
 		}
 
-		cleanFilename := filepath.Clean(filename)
-		if _, err := os.Stat(cleanFilename); os.IsNotExist(err) {
+		// Use the same path boundary as FileSource; do not clean before validation.
+		info, err := (&file.OSReadWriteFileFS{}).Stat(filename)
+		if errors.Is(err, os.ErrNotExist) {
 			slog.Default().ErrorContext(ctx, "input file does not exist", slog.String("filename", filename))
-			return config.Configuration{}, fmt.Errorf("input file does not exist %s", filename)
+			return config.Configuration{}, fmt.Errorf("input file does not exist %s: %w", filename, err)
+		}
+		if err != nil {
+			slog.Default().ErrorContext(ctx, "input file stat error", slog.String("filename", filename), slog.String("error", err.Error()))
+			return config.Configuration{}, fmt.Errorf("stat input file %s: %w", filename, err)
+		}
+		if !info.Mode().IsRegular() {
+			slog.Default().ErrorContext(ctx, "input file is not regular", slog.String("filename", filename))
+			return config.Configuration{}, fmt.Errorf("input file is not regular %s", filename)
 		}
 	}
 
