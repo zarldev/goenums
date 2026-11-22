@@ -95,7 +95,9 @@ var ErrParseStatus = errors.New("invalid input provided to parse to Status")
 func ParseStatus(input any) (Status, error) {
 	switch v := input.(type) {
 	case Status:
-		return v, nil
+		if v.IsValid() {
+			return v, nil
+		}
 	case string:
 		if result := stringToStatus(v); result != nil {
 			return *result, nil
@@ -157,7 +159,7 @@ func ParseStatus(input any) (Status, error) {
 			return *result, nil
 		}
 	default:
-		return invalidStatus, fmt.Errorf("invalid type %T", input)
+		return invalidStatus, fmt.Errorf("%w: invalid type %T", ErrParseStatus, input)
 	}
 	return invalidStatus, fmt.Errorf("%w: invalid value %v", ErrParseStatus, input)
 }
@@ -367,16 +369,23 @@ func (s Status) Value() (driver.Value, error) {
 }
 
 // MarshalBinary implements the encoding.BinaryMarshaler interface for Status.
-// It returns the binary representation of the enum value as a byte slice.
+// It returns the canonical enum name as unquoted bytes.
 func (s Status) MarshalBinary() ([]byte, error) {
-	return []byte("\"" + s.String() + "\""), nil
+	return []byte(s.String()), nil
 }
 
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface for Status.
 // It parses the binary representation of the enum value from the byte slice.
+// It accepts the canonical name, or the name wrapped in one pair of unescaped
+// double quotes as emitted by older generators. A valid raw name takes precedence.
 // It returns an error if the byte slice does not contain a valid enum value.
 func (s *Status) UnmarshalBinary(by []byte) error {
 	news, err := ParseStatus(by)
+	if len(by) >= 2 && by[0] == '"' && by[len(by)-1] == '"' {
+		if raw := stringToStatus(string(by)); raw == nil || !raw.IsValid() {
+			news, err = ParseStatus(by[1 : len(by)-1])
+		}
+	}
 	if err != nil {
 		return err
 	}
